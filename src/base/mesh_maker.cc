@@ -1,9 +1,7 @@
 #include "base/mesh_maker.h"
 #include "base/data_parser.h"
 
-#include <future>
 #include <map>
-#include <set>
 
 namespace engine::MeshMaker {
 
@@ -21,27 +19,6 @@ struct compare {
 };
 
 using IndexMap = std::map<Index, unsigned int, compare>;
-
-std::vector<unsigned int> SetUniqueEdges(
-    const std::vector<unsigned int>& edges) {
-  std::vector<unsigned int> unique_edges;
-  std::set<std::pair<unsigned int, unsigned int>> edges_set;
-  for (size_t i = 0; i < edges.size(); i += 2) {
-    std::pair<unsigned int, unsigned int> edge;
-    if (edges[i] > edges[i + 1]) {
-      edge = {edges[i], edges[i + 1]};
-    } else {
-      edge = {edges[i + 1], edges[i]};
-    }
-    edges_set.insert(std::move(edge));
-  }
-  unique_edges.reserve(edges_set.size());
-  for (auto& [start, finish] : edges_set) {
-    unique_edges.emplace_back(start);
-    unique_edges.emplace_back(finish);
-  }
-  return unique_edges;
-}
 
 void DataToMesh(Data* data, Mesh* mesh) {
   IndexMap index_map;
