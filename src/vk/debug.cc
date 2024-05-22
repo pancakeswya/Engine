@@ -19,7 +19,7 @@ void FunctionFromInstance(VkInstance instance, T& func, const std::string& name)
       vkGetInstanceProcAddr(instance, name.c_str())
   );
   if (*func == nullptr) {
-    throw Exception("cant get" + name + "from instance");
+    THROW_UNEXPECTED("cant get" + name + "from instance");
   }
 }
 
@@ -38,13 +38,9 @@ Messenger::Messenger(VkInstance instance)
   const auto info = CreateInfo::Get();
   FunctionFromInstance(instance, create_, "vkCreateDebugUtilsMessengerEXT");
   FunctionFromInstance(instance, destroy_, "vkDestroyDebugUtilsMessengerEXT");
-  if (VkResult res = create_(instance_, &info, nullptr, &messenger_); res != VK_SUCCESS) {
-    throw Exception("failed to set up debug messenger with code" + std::to_string(res));
+  if (const VkResult res = create_(instance_, &info, nullptr, &messenger_); res != VK_SUCCESS) {
+    THROW_UNEXPECTED("failed to set up debug messenger with code" + std::to_string(res));
   }
-}
-
-Messenger::~Messenger() {
-  destroy_(instance_, messenger_, nullptr);
 }
 
 } // namespace vk

@@ -21,4 +21,6 @@ class Exception : public std::exception {
 
 } // namespace engine
 
+#define THROW_UNEXPECTED(message) throw Exception(message + std::string("FILE: ") + __FILE__ + std::to_string(__LINE__))
+
 #endif // BASE_EXCEPTION_H_

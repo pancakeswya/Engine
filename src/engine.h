@@ -3,10 +3,6 @@
 
 namespace engine {
 
-constexpr int kWindowWidth = 800;
-constexpr int kWindowHeight = 600;
-constexpr char kTitle[] = "Vulkan";
-
 int Run() noexcept;
 
 } // namespace engine

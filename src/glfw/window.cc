@@ -3,9 +3,9 @@
 
 namespace glfw {
 
-Window::Window(const char* title, int width, int height) {
+Window::Window(const char* title, const int width, const int height) {
   if (glfwInit() == GLFW_FALSE) {
-    throw Exception("failed to init glfw");
+    THROW_UNEXPECTED("failed to init glfw");
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);

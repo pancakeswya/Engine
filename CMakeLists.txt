@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.22)
 project(untitled70)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -20,7 +20,9 @@ add_executable(untitled70 src/main.cpp
         src/glfw/window.cc
         src/glfw/exception.h
         src/engine.h
-        src/engine.cc)
+        src/engine.cc
+        src/vk/device.h
+        src/vk/device.cc)
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
 
