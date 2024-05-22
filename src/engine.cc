@@ -3,10 +3,7 @@
 #include "glfw/window.h"
 #include "vk/instance.h"
 #include "vk/device.h"
-
-#ifdef DEBUG
 #include "vk/debug.h"
-#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -21,17 +18,18 @@ int Run() noexcept {
   try {
     const glfw::Window window(kTitle, kWindowWidth, kWindowHeight);
     auto vk_instance = vk::Instance::Get();
+    (void) vk_instance;
+    auto surface = vk::Surface(window);
+    // auto logical_device = vk::Device(surface);
 #ifdef DEBUG
-    auto vk_messenger = vk::debug::Messenger(vk_instance);
-    (void)vk_messenger.Get();
+    auto messenger = vk::debug::Messenger();
+    // (void)messenger.Get();
 #endif
-    auto vk_physical_device = vk::device::PhysicalFind(vk_instance);
-    (void)vk_physical_device;
-    auto logical_device = vk::device::Logical(vk_instance, vk_physical_device);
-    auto vk_device = logical_device.GetDevice();
-    (void)vk_device;
-    auto vk_g_q = logical_device.GetQueue();
-    (void)vk_g_q;
+    // (void)surface.Get();
+    // (void)logical_device.GetLogicalDevice();
+    // (void)logical_device.GetPhysicalDevice();
+    // (void)logical_device.GetGraphicsQueue();
+    // (void)logical_device.GetPresentQueue();
     window.Poll();
   } catch (const Exception& e) {
     std::cerr << e.what() << std::endl;

@@ -69,6 +69,7 @@ Instance::Instance() : instance_() {
 }
 
 Instance::~Instance() {
+  std::cout << "instance" << std::endl;
   vkDestroyInstance(instance_, nullptr);
 }
 

@@ -1,12 +1,25 @@
 #include "vk/device.h"
 #include "vk/common.h"
 #include "vk/exception.h"
+#include "vk/surface.h"
 
-namespace vk::device {
+#include <optional>
+#include <utility>
+#include <set>
+#include <vector>
+
+#include "instance.h"
+
+namespace vk {
 
 namespace {
 
-std::optional<uint32_t> FindGraphicFamilyIdx(VkPhysicalDevice device) {
+struct QueueFamilyIndices {
+  uint32_t graphic, present;
+};
+
+std::pair<bool, QueueFamilyIndices> FindQueueFamilyIndices(VkPhysicalDevice device, VkSurfaceKHR surface) {
+  std::optional<uint32_t> graphic, present;
   uint32_t families_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, nullptr);
 
@@ -15,15 +28,21 @@ std::optional<uint32_t> FindGraphicFamilyIdx(VkPhysicalDevice device) {
 
   for (size_t i = 0; i < families_count; ++i) {
     if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      return static_cast<uint32_t>(i);
+      graphic = static_cast<uint32_t>(i);
+    }
+    VkBool32 present_support = false;
+    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
+    if (present_support) {
+      present = static_cast<uint32_t>(i);
+    }
+    if (graphic.has_value() && present.has_value()) {
+      return {true, {graphic.value(), present.value()}};
     }
   }
-  return std::nullopt;
+  return {};
 }
 
-} // namespace
-
-VkPhysicalDevice PhysicalFind(VkInstance instance) {
+VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
@@ -35,30 +54,40 @@ VkPhysicalDevice PhysicalFind(VkInstance instance) {
   vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
   for (const auto& device : devices) {
-    if (FindGraphicFamilyIdx(device).has_value()) {
+    if (auto[found, _] = FindQueueFamilyIndices(device, surface); found) {
       return device;
     }
   }
   THROW_UNEXPECTED("failed to find a suitable GPU");
 }
 
-Logical::Logical(VkInstance intance, VkPhysicalDevice physical_device) : device_(), graphics_q_() {
-  const auto family_idx = FindGraphicFamilyIdx(physical_device);
-  VkDeviceQueueCreateInfo queue_create_info = {};
-  queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queue_create_info.queueFamilyIndex = family_idx.value();
-  queue_create_info.queueCount = 1;
+} // namespace
 
-  constexpr float queuePriority = 1.0f;
-  queue_create_info.pQueuePriorities = &queuePriority;
+Device::Device(Surface& surface) : logical_device_(), graphics_q_(), present_q_() {
+  physical_device_ = FindPhysicalDevice(Instance::Get(), surface.Get());
+  const auto[_, indices] = FindQueueFamilyIndices(physical_device_, surface.Get());
+  std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+  std::set unique_family_ids = {
+    indices.graphic,
+    indices.present
+  };
+  constexpr float queue_priority = 1.0f;
+  for(const auto& family_idx : unique_family_ids) {
+    VkDeviceQueueCreateInfo queue_create_info = {};
+    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_info.queueFamilyIndex = family_idx;
+    queue_create_info.queueCount = 1;
+    queue_create_info.pQueuePriorities = &queue_priority;
+    queue_create_infos.push_back(queue_create_info);
+  }
 
   constexpr VkPhysicalDeviceFeatures device_features = {};
 
   VkDeviceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
-  create_info.pQueueCreateInfos = &queue_create_info;
-  create_info.queueCreateInfoCount = 1;
+  create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+  create_info.pQueueCreateInfos = queue_create_infos.data();
 
   create_info.pEnabledFeatures = &device_features;
 
@@ -67,12 +96,14 @@ Logical::Logical(VkInstance intance, VkPhysicalDevice physical_device) : device_
 #ifdef DEBUG
   create_info.enabledLayerCount = static_cast<uint32_t>(common::kValidationLayers.size());
   create_info.ppEnabledLayerNames = common::kValidationLayers.data();
-#endif
+#else
   create_info.enabledLayerCount = 0;
-  if (vkCreateDevice(physical_device, &create_info, nullptr, &device_) != VK_SUCCESS) {
+#endif
+  if (vkCreateDevice(physical_device_, &create_info, nullptr, &logical_device_) != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to create logical device");
   }
-  vkGetDeviceQueue(device_, family_idx.value(), 0, &graphics_q_);
+  vkGetDeviceQueue(logical_device_, indices.graphic, 0, &graphics_q_);
+  vkGetDeviceQueue(logical_device_, indices.present, 0, &present_q_);
 }
 
 } // namespace vk

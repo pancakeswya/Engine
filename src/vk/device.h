@@ -1,37 +1,50 @@
 #ifndef VK_DEVICE_H_
 #define VK_DEVICE_H_
 
-#include "vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
-#include <optional>
-#include <stdexcept>
-#include <vector>
+#include "surface.h"
 
-namespace vk::device {
+#include <iostream>
 
-VkPhysicalDevice PhysicalFind(VkInstance instance);
+namespace vk {
 
-class Logical {
+class Surface;
+
+class Device {
 public:
-  Logical(VkInstance intance, VkPhysicalDevice physical_device);
-  ~Logical();
-  [[nodiscard]] VkDevice GetDevice() const noexcept;
-  [[nodiscard]] VkQueue GetQueue() const noexcept;
+  explicit Device(Surface& surface);
+  ~Device();
+  [[nodiscard]] VkDevice GetLogicalDevice() const noexcept;
+  [[nodiscard]] VkPhysicalDevice GetPhysicalDevice() const noexcept;
+  [[nodiscard]] VkQueue GetGraphicsQueue() const noexcept;
+  [[nodiscard]] VkQueue GetPresentQueue() const noexcept;
 private:
-  VkDevice device_;
+  VkPhysicalDevice physical_device_;
+  VkDevice logical_device_;
   VkQueue graphics_q_;
+  VkQueue present_q_;
 };
 
-inline Logical::~Logical() {
-  vkDestroyDevice(device_, nullptr);
+inline Device::~Device() {
+  std::cout << "device" << std::endl;
+  vkDestroyDevice(logical_device_, nullptr);
 }
 
-inline VkDevice Logical::GetDevice() const noexcept {
-  return device_;
+inline VkDevice Device::GetLogicalDevice() const noexcept {
+  return logical_device_;
 }
 
-inline VkQueue Logical::GetQueue() const noexcept {
+inline VkPhysicalDevice Device::GetPhysicalDevice() const noexcept {
+  return physical_device_;
+}
+
+inline VkQueue Device::GetGraphicsQueue() const noexcept {
   return graphics_q_;
+}
+
+inline VkQueue Device::GetPresentQueue() const noexcept {
+  return present_q_;
 }
 
 } // namespace vk

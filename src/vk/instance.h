@@ -1,21 +1,21 @@
 #ifndef VK_INSTANCE_H_
 #define VK_INSTANCE_H_
 
-#include "vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
 namespace vk {
 
 class Instance {
- public:
+public:
   static VkInstance& Get();
- private:
+private:
   Instance();
   ~Instance();
 
   VkInstance instance_;
 };
 
-inline VkInstance &Instance::Get() {
+inline VkInstance& Instance::Get() {
     static Instance i;
     return i.instance_;
 }

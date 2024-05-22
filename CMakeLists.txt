@@ -22,8 +22,10 @@ add_executable(untitled70 src/main.cpp
         src/engine.h
         src/engine.cc
         src/vk/device.h
-        src/vk/device.cc)
+        src/vk/device.cc
+        src/vk/surface.h
+        src/vk/surface.cc)
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
 
-add_compile_definitions(DEBUG)
+#add_compile_definitions(DEBUG)

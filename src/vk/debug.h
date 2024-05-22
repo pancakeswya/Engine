@@ -1,9 +1,7 @@
 #ifndef VK_DEBUG_H_
 #define VK_DEBUG_H_
 
-#include <vector>
-
-#include "vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
 namespace vk::debug {
 
@@ -17,7 +15,7 @@ class Messenger {
     VkDebugUtilsMessengerCreateInfoEXT info_;
   };
 
-  explicit Messenger(VkInstance instance);
+  explicit Messenger();
   ~Messenger();
 
   [[nodiscard]] const VkDebugUtilsMessengerEXT& Get() const noexcept;
@@ -25,20 +23,15 @@ class Messenger {
   static inline PFN_vkCreateDebugUtilsMessengerEXT create_;
   static inline PFN_vkDestroyDebugUtilsMessengerEXT destroy_;
 
-  VkInstance instance_;
   VkDebugUtilsMessengerEXT messenger_;
 };
-
-inline Messenger::~Messenger() {
- destroy_(instance_, messenger_, nullptr);
-}
 
 inline const VkDebugUtilsMessengerEXT& Messenger::Get() const noexcept {
  return messenger_;
 }
 
 inline const VkDebugUtilsMessengerCreateInfoEXT& Messenger::CreateInfo::Get() {
-  static Messenger::CreateInfo i;
+  static CreateInfo i;
   return i.info_;
 }
 

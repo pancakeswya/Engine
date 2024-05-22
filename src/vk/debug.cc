@@ -1,5 +1,6 @@
 #include "vk/debug.h"
 #include "vk/exception.h"
+#include "vk/instance.h"
 
 #include <iostream>
 #include <string>
@@ -32,15 +33,20 @@ Messenger::CreateInfo::CreateInfo() : info_() {
   info_.pfnUserCallback = Callback;
 }
 
-Messenger::Messenger(VkInstance instance)
+Messenger::Messenger()
   : messenger_() {
-  instance_ = instance;
+  VkInstance& instance = Instance::Get();
   const auto info = CreateInfo::Get();
   FunctionFromInstance(instance, create_, "vkCreateDebugUtilsMessengerEXT");
   FunctionFromInstance(instance, destroy_, "vkDestroyDebugUtilsMessengerEXT");
-  if (const VkResult res = create_(instance_, &info, nullptr, &messenger_); res != VK_SUCCESS) {
+  if (const VkResult res = create_(instance, &info, nullptr, &messenger_); res != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to set up debug messenger with code" + std::to_string(res));
   }
+}
+
+Messenger::~Messenger() {
+  std::cout << "instance" << std::endl;
+  destroy_(Instance::Get(), messenger_, nullptr);
 }
 
 } // namespace vk
