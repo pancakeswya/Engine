@@ -2,9 +2,10 @@
 #include "base/exception.h"
 #include "glfw/window.h"
 #include "vk/instance.h"
-#include "vk/device.h"
+#include "vk/devices.h"
 #include "vk/debug.h"
 #include "vk/surface.h"
+#include "vk/swap_chain.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -17,7 +18,7 @@ constexpr char kTitle[] = "Vulkan";
 
 int Run() noexcept {
   try {
-    const glfw::Window window(kTitle, kWindowWidth, kWindowHeight);
+    glfw::Window window(kTitle, kWindowWidth, kWindowHeight);
     auto instance = vk::Instance();
     (void)instance;
 #ifdef DEBUG
@@ -25,10 +26,13 @@ int Run() noexcept {
     (void)messenger.Get();
 #endif
     auto surface = vk::Surface(instance.Get(), window.Get());
-    auto physical_device = vk::device::physical::Find(instance.Get(), surface.Get());
-    auto logic_device = vk::device::Logical(physical_device, surface.Get());
-    (void)logic_device.GetGraphicsQueue();
-    (void)logic_device.GetPresentQueue();
+    auto devices = vk::Devices(instance.Get(), surface.Get());
+    (void)devices.GetLogical();
+    (void)devices.GetPhysical();
+    (void)devices.GetGraphicsQueue();
+    (void)devices.GetPresentQueue();
+    auto swap_chain = vk::SwapChain(window.Get(), devices.GetPhysical(), devices.GetLogical(), surface.Get());
+    (void)swap_chain.GetChain();
     // (void)logical_device.GetPhysicalDevice();
     // (void)logical_device.GetGraphicsQueue();
     // (void)logical_device.GetPresentQueue();

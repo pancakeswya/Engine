@@ -1,7 +1,6 @@
-#include "vk/device.h"
+#include "vk/devices.h"
 #include "vk/common.h"
 #include "vk/exception.h"
-#include "vk/swap_chain.h"
 #include "vk/queue.h"
 
 #include <array>

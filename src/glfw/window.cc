@@ -12,7 +12,7 @@ Window::Window(const char* title, const int width, const int height) {
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 }
 
-void Window::Poll() const {
+void Window::Poll() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
   }

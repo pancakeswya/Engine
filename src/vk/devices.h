@@ -1,5 +1,5 @@
-#ifndef VK_DEVICE_H_
-#define VK_DEVICE_H_
+#ifndef VK_DEVICES_H_
+#define VK_DEVICES_H_
 
 #include <vulkan/vulkan.h>
 
@@ -34,8 +34,6 @@ inline VkQueue Devices::GetGraphicsQueue() noexcept { return graphics_q_; }
 
 inline VkQueue Devices::GetPresentQueue() noexcept { return present_q_; }
 
-} // namespace device
-
 } // namespace vk
 
-#endif // VK_DEVICE_H_
+#endif // VK_DEVICES_H_

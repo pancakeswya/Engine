@@ -18,8 +18,8 @@ add_executable(untitled70
         src/vk/instance.cc
         src/vk/debug.cc
         src/vk/debug.h
-        src/vk/device.h
-        src/vk/device.cc
+        src/vk/devices.h
+        src/vk/devices.cc
         src/vk/surface.h
         src/vk/surface.cc
         src/vk/swap_chain.h
@@ -28,6 +28,9 @@ add_executable(untitled70
         src/glfw/exception.h
         src/vk/common.h
         src/vk/common.cc
+        src/vk/swap_chain.cc
+        src/vk/queue.h
+        src/vk/queue.cc
 )
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)

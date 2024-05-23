@@ -9,14 +9,14 @@ namespace glfw {
 class Window {
  public:
   Window(const char* title, int width, int height);
-  void Poll() const;
-  GLFWwindow* Get() const noexcept;
+  void Poll();
+  GLFWwindow* Get() noexcept;
   ~Window();
  private:
   GLFWwindow* window_;
 };
 
-inline GLFWwindow* Window::Get() const noexcept {
+inline GLFWwindow* Window::Get() noexcept {
   return window_;
 }
 
