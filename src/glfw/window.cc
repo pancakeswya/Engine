@@ -1,8 +1,6 @@
 #include "glfw/window.h"
 #include "glfw/exception.h"
 
-#include <iostream>
-
 namespace glfw {
 
 Window::Window(const char* title, const int width, const int height) {
@@ -21,7 +19,6 @@ void Window::Poll() const {
 }
 
 Window::~Window() {
-  std::cout << "window" << std::endl;
   glfwDestroyWindow(window_);
   glfwTerminate();
 }

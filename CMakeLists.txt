@@ -28,4 +28,4 @@ add_executable(untitled70 src/main.cpp
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
 
-#add_compile_definitions(DEBUG)
+# add_compile_definitions(DEBUG)

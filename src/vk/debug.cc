@@ -26,27 +26,26 @@ void FunctionFromInstance(VkInstance instance, T& func, const std::string& name)
 
 } // namespace
 
-Messenger::CreateInfo::CreateInfo() : info_() {
-  info_.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  info_.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  info_.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  info_.pfnUserCallback = Callback;
+VkDebugUtilsMessengerCreateInfoEXT Messenger::CreateInfo() noexcept {
+  VkDebugUtilsMessengerCreateInfoEXT info = {};
+  info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  info.pfnUserCallback = Callback;
+  return info;
 }
 
-Messenger::Messenger()
-  : messenger_() {
-  VkInstance& instance = Instance::Get();
-  const auto info = CreateInfo::Get();
-  FunctionFromInstance(instance, create_, "vkCreateDebugUtilsMessengerEXT");
-  FunctionFromInstance(instance, destroy_, "vkDestroyDebugUtilsMessengerEXT");
-  if (const VkResult res = create_(instance, &info, nullptr, &messenger_); res != VK_SUCCESS) {
+Messenger::Messenger(Instance& instance)
+  : instance_(instance.Get()), messenger_() {
+  FunctionFromInstance(instance_, create_, "vkCreateDebugUtilsMessengerEXT");
+  FunctionFromInstance(instance_, destroy_, "vkDestroyDebugUtilsMessengerEXT");
+  if (const VkResult res = create_(instance_, &kCreateInfo, nullptr, &messenger_); res != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to set up debug messenger with code" + std::to_string(res));
   }
 }
 
 Messenger::~Messenger() {
-  std::cout << "instance" << std::endl;
-  destroy_(Instance::Get(), messenger_, nullptr);
+  destroy_(instance_, messenger_, nullptr);
 }
 
 } // namespace vk

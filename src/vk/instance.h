@@ -7,17 +7,15 @@ namespace vk {
 
 class Instance {
 public:
-  static VkInstance& Get();
-private:
+ VkInstance& Get();
   Instance();
   ~Instance();
-
+private:
   VkInstance instance_;
 };
 
 inline VkInstance& Instance::Get() {
-    static Instance i;
-    return i.instance_;
+    return instance_;
 }
 
 } // namespace vk

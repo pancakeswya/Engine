@@ -1,14 +1,14 @@
 #include "vk/device.h"
 #include "vk/common.h"
 #include "vk/exception.h"
+#include "vk/instance.h"
 #include "vk/surface.h"
 
 #include <optional>
 #include <utility>
 #include <set>
-#include <vector>
 
-#include "instance.h"
+#include <vector>
 
 namespace vk {
 
@@ -63,8 +63,8 @@ VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
 
 } // namespace
 
-Device::Device(Surface& surface) : logical_device_(), graphics_q_(), present_q_() {
-  physical_device_ = FindPhysicalDevice(Instance::Get(), surface.Get());
+Device::Device(Instance& instance, Surface& surface) : logical_device_(), graphics_q_(), present_q_() {
+  physical_device_ = FindPhysicalDevice(instance.Get(), surface.Get());
   const auto[_, indices] = FindQueueFamilyIndices(physical_device_, surface.Get());
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
   std::set unique_family_ids = {

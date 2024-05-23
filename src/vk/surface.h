@@ -11,12 +11,15 @@ class Window;
 
 namespace vk {
 
+class Instance;
+
 class Surface {
 public:
-  explicit Surface(const glfw::Window& window);
+  explicit Surface(Instance& instance, const glfw::Window& window);
   ~Surface();
   [[nodiscard]] VkSurfaceKHR Get() const noexcept;
 private:
+  VkInstance instance_;
   VkSurfaceKHR surface_;
 };
 

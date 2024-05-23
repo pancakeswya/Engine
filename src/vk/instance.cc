@@ -8,7 +8,6 @@
 
 #include <cstring>
 #include <vector>
-#include <iostream>
 
 namespace vk {
 
@@ -58,7 +57,7 @@ Instance::Instance() : instance_() {
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
 #ifdef DEBUG
-  const auto& messenger_create_info = debug::Messenger::CreateInfo::Get();
+  const auto& messenger_create_info = debug::Messenger::kCreateInfo;
   create_info.enabledLayerCount = static_cast<uint32_t>(common::kValidationLayers.size());
   create_info.ppEnabledLayerNames = common::kValidationLayers.data();
   create_info.pNext = &messenger_create_info;
@@ -69,7 +68,6 @@ Instance::Instance() : instance_() {
 }
 
 Instance::~Instance() {
-  std::cout << "instance" << std::endl;
   vkDestroyInstance(instance_, nullptr);
 }
 

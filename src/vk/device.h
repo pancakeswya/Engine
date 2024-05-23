@@ -3,17 +3,16 @@
 
 #include <vulkan/vulkan.h>
 
-#include "surface.h"
-
 #include <iostream>
 
 namespace vk {
 
+class Instance;
 class Surface;
 
 class Device {
 public:
-  explicit Device(Surface& surface);
+  explicit Device(Instance& instance, Surface& surface);
   ~Device();
   [[nodiscard]] VkDevice GetLogicalDevice() const noexcept;
   [[nodiscard]] VkPhysicalDevice GetPhysicalDevice() const noexcept;
@@ -27,7 +26,6 @@ private:
 };
 
 inline Device::~Device() {
-  std::cout << "device" << std::endl;
   vkDestroyDevice(logical_device_, nullptr);
 }
 

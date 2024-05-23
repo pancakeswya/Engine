@@ -3,38 +3,37 @@
 
 #include <vulkan/vulkan.h>
 
-namespace vk::debug {
+namespace vk {
+
+class Instance;
+
+namespace debug {
 
 class Messenger {
- public:
-  class CreateInfo {
-   public:
-    static const VkDebugUtilsMessengerCreateInfoEXT& Get();
-   private:
-    CreateInfo();
-    VkDebugUtilsMessengerCreateInfoEXT info_;
-  };
+  static VkDebugUtilsMessengerCreateInfoEXT CreateInfo() noexcept;
 
-  explicit Messenger();
+ public:
+  static inline const auto kCreateInfo = CreateInfo();
+
+  explicit Messenger(Instance& instance);
   ~Messenger();
 
   [[nodiscard]] const VkDebugUtilsMessengerEXT& Get() const noexcept;
+
  private:
   static inline PFN_vkCreateDebugUtilsMessengerEXT create_;
   static inline PFN_vkDestroyDebugUtilsMessengerEXT destroy_;
 
+  VkInstance instance_;
   VkDebugUtilsMessengerEXT messenger_;
 };
 
 inline const VkDebugUtilsMessengerEXT& Messenger::Get() const noexcept {
- return messenger_;
+  return messenger_;
 }
 
-inline const VkDebugUtilsMessengerCreateInfoEXT& Messenger::CreateInfo::Get() {
-  static CreateInfo i;
-  return i.info_;
-}
+} // namespace debug
 
-} // namespace vk::debug
+} // namespace vk
 
 #endif // VK_DEBUG_H_
