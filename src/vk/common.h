@@ -7,14 +7,10 @@
 namespace vk::common {
 
 constexpr std::array kValidationLayers = {
-  "VK_LAYER_KHRONOS_validation"
+    "VK_LAYER_KHRONOS_validation"
 };
 
-namespace extensions {
-
-std::vector<const char*> Get();
-
-} // namespace extensionss
+std::vector<const char*> ExtensionLayers();
 
 } // namespace vk
 

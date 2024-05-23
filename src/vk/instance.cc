@@ -53,7 +53,7 @@ Instance::Instance() : instance_() {
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
-  const auto extensions = common::extensions::Get();
+  const auto extensions = common::ExtensionLayers();
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
 #ifdef DEBUG

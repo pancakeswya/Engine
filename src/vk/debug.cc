@@ -35,11 +35,11 @@ VkDebugUtilsMessengerCreateInfoEXT Messenger::CreateInfo() noexcept {
   return info;
 }
 
-Messenger::Messenger(Instance& instance)
-  : instance_(instance.Get()), messenger_() {
-  FunctionFromInstance(instance_, create_, "vkCreateDebugUtilsMessengerEXT");
-  FunctionFromInstance(instance_, destroy_, "vkDestroyDebugUtilsMessengerEXT");
-  if (const VkResult res = create_(instance_, &kCreateInfo, nullptr, &messenger_); res != VK_SUCCESS) {
+Messenger::Messenger(VkInstance instance)
+  : instance_(instance), messenger_() {
+  FunctionFromInstance(instance, create_, "vkCreateDebugUtilsMessengerEXT");
+  FunctionFromInstance(instance, destroy_, "vkDestroyDebugUtilsMessengerEXT");
+  if (const VkResult res = create_(instance, &kCreateInfo, nullptr, &messenger_); res != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to set up debug messenger with code" + std::to_string(res));
   }
 }

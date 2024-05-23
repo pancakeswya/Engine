@@ -1,7 +1,8 @@
 #ifndef VK_SURFACE_H_
 #define VK_SURFACE_H_
 
-#include <vulkan/vulkan.h>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 namespace glfw {
 
@@ -15,7 +16,7 @@ class Instance;
 
 class Surface {
 public:
-  explicit Surface(Instance& instance, const glfw::Window& window);
+  explicit Surface(VkInstance instance, GLFWwindow* window);
   ~Surface();
   [[nodiscard]] VkSurfaceKHR Get() const noexcept;
 private:

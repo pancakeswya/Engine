@@ -4,24 +4,21 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-namespace vk {
-
-class Surface;
-
-} // namespace vk
-
 namespace glfw {
 
 class Window {
  public:
   Window(const char* title, int width, int height);
   void Poll() const;
+  GLFWwindow* Get() const noexcept;
   ~Window();
  private:
-  friend class vk::Surface;
-
   GLFWwindow* window_;
 };
+
+inline GLFWwindow* Window::Get() const noexcept {
+  return window_;
+}
 
 } // namespace glfw
 

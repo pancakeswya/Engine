@@ -1,6 +1,9 @@
 #ifndef VK_DEBUG_H_
 #define VK_DEBUG_H_
 
+#include <array>
+#include <vector>
+
 #include <vulkan/vulkan.h>
 
 namespace vk {
@@ -15,7 +18,7 @@ class Messenger {
  public:
   static inline const auto kCreateInfo = CreateInfo();
 
-  explicit Messenger(Instance& instance);
+  explicit Messenger(VkInstance instance);
   ~Messenger();
 
   [[nodiscard]] const VkDebugUtilsMessengerEXT& Get() const noexcept;

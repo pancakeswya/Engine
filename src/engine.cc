@@ -21,12 +21,14 @@ int Run() noexcept {
     auto instance = vk::Instance();
     (void)instance;
 #ifdef DEBUG
-    auto messenger = vk::debug::Messenger(instance);
+    auto messenger = vk::debug::Messenger(instance.Get());
     (void)messenger.Get();
 #endif
-    auto surface = vk::Surface(instance, window);
-    auto logical_device = vk::Device(instance, surface);
-    (void)logical_device.GetLogicalDevice();
+    auto surface = vk::Surface(instance.Get(), window.Get());
+    auto physical_device = vk::device::physical::Find(instance.Get(), surface.Get());
+    auto logic_device = vk::device::Logical(physical_device, surface.Get());
+    (void)logic_device.GetGraphicsQueue();
+    (void)logic_device.GetPresentQueue();
     // (void)logical_device.GetPhysicalDevice();
     // (void)logical_device.GetGraphicsQueue();
     // (void)logical_device.GetPresentQueue();

@@ -1,13 +1,13 @@
 #include "vk/common.h"
 
+#include <cstdint>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 namespace vk::common {
 
-namespace extensions {
-
-std::vector<const char*> Get() {
+std::vector<const char*> ExtensionLayers() {
   uint32_t ext_count = 0;
   const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&ext_count);
   std::vector extensions(glfw_extensions, glfw_extensions + ext_count);
@@ -16,7 +16,5 @@ std::vector<const char*> Get() {
 #endif
   return extensions;
 }
-
-} // namespace extensions
 
 } // namespace vk

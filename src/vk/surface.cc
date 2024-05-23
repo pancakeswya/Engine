@@ -2,14 +2,10 @@
 #include "vk/instance.h"
 #include "vk/exception.h"
 
-#include <iostream>
-
-#include "glfw/window.h"
-
 namespace vk {
 
-Surface::Surface(Instance& instance, const glfw::Window& window) : instance_(instance.Get()), surface_() {
-  if (glfwCreateWindowSurface(instance_, window.window_, nullptr, &surface_) != VK_SUCCESS) {
+Surface::Surface(VkInstance instance, GLFWwindow* window) : instance_(instance), surface_() {
+  if (glfwCreateWindowSurface(instance, window, nullptr, &surface_) != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to create window surface!");
   }
 }
