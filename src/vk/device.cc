@@ -6,8 +6,8 @@
 #include <optional>
 #include <utility>
 #include <set>
-
 #include <vector>
+#include <iostream>
 
 namespace vk::device {
 
@@ -40,8 +40,8 @@ std::pair<bool, QueueFamilyIndices> FindQueueFamilyIndices(
     }
     if (graphic.has_value() &&
         present.has_value() &&
-        physical::ExtensionSupport(device)) {
-      auto details = physical::SwapChainSupport(device , surface);
+        ExtensionSupport(device)) {
+      auto details = SwapChainSupport(device , surface);
       if (!details.formats.empty() && !details.present_modes.empty()) {
         return {true, {graphic.value(), present.value()}};
       }
@@ -74,18 +74,17 @@ VkPhysicalDevice Find(VkInstance instance, VkSurfaceKHR surface) {
 
 bool ExtensionSupport(VkPhysicalDevice device) {
   uint32_t extension_count;
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count,
-                                       nullptr);
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
 
   std::vector<VkExtensionProperties> available_extensions(extension_count);
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count,
-                                       available_extensions.data());
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
 
-  std::set required_extensions(kExtensions.begin(), kExtensions.end());
+  std::set<std::string> required_extensions(kExtensions.begin(), kExtensions.end());
 
   for (const auto& extension : available_extensions) {
     required_extensions.erase(extension.extensionName);
   }
+
   return required_extensions.empty();
 }
 
@@ -147,7 +146,8 @@ Logical::Logical(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
 
   create_info.pEnabledFeatures = &device_features;
 
-  create_info.enabledExtensionCount = 0;
+  create_info.enabledExtensionCount = static_cast<uint32_t>(physical::kExtensions.size());
+  create_info.ppEnabledExtensionNames = physical::kExtensions.data();
 
 #ifdef DEBUG
   create_info.enabledLayerCount = static_cast<uint32_t>(common::kValidationLayers.size());
