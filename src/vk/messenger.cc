@@ -1,15 +1,19 @@
-#include "vk/debug.h"
+#include "vk/messenger.h"
 #include "vk/exception.h"
 #include "vk/instance.h"
 
 #include <iostream>
 #include <string>
 
-namespace vk::debug {
+namespace vk {
 
 namespace {
 
-VKAPI_ATTR VkBool32 VKAPI_CALL Callback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+VKAPI_ATTR VkBool32 VKAPI_CALL Callback(
+  VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+  VkDebugUtilsMessageTypeFlagsEXT messageType,
+  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+  void* pUserData) {
   std::cerr << pCallbackData->pMessage << std::endl;
   return VK_FALSE;
 }

@@ -8,17 +8,15 @@
 
 namespace vk {
 
-class Instance;
-
-namespace debug {
-
 class Messenger {
   static VkDebugUtilsMessengerCreateInfoEXT CreateInfo() noexcept;
 
  public:
   static inline const auto kCreateInfo = CreateInfo();
 
-  explicit Messenger(VkInstance instance);
+  explicit Messenger(
+    VkInstance instance
+  );
   ~Messenger();
 
   const VkDebugUtilsMessengerEXT& Get() noexcept;
@@ -34,8 +32,6 @@ class Messenger {
 inline const VkDebugUtilsMessengerEXT& Messenger::Get() noexcept {
   return messenger_;
 }
-
-} // namespace debug
 
 } // namespace vk
 

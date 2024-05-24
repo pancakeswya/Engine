@@ -7,9 +7,14 @@ namespace vk {
 
 class Devices {
  public:
-  static bool ExtensionSupport(VkPhysicalDevice device);
+  static bool ExtensionSupport(
+    VkPhysicalDevice device
+  );
 
-  explicit Devices(VkInstance instance, VkSurfaceKHR surface);
+  explicit Devices(
+    VkInstance instance,
+    VkSurfaceKHR surface
+  );
   ~Devices();
   VkDevice GetLogical() noexcept;
   VkPhysicalDevice GetPhysical() noexcept;

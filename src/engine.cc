@@ -3,9 +3,15 @@
 #include "glfw/window.h"
 #include "vk/instance.h"
 #include "vk/devices.h"
-#include "vk/debug.h"
+#include "vk/graphics.h"
 #include "vk/surface.h"
 #include "vk/swap_chain.h"
+#include "vk/render.h"
+#include "vk/shader.h"
+
+#ifdef DEBUG
+#include "vk/messenger.h"
+#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -20,22 +26,17 @@ int Run() noexcept {
   try {
     glfw::Window window(kTitle, kWindowWidth, kWindowHeight);
     auto instance = vk::Instance();
-    (void)instance;
 #ifdef DEBUG
-    auto messenger = vk::debug::Messenger(instance.Get());
+    auto messenger = vk::Messenger(instance.Get());
     (void)messenger.Get();
 #endif
     auto surface = vk::Surface(instance.Get(), window.Get());
     auto devices = vk::Devices(instance.Get(), surface.Get());
-    (void)devices.GetLogical();
-    (void)devices.GetPhysical();
-    (void)devices.GetGraphicsQueue();
-    (void)devices.GetPresentQueue();
     auto swap_chain = vk::SwapChain(window.Get(), devices.GetPhysical(), devices.GetLogical(), surface.Get());
-    (void)swap_chain.GetChain();
-    // (void)logical_device.GetPhysicalDevice();
-    // (void)logical_device.GetGraphicsQueue();
-    // (void)logical_device.GetPresentQueue();
+    auto pass = vk::render::Pass(devices.GetLogical(), swap_chain.GetImages().format);
+    auto pipeline_layout = vk::graphics::Pipeline::Layout(devices.GetLogical());
+    auto pipeline = vk::graphics::Pipeline(devices.GetLogical(), pipeline_layout.Get(), pass.Get());
+    (void)pipeline.Get();
     window.Poll();
   } catch (const Exception& e) {
     std::cerr << e.what() << std::endl;

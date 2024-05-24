@@ -131,6 +131,30 @@ SwapChain::SwapChain(
 
   images_.format = surface_format.format;
   extent_ = extent;
+
+  images_.views.resize(images_.images.size());
+
+  for (size_t i = 0; i < images_.images.size(); i++) {
+    VkImageViewCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    createInfo.image = images_.images[i];
+    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.format = images_.format;
+    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    createInfo.subresourceRange.baseMipLevel = 0;
+    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.baseArrayLayer = 0;
+    createInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(logical_device_, &createInfo, nullptr, &images_.views[i]) != VK_SUCCESS) {
+      THROW_UNEXPECTED("failed to create image views!");
+    }
+  }
+
 }
 
 SwapChain::~SwapChain() {

@@ -3,11 +3,12 @@
 #include "vk/exception.h"
 
 #ifdef DEBUG
-#include "vk/debug.h"
+#include "vk/messenger.h"
 #endif
 
 #include <cstring>
 #include <vector>
+#include <iostream>
 
 namespace vk {
 
@@ -57,7 +58,7 @@ Instance::Instance() : instance_() {
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
 #ifdef DEBUG
-  const auto& messenger_create_info = debug::Messenger::kCreateInfo;
+  const auto& messenger_create_info = Messenger::kCreateInfo;
   create_info.enabledLayerCount = static_cast<uint32_t>(common::kValidationLayers.size());
   create_info.ppEnabledLayerNames = common::kValidationLayers.data();
   create_info.pNext = &messenger_create_info;

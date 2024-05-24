@@ -3,6 +3,7 @@ project(untitled70)
 
 set(CMAKE_CXX_STANDARD 17)
 
+add_subdirectory(shaders)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
@@ -16,8 +17,8 @@ add_executable(untitled70
         src/base/exception.h
         src/vk/instance.h
         src/vk/instance.cc
-        src/vk/debug.cc
-        src/vk/debug.h
+        src/vk/messenger.cc
+        src/vk/messenger.h
         src/vk/devices.h
         src/vk/devices.cc
         src/vk/surface.h
@@ -31,8 +32,16 @@ add_executable(untitled70
         src/vk/swap_chain.cc
         src/vk/queue.h
         src/vk/queue.cc
+        src/vk/graphics.h
+        src/base/io.h
+        src/base/io.cc
+        src/vk/graphics.cc
+        src/vk/shader.h
+        src/vk/shader.cc
+        src/vk/render.h
+        src/vk/render.cc
 )
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
 
-add_compile_definitions(DEBUG)
+# add_compile_definitions(DEBUG)
