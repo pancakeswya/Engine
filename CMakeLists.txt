@@ -40,8 +40,10 @@ add_executable(untitled70
         src/vk/shader.cc
         src/vk/render.h
         src/vk/render.cc
+        src/vk/images.cc
+        src/vk/images.h
 )
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
 
-# add_compile_definitions(DEBUG)
+add_compile_definitions(DEBUG)

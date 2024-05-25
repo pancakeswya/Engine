@@ -81,12 +81,13 @@ SwapChain::SwapChain(
   VkPhysicalDevice physical_device,
   VkDevice logical_device,
   VkSurfaceKHR surface
-) : images_(), extent_(), logical_device_(logical_device), swapchain_() {
+) : logical_device_(logical_device), extent_(), format_(), swapchain_() {
   SupportDetails support = Support(physical_device, surface);
-
   VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(support.formats);
   VkPresentModeKHR present_mode = ChooseSwapPresentMode(support.present_modes);
-  VkExtent2D extent = ChooseSwapExtent(window, support.capabilities);
+
+  extent_ = ChooseSwapExtent(window, support.capabilities);
+  format_ = surface_format.format;
 
   uint32_t image_count = support.capabilities.minImageCount + 1;
   if (support.capabilities.maxImageCount > 0 && image_count > support.capabilities.maxImageCount) {
@@ -100,7 +101,7 @@ SwapChain::SwapChain(
   create_info.minImageCount = image_count;
   create_info.imageFormat = surface_format.format;
   create_info.imageColorSpace = surface_format.colorSpace;
-  create_info.imageExtent = extent;
+  create_info.imageExtent = extent_;
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -125,42 +126,9 @@ SwapChain::SwapChain(
   if (vkCreateSwapchainKHR(logical_device, &create_info, nullptr, &swapchain_) != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to create swap chain!");
   }
-  vkGetSwapchainImagesKHR(logical_device, swapchain_, &image_count, nullptr);
-  images_.images.resize(image_count);
-  vkGetSwapchainImagesKHR(logical_device, swapchain_, &image_count, images_.images.data());
-
-  images_.format = surface_format.format;
-  extent_ = extent;
-
-  images_.views.resize(images_.images.size());
-
-  for (size_t i = 0; i < images_.images.size(); i++) {
-    VkImageViewCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    createInfo.image = images_.images[i];
-    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    createInfo.format = images_.format;
-    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    createInfo.subresourceRange.baseMipLevel = 0;
-    createInfo.subresourceRange.levelCount = 1;
-    createInfo.subresourceRange.baseArrayLayer = 0;
-    createInfo.subresourceRange.layerCount = 1;
-
-    if (vkCreateImageView(logical_device_, &createInfo, nullptr, &images_.views[i]) != VK_SUCCESS) {
-      THROW_UNEXPECTED("failed to create image views!");
-    }
-  }
-
 }
 
 SwapChain::~SwapChain() {
-  for (auto view : images_.views) {
-    vkDestroyImageView(logical_device_, view, nullptr);
-  }
   vkDestroySwapchainKHR(logical_device_, swapchain_, nullptr);
 }
 

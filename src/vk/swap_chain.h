@@ -16,12 +16,6 @@ public:
     std::vector<VkPresentModeKHR> present_modes;
   };
 
-  struct Images {
-    VkFormat format;
-    std::vector<VkImage> images;
-    std::vector<VkImageView> views;
-  };
-
   static SupportDetails Support(
     VkPhysicalDevice device,
     VkSurfaceKHR surface
@@ -33,30 +27,30 @@ public:
     VkDevice logical_device,
     VkSurfaceKHR surface
   );
-
   ~SwapChain();
 
-  Images& GetImages() noexcept;
-  VkExtent2D GetExtent() noexcept;
   VkSwapchainKHR GetChain() noexcept;
+  VkExtent2D GetExtent() noexcept;
+  VkFormat GetFormat() noexcept;
 private:
-  Images images_;
-  VkExtent2D extent_;
   VkDevice logical_device_;
+  VkExtent2D extent_;
+  VkFormat format_;
   VkSwapchainKHR swapchain_;
 };
 
-inline SwapChain::Images& SwapChain::GetImages() noexcept {
-  return images_;
+inline VkSwapchainKHR SwapChain::GetChain() noexcept {
+  return swapchain_;
 }
 
 inline VkExtent2D SwapChain::GetExtent() noexcept {
   return extent_;
 }
 
-inline VkSwapchainKHR SwapChain::GetChain() noexcept {
-  return swapchain_;
+inline VkFormat SwapChain::GetFormat() noexcept {
+  return format_;
 }
+
 
 } // namespace vk
 
