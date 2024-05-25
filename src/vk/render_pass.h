@@ -3,23 +3,27 @@
 
 #include <vulkan/vulkan.h>
 
-namespace vk::render {
+namespace vk {
 
-class Pass {
+class RenderPass {
 public:
-  Pass(
+  RenderPass(
     VkDevice logical_device,
     VkFormat swap_chain_format
   );
-  ~Pass();
-
+  ~RenderPass();
+  VkRenderPassBeginInfo BeginInfo(
+    VkFramebuffer buffer,
+    VkExtent2D extent,
+    VkClearValue* clear_color
+  ) noexcept;
   VkRenderPass Get() noexcept;
 private:
   VkDevice logical_device_;
   VkRenderPass pass_;
 };
 
-inline VkRenderPass Pass::Get() noexcept {
+inline VkRenderPass RenderPass::Get() noexcept {
   return pass_;
 }
 

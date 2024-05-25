@@ -1,9 +1,9 @@
-#include "vk/render.h"
+#include "vk/render_pass.h"
 #include "vk/exception.h"
 
-namespace vk::render {
+namespace vk {
 
-Pass::Pass(
+RenderPass::RenderPass(
   VkDevice logical_device,
   VkFormat swap_chain_format
 ) : logical_device_(logical_device), pass_() {
@@ -38,8 +38,21 @@ Pass::Pass(
   }
 }
 
-Pass::~Pass() {
+RenderPass::~RenderPass() {
   vkDestroyRenderPass(logical_device_, pass_, nullptr);
 }
+
+VkRenderPassBeginInfo RenderPass::BeginInfo(VkFramebuffer buffer, VkExtent2D extent, VkClearValue* clear_color) noexcept {
+  VkRenderPassBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  begin_info.renderPass = pass_;
+  begin_info.framebuffer = buffer;
+  begin_info.renderArea.offset = {0, 0};
+  begin_info.renderArea.extent = extent;
+  begin_info.clearValueCount = 1;
+  begin_info.pClearValues = clear_color;
+  return begin_info;
+}
+
 
 } // namespace vk

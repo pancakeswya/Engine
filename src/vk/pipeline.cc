@@ -1,13 +1,13 @@
-#include "vk/graphics.h"
+#include "vk/pipeline.h"
 #include "vk/exception.h"
 #include "vk/shader.h"
 
 #include <array>
 #include <vector>
 
-namespace vk::graphics {
+namespace vk {
 
-namespace {
+  namespace {
 
 constexpr std::array kDynamicStates = {
   VK_DYNAMIC_STATE_VIEWPORT,

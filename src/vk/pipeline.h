@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace vk::graphics {
+namespace vk {
 
 class Pipeline {
 public:

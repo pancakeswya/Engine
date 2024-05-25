@@ -4,13 +4,14 @@
 #include <array>
 #include <vector>
 
-namespace vk::common {
+namespace vk::layers {
 
-constexpr std::array kValidationLayers = {
+constexpr std::array kValidation = {
     "VK_LAYER_KHRONOS_validation"
 };
 
-std::vector<const char*> ExtensionLayers();
+std::vector<const char*> Extension();
+bool ValidationSupport();
 
 } // namespace vk
 

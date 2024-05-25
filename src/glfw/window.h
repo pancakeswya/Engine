@@ -3,13 +3,14 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <functional>
 
 namespace glfw {
 
 class Window {
  public:
   Window(const char* title, int width, int height);
-  void Poll();
+  void Poll(const std::function<void()>& render);
   GLFWwindow* Get() noexcept;
   ~Window();
  private:

@@ -27,21 +27,23 @@ add_executable(untitled70
         src/glfw/window.h
         src/glfw/window.cc
         src/glfw/exception.h
-        src/vk/common.h
-        src/vk/common.cc
+        src/vk/layers.h
+        src/vk/layers.cc
         src/vk/swap_chain.cc
-        src/vk/queue.h
-        src/vk/queue.cc
-        src/vk/graphics.h
+        src/vk/pipeline.h
         src/base/io.h
         src/base/io.cc
-        src/vk/graphics.cc
+        src/vk/pipeline.cc
         src/vk/shader.h
         src/vk/shader.cc
-        src/vk/render.h
-        src/vk/render.cc
-        src/vk/images.cc
-        src/vk/images.h
+        src/vk/render_pass.h
+        src/vk/render_pass.cc
+        src/vk/command.h
+        src/vk/command.cc
+        src/vk/sync.h
+        src/vk/sync.cc
+        src/vk/framebuffer.h
+        src/vk/framebuffer.cc
 )
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)

@@ -2,8 +2,22 @@
 #define VK_DEVICES_H_
 
 #include <vulkan/vulkan.h>
+#include <utility>
 
 namespace vk {
+
+namespace queue {
+
+struct FamilyIndices {
+  uint32_t graphic, present;
+};
+
+std::pair<bool, FamilyIndices> FindFamilyIndices(
+    VkPhysicalDevice device,
+    VkSurfaceKHR surface
+);
+
+} // namespace queue
 
 class Devices {
  public:
@@ -16,10 +30,12 @@ class Devices {
     VkSurfaceKHR surface
   );
   ~Devices();
-  VkDevice GetLogical() noexcept;
-  VkPhysicalDevice GetPhysical() noexcept;
-  VkQueue GetGraphicsQueue() noexcept;
-  VkQueue GetPresentQueue() noexcept;
+  void WaitIdle() noexcept;
+
+  VkDevice Logical() noexcept;
+  VkPhysicalDevice Physical() noexcept;
+  VkQueue GraphicsQueue() noexcept;
+  VkQueue PresentQueue() noexcept;
  private:
   VkPhysicalDevice physical_;
   VkDevice logical_;
@@ -27,17 +43,19 @@ class Devices {
   VkQueue present_q_;
 };
 
-inline Devices::~Devices() { vkDestroyDevice(logical_, nullptr); }
+inline void Devices::WaitIdle() noexcept {
+  vkDeviceWaitIdle(logical_);
+}
 
-inline VkDevice Devices::GetLogical() noexcept { return logical_; }
+inline VkDevice Devices::Logical() noexcept { return logical_; }
 
-inline VkPhysicalDevice Devices::GetPhysical() noexcept {
+inline VkPhysicalDevice Devices::Physical() noexcept {
   return physical_;
 }
 
-inline VkQueue Devices::GetGraphicsQueue() noexcept { return graphics_q_; }
+inline VkQueue Devices::GraphicsQueue() noexcept { return graphics_q_; }
 
-inline VkQueue Devices::GetPresentQueue() noexcept { return present_q_; }
+inline VkQueue Devices::PresentQueue() noexcept { return present_q_; }
 
 } // namespace vk
 

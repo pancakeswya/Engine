@@ -1,45 +1,18 @@
 #include "vk/instance.h"
-#include "vk/common.h"
+#include "vk/layers.h"
 #include "vk/exception.h"
 
 #ifdef DEBUG
 #include "vk/messenger.h"
 #endif
-
-#include <cstring>
 #include <vector>
 #include <iostream>
 
 namespace vk {
 
-namespace {
-
-bool ValidationLayerSupport() {
-  uint32_t layer_count;
-  vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-
-  std::vector<VkLayerProperties> available_layers(layer_count);
-  vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
-  for (const char* validation_layer : common::kValidationLayers) {
-    bool layer_found = false;
-    for (const auto& layer_properties : available_layers) {
-      if (std::strcmp(validation_layer, layer_properties.layerName) == 0) {
-        layer_found = true;
-        break;
-      }
-    }
-    if (!layer_found) {
-      return false;
-    }
-  }
-  return true;
-}
-
-} // namespace
-
 Instance::Instance() : instance_() {
 #ifdef DEBUG
-  if (!ValidationLayerSupport()) {
+  if (!layers::ValidationSupport()) {
     THROW_UNEXPECTED("validation layers requested, but not available");
   }
 #endif
@@ -54,13 +27,13 @@ Instance::Instance() : instance_() {
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
-  const auto extensions = common::ExtensionLayers();
+  const auto extensions = layers::Extension();
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
 #ifdef DEBUG
   const auto& messenger_create_info = Messenger::kCreateInfo;
-  create_info.enabledLayerCount = static_cast<uint32_t>(common::kValidationLayers.size());
-  create_info.ppEnabledLayerNames = common::kValidationLayers.data();
+  create_info.enabledLayerCount = static_cast<uint32_t>(layers::kValidation.size());
+  create_info.ppEnabledLayerNames = layers::kValidation.data();
   create_info.pNext = &messenger_create_info;
 #endif
   if (vkCreateInstance(&create_info, nullptr, &instance_) != VK_SUCCESS) {

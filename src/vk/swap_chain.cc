@@ -1,5 +1,5 @@
 #include "vk/swap_chain.h"
-#include "vk/queue.h"
+#include "vk/devices.h"
 #include "vk/exception.h"
 
 #include <algorithm>
@@ -33,18 +33,47 @@ VkExtent2D ChooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR& 
   }
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
-  VkExtent2D actualExtent = {
+  VkExtent2D actual_extent = {
     static_cast<uint32_t>(width),
     static_cast<uint32_t>(height)
   };
-  actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-  actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+  actual_extent.width = std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+  actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
-  return actualExtent;
+  return actual_extent;
 }
 
 
 } // namespace
+
+ImageView::ImageView(
+  VkDevice logical_device,
+  VkImage image,
+  VkFormat format
+) : logical_device_(logical_device) {
+  VkImageViewCreateInfo create_info = {};
+  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  create_info.image = image;
+  create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  create_info.format = format;
+  create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+  create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  create_info.subresourceRange.baseMipLevel = 0;
+  create_info.subresourceRange.levelCount = 1;
+  create_info.subresourceRange.baseArrayLayer = 0;
+  create_info.subresourceRange.layerCount = 1;
+
+  if (vkCreateImageView(logical_device_, &create_info, nullptr, &view_) != VK_SUCCESS) {
+    THROW_UNEXPECTED("failed to create image views!");
+  }
+}
+
+ImageView::~ImageView() {
+  vkDestroyImageView(logical_device_, view_, nullptr);
+}
 
 SwapChain::SupportDetails SwapChain::Support(
   VkPhysicalDevice device,
@@ -130,6 +159,14 @@ SwapChain::SwapChain(
 
 SwapChain::~SwapChain() {
   vkDestroySwapchainKHR(logical_device_, swapchain_, nullptr);
+}
+
+std::vector<VkImage> SwapChain::Images() noexcept {
+  uint32_t image_count;
+  vkGetSwapchainImagesKHR(logical_device_, swapchain_, &image_count, nullptr);
+  std::vector<VkImage> images(image_count);
+  vkGetSwapchainImagesKHR(logical_device_, swapchain_, &image_count, images.data());
+  return images;
 }
 
 } // namespace vk

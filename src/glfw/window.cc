@@ -12,9 +12,10 @@ Window::Window(const char* title, const int width, const int height) {
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 }
 
-void Window::Poll() {
+void Window::Poll(const std::function<void()>& render) {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
+    render();
   }
 }
 
