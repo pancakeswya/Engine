@@ -7,6 +7,8 @@ namespace vk {
 
 class Pipeline {
 public:
+  static constexpr VkPipelineStageFlags kStageFlags[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
   class Layout {
   public:
     explicit Layout(

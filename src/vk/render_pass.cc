@@ -24,7 +24,7 @@ RenderPass::RenderPass(
   VkSubpassDescription subpass = {};
   subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &color_attachment_ref ;
+  subpass.pColorAttachments = &color_attachment_ref;
 
   VkRenderPassCreateInfo render_pass_info = {};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -42,7 +42,11 @@ RenderPass::~RenderPass() {
   vkDestroyRenderPass(logical_device_, pass_, nullptr);
 }
 
-VkRenderPassBeginInfo RenderPass::BeginInfo(VkFramebuffer buffer, VkExtent2D extent, VkClearValue* clear_color) noexcept {
+VkRenderPassBeginInfo RenderPass::BeginInfo(
+  VkFramebuffer buffer,
+  VkExtent2D extent,
+  VkClearValue* clear_color
+) noexcept {
   VkRenderPassBeginInfo begin_info = {};
   begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   begin_info.renderPass = pass_;

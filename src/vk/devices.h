@@ -1,6 +1,7 @@
 #ifndef VK_DEVICES_H_
 #define VK_DEVICES_H_
 
+#include <vector>
 #include <vulkan/vulkan.h>
 #include <utility>
 
@@ -30,12 +31,22 @@ class Devices {
     VkSurfaceKHR surface
   );
   ~Devices();
+
   void WaitIdle() noexcept;
+  void SubmitDraw(
+    VkFence fence,
+    VkCommandBuffer cmd_buffer,
+    VkSemaphore wait_semaphore,
+    VkSemaphore signal_semaphore
+  );
+  void SubmitPresentImage(
+    uint32_t image_idx,
+    VkSemaphore signal_semaphore,
+    VkSwapchainKHR swapchain
+  ) noexcept;
 
   VkDevice Logical() noexcept;
   VkPhysicalDevice Physical() noexcept;
-  VkQueue GraphicsQueue() noexcept;
-  VkQueue PresentQueue() noexcept;
  private:
   VkPhysicalDevice physical_;
   VkDevice logical_;
@@ -52,10 +63,6 @@ inline VkDevice Devices::Logical() noexcept { return logical_; }
 inline VkPhysicalDevice Devices::Physical() noexcept {
   return physical_;
 }
-
-inline VkQueue Devices::GraphicsQueue() noexcept { return graphics_q_; }
-
-inline VkQueue Devices::PresentQueue() noexcept { return present_q_; }
 
 } // namespace vk
 

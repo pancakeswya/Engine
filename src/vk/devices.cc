@@ -1,6 +1,7 @@
 #include "vk/devices.h"
 #include "vk/layers.h"
 #include "vk/exception.h"
+#include "vk/pipeline.h"
 #include "vk/swap_chain.h"
 
 #include <array>
@@ -136,5 +137,49 @@ Devices::Devices(VkInstance instance, VkSurfaceKHR surface)
 }
 
 Devices::~Devices() { vkDestroyDevice(logical_, nullptr); }
+
+
+void Devices::SubmitDraw(
+  VkFence fence,
+  VkCommandBuffer cmd_buffer,
+  VkSemaphore wait_semaphore,
+  VkSemaphore signal_semaphore
+) {
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = &wait_semaphore;
+  submit_info.pWaitDstStageMask = Pipeline::kStageFlags;
+
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &cmd_buffer;
+
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = &signal_semaphore;
+
+  if (vkQueueSubmit(graphics_q_, 1, &submit_info, fence) != VK_SUCCESS) {
+    THROW_UNEXPECTED("failed to submit draw command buffer");
+  }
+}
+
+void Devices::SubmitPresentImage(
+  uint32_t image_idx,
+  VkSemaphore signal_semaphore,
+  VkSwapchainKHR swapchain
+) noexcept {
+  VkPresentInfoKHR present_info = {};
+  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = &signal_semaphore;
+
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = &swapchain;
+
+  present_info.pImageIndices = &image_idx;
+
+  vkQueuePresentKHR(present_q_, &present_info);
+}
 
 } // namespace vk

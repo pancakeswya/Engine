@@ -24,12 +24,12 @@ class ImageSemaphore : public Semaphore {
 public:
   ImageSemaphore(VkDevice logical_device);
   ~ImageSemaphore() = default;
-  uint32_t AcquireNextImageIdx(VkSwapchainKHR swapchain);
+  uint32_t AcquireNextImage(VkSwapchainKHR swapchain);
 };
 
 inline ImageSemaphore::ImageSemaphore(VkDevice logical_device) : Semaphore(logical_device) {}
 
-inline uint32_t ImageSemaphore::AcquireNextImageIdx(VkSwapchainKHR swapchain) {
+inline uint32_t ImageSemaphore::AcquireNextImage(VkSwapchainKHR swapchain) {
   uint32_t image_idx;
   vkAcquireNextImageKHR(logical_device_, swapchain, UINT64_MAX, semaphore_, VK_NULL_HANDLE, &image_idx);
   return image_idx;

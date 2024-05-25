@@ -8,6 +8,8 @@
 #include "vk/command.h"
 #include "vk/swap_chain.h"
 #include "vk/render_pass.h"
+#include "vk/framebuffer.h"
+#include "vk/sync.h"
 
 #ifdef DEBUG
 #include "vk/messenger.h"
@@ -16,15 +18,12 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "vk/framebuffer.h"
-#include "vk/sync.h"
 
 namespace engine {
 
 constexpr int kWindowWidth = 800;
 constexpr int kWindowHeight = 600;
 constexpr char kTitle[] = "Vulkan";
-
 
 int Run() noexcept {
   try {
@@ -85,12 +84,12 @@ int Run() noexcept {
       fence.Wait();
       fence.Reset();
 
-      const uint32_t image_idx = image_available_semaphore.AcquireNextImageIdx(swap_chain.Get());
+      const uint32_t image_idx = image_available_semaphore.AcquireNextImage(swap_chain.Get());
 
       cmd_buffer.Reset();
       auto record = cmd_buffer.BeginRecord();
       {
-        auto clear_color = VkClearValue{0.0f, 0.0f, 0.0f, 1.0f};
+        auto clear_color = VkClearValue{{0.0f, 0.0f, 0.0f, 1.0f}};
         auto render_pass_begin_info = render_pass.BeginInfo(
           framebuffers[image_idx].Get(),
           swap_chain.Extent(),
@@ -119,40 +118,18 @@ int Run() noexcept {
         } record.EndRenderPass();
       } record.End();
 
-      VkSubmitInfo submitInfo{};
-      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      devices.SubmitDraw(
+        fence.Get(),
+        cmd_buffer.Get(),
+        image_available_semaphore.Get(),
+        render_finished_semaphore.Get()
+      );
 
-      VkSemaphore waitSemaphores[] = {image_available_semaphore.Get()};
-      VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-      submitInfo.waitSemaphoreCount = 1;
-      submitInfo.pWaitSemaphores = waitSemaphores;
-      submitInfo.pWaitDstStageMask = waitStages;
-
-      submitInfo.commandBufferCount = 1;
-      auto vk_buffer = cmd_buffer.Get();
-      submitInfo.pCommandBuffers = &vk_buffer;
-
-      VkSemaphore signalSemaphores[] = {render_finished_semaphore.Get()};
-      submitInfo.signalSemaphoreCount = 1;
-      submitInfo.pSignalSemaphores = signalSemaphores;
-
-      if (vkQueueSubmit(devices.GraphicsQueue(), 1, &submitInfo, fence.Get()) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
-      }
-
-      VkPresentInfoKHR presentInfo{};
-      presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-      presentInfo.waitSemaphoreCount = 1;
-      presentInfo.pWaitSemaphores = signalSemaphores;
-
-      VkSwapchainKHR swapChains[] = {swap_chain.Get()};
-      presentInfo.swapchainCount = 1;
-      presentInfo.pSwapchains = swapChains;
-
-      presentInfo.pImageIndices = &image_idx;
-
-      vkQueuePresentKHR(devices.PresentQueue(), &presentInfo);
+      devices.SubmitPresentImage(
+        image_idx,
+        render_finished_semaphore.Get(),
+        swap_chain.Get()
+      );
     };
 
     window.Poll(render_call);
