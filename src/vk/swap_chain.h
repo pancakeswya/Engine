@@ -16,13 +16,13 @@ public:
   );
   ~ImageView();
 
-  VkImageView Get() noexcept;
+  VkImageView get() noexcept;
 private:
   VkDevice logical_device_;
   VkImageView view_;
 };
 
-inline VkImageView ImageView::Get() noexcept {
+inline VkImageView ImageView::get() noexcept {
   return view_;
 }
 
@@ -47,27 +47,32 @@ public:
   );
   ~SwapChain();
 
-  VkSwapchainKHR Get() noexcept;
-  std::vector<VkImage> Images() noexcept;
-  VkExtent2D Extent() noexcept;
-  VkFormat Format() noexcept;
+  VkSwapchainKHR get_swapchain() noexcept;
+  std::vector<VkImage> get_images() noexcept;
+  VkExtent2D get_extent() noexcept;
+  VkFormat get_format() noexcept;
 private:
   VkDevice logical_device_;
   VkExtent2D extent_;
   VkFormat format_;
   VkSwapchainKHR swapchain_;
+  std::vector<VkImage> images_;
 };
 
-inline VkSwapchainKHR SwapChain::Get() noexcept {
+inline VkSwapchainKHR SwapChain::get_swapchain() noexcept {
   return swapchain_;
 }
 
-inline VkExtent2D SwapChain::Extent() noexcept {
+inline VkExtent2D SwapChain::get_extent() noexcept {
   return extent_;
 }
 
-inline VkFormat SwapChain::Format() noexcept {
+inline VkFormat SwapChain::get_format() noexcept {
   return format_;
+}
+
+inline std::vector<VkImage> SwapChain::get_images() noexcept {
+  return images_;
 }
 
 } // namespace vk

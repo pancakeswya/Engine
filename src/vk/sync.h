@@ -10,13 +10,13 @@ public:
   Semaphore(VkDevice logical_device);
   ~Semaphore();
 
-  VkSemaphore Get() noexcept;
+  VkSemaphore get() noexcept;
 protected:
   VkDevice logical_device_;
   VkSemaphore semaphore_;
 };
 
-inline VkSemaphore Semaphore::Get() noexcept {
+inline VkSemaphore Semaphore::get() noexcept {
   return semaphore_;
 }
 
@@ -40,7 +40,7 @@ public:
   Fence(VkDevice logical_device);
   ~Fence();
 
-  VkFence Get() noexcept;
+  VkFence get() noexcept;
 
   void Wait() noexcept;
   void Reset() noexcept;
@@ -49,7 +49,7 @@ private:
   VkFence fence_;
 };
 
-inline VkFence Fence::Get() noexcept {
+inline VkFence Fence::get() noexcept {
   return fence_;
 }
 

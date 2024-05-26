@@ -1,5 +1,6 @@
 #include "glfw/window.h"
 #include "glfw/exception.h"
+#include "vk/context.h"
 
 namespace glfw {
 
@@ -12,10 +13,10 @@ Window::Window(const char* title, const int width, const int height) {
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 }
 
-void Window::Poll(const std::function<void()>& render) {
+void Window::Poll(vk::Context& context) {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
-    render();
+    context.Render();
   }
 }
 

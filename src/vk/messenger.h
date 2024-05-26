@@ -19,7 +19,7 @@ class Messenger {
   );
   ~Messenger();
 
-  const VkDebugUtilsMessengerEXT& Get() noexcept;
+  const VkDebugUtilsMessengerEXT& get() noexcept;
 
  private:
   static inline PFN_vkCreateDebugUtilsMessengerEXT create_;
@@ -29,7 +29,7 @@ class Messenger {
   VkDebugUtilsMessengerEXT messenger_;
 };
 
-inline const VkDebugUtilsMessengerEXT& Messenger::Get() noexcept {
+inline const VkDebugUtilsMessengerEXT& Messenger::get() noexcept {
   return messenger_;
 }
 

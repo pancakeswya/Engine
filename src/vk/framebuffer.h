@@ -13,13 +13,13 @@ public:
     VkExtent2D extent
   );
   ~Framebuffer();
-  VkFramebuffer Get() noexcept;
+  VkFramebuffer get() noexcept;
 private:
   VkDevice logical_device_;
   VkFramebuffer framebuffer_;
 };
 
-inline VkFramebuffer Framebuffer::Get() noexcept {
+inline VkFramebuffer Framebuffer::get() noexcept {
   return framebuffer_;
 }
 

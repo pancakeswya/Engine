@@ -18,13 +18,13 @@ class Surface {
 public:
   explicit Surface(VkInstance instance, GLFWwindow* window);
   ~Surface();
-  VkSurfaceKHR Get() noexcept;
+  VkSurfaceKHR get() noexcept;
 private:
   VkInstance instance_;
   VkSurfaceKHR surface_;
 };
 
-inline VkSurfaceKHR Surface::Get() noexcept {
+inline VkSurfaceKHR Surface::get() noexcept {
   return surface_;
 }
 

@@ -7,14 +7,15 @@ namespace vk {
 
 class Instance {
 public:
- VkInstance& Get() noexcept;
   Instance();
   ~Instance();
+
+  VkInstance& get() noexcept;
 private:
   VkInstance instance_;
 };
 
-inline VkInstance& Instance::Get() noexcept {
+inline VkInstance& Instance::get() noexcept {
     return instance_;
 }
 

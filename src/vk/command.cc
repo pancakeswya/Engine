@@ -37,11 +37,11 @@ Buffer::Buffer(VkDevice logical_device, VkCommandPool pool) : buffer_() {
   }
 }
 
-Buffer::Record Buffer::BeginRecord() {
+Record Buffer::BeginRecord() {
   return {buffer_};
 }
 
-Buffer::Record::Record(VkCommandBuffer buffer) : buffer_(buffer) {
+Record::Record(VkCommandBuffer buffer) : buffer_(buffer) {
   VkCommandBufferBeginInfo begin_info = {};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -50,7 +50,7 @@ Buffer::Record::Record(VkCommandBuffer buffer) : buffer_(buffer) {
   }
 }
 
-void Buffer::Record::End() {
+void Record::End() {
   if (vkEndCommandBuffer(buffer_) != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to record command buffer");
   }

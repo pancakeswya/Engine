@@ -20,13 +20,13 @@ public:
   );
   ~Module();
 
-  VkShaderModule Get() noexcept;
+  VkShaderModule get() noexcept;
 private:
   VkDevice logical_device_;
   VkShaderModule module_;
 };
 
-inline VkShaderModule Module::Get() noexcept {
+inline VkShaderModule Module::get() noexcept {
   return module_;
 }
 

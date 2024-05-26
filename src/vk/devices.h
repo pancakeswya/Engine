@@ -45,8 +45,8 @@ class Devices {
     VkSwapchainKHR swapchain
   ) noexcept;
 
-  VkDevice Logical() noexcept;
-  VkPhysicalDevice Physical() noexcept;
+  VkDevice get_logical() noexcept;
+  VkPhysicalDevice get_physical() noexcept;
  private:
   VkPhysicalDevice physical_;
   VkDevice logical_;
@@ -58,9 +58,9 @@ inline void Devices::WaitIdle() noexcept {
   vkDeviceWaitIdle(logical_);
 }
 
-inline VkDevice Devices::Logical() noexcept { return logical_; }
+inline VkDevice Devices::get_logical() noexcept { return logical_; }
 
-inline VkPhysicalDevice Devices::Physical() noexcept {
+inline VkPhysicalDevice Devices::get_physical() noexcept {
   return physical_;
 }
 

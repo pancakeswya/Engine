@@ -5,21 +5,24 @@
 #include <GLFW/glfw3.h>
 #include <functional>
 
+namespace vk {
+
+class Context;
+
+} // namespace
+
 namespace glfw {
 
 class Window {
  public:
   Window(const char* title, int width, int height);
-  void Poll(const std::function<void()>& render);
-  GLFWwindow* Get() noexcept;
+  void Poll(vk::Context& context);
   ~Window();
  private:
+  friend class vk::Context;
+
   GLFWwindow* window_;
 };
-
-inline GLFWwindow* Window::Get() noexcept {
-  return window_;
-}
 
 } // namespace glfw
 

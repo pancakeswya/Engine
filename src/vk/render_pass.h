@@ -17,13 +17,14 @@ public:
     VkExtent2D extent,
     VkClearValue* clear_color
   ) noexcept;
-  VkRenderPass Get() noexcept;
+
+  VkRenderPass get() noexcept;
 private:
   VkDevice logical_device_;
   VkRenderPass pass_;
 };
 
-inline VkRenderPass RenderPass::Get() noexcept {
+inline VkRenderPass RenderPass::get() noexcept {
   return pass_;
 }
 

@@ -41,10 +41,10 @@ Pipeline::Pipeline(
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
   for(const shader::Stage& stage : {
     shader::Stage{ VK_SHADER_STAGE_VERTEX_BIT,
-      vert_shader_module.Get(),
+      vert_shader_module.get(),
       "main" },
     shader::Stage{ VK_SHADER_STAGE_FRAGMENT_BIT,
-      frag_shader_module.Get(),
+      frag_shader_module.get(),
       "main" }
   }) {
     VkPipelineShaderStageCreateInfo stage_info = {};

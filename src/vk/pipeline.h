@@ -16,7 +16,7 @@ public:
     );
     ~Layout();
 
-    VkPipelineLayout Get() noexcept;
+    VkPipelineLayout get() noexcept;
   private:
     VkDevice logical_device_;
     VkPipelineLayout layout_;
@@ -28,18 +28,18 @@ public:
     VkRenderPass pass
   );
   ~Pipeline();
-  VkPipeline Get() noexcept;
+  VkPipeline get() noexcept;
 
 private:
   VkDevice logical_device_;
   VkPipeline pipeline_;
 };
 
-inline VkPipelineLayout Pipeline::Layout::Get() noexcept {
+inline VkPipelineLayout Pipeline::Layout::get() noexcept {
   return layout_;
 }
 
-inline VkPipeline Pipeline::Get() noexcept {
+inline VkPipeline Pipeline::get() noexcept {
   return pipeline_;
 }
 
