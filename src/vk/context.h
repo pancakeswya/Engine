@@ -19,13 +19,26 @@
 
 namespace vk {
 
+class Context;
+
+} // namespace vk
+
+namespace render {
+
+void Render(vk::Context& context);
+
+}
+
+namespace vk {
+
 class Context {
 public:
   explicit Context(glfw::Window& window);
   ~Context();
 
-  void Render();
 private:
+  friend void render::Render(Context& context);
+
   Instance instance_;
 #ifdef DEBUG
   Messenger messenger_;

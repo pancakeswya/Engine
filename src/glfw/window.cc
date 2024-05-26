@@ -13,10 +13,10 @@ Window::Window(const char* title, const int width, const int height) {
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 }
 
-void Window::Poll(vk::Context& context) {
+void Window::Poll(const std::function<void(vk::Context&)>& render, vk::Context& context) {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
-    context.Render();
+    render(context);
   }
 }
 

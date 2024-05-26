@@ -46,6 +46,8 @@ add_executable(untitled70
         src/vk/framebuffer.cc
         src/vk/context.h
         src/vk/context.cc
+        src/render/render.h
+        src/render/render.cc
 )
 
 target_link_libraries(untitled70 Vulkan::Vulkan glfw)
