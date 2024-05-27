@@ -53,7 +53,7 @@ private:
   Pipeline::Layout pipeline_layout_;
   Pipeline pipeline_;
   command::Pool cmd_pool_;
-  command::Buffer cmd_buffer_;
+  command::Buffers cmd_buffers_;
   sync::ImageSemaphore image_semaphore_;
   sync::Semaphore render_semaphore_;
   sync::Fence fence_;

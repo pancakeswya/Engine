@@ -1,7 +1,7 @@
 #ifndef VK_COMMAND_H_
 #define VK_COMMAND_H_
 
-#include "vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
 namespace vk::command {
 
@@ -26,42 +26,31 @@ inline VkCommandPool Pool::get() noexcept {
 
 class Record {
 public:
+  Record(VkCommandBuffer buffer);
+  void Begin();
   void BeginRenderPass(VkRenderPassBeginInfo* pass_info) noexcept;
   void BindPipeline(VkPipeline pipeline) noexcept;
   void SetViewport(VkViewport* viewport) noexcept;
   void SetScissor(VkRect2D* scissor) noexcept;
   void Draw() noexcept;
   void EndRenderPass() noexcept;
-
   void End();
 private:
-  friend class Buffer;
-
-  Record(VkCommandBuffer buffer);
   VkCommandBuffer buffer_;
 };
 
-class Buffer {
+class Buffers {
 public:
-  Buffer(VkDevice logical_device, VkCommandPool pool);
-  ~Buffer() = default;
+  Buffers(VkDevice logical_device, VkCommandPool pool, uint32_t count);
+  ~Buffers();
 
-  void Reset() noexcept;
-
-  VkCommandBuffer get() noexcept;
-
-  Record BeginRecord();
-
+  VkCommandBuffer operator[](uint32_t idx) noexcept;
 private:
-  VkCommandBuffer buffer_;
+  VkCommandBuffer* buffers_;
 };
 
-inline VkCommandBuffer Buffer::get() noexcept {
-  return buffer_;
-}
-
-inline void Buffer::Reset() noexcept {
-  vkResetCommandBuffer(buffer_,0);
+inline VkCommandBuffer Buffers::operator[](const uint32_t idx) noexcept {
+  return buffers_[idx];
 }
 
 inline void Record::BeginRenderPass(VkRenderPassBeginInfo* pass_info) noexcept {

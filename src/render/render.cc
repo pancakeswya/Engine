@@ -10,10 +10,8 @@ void Render(vk::Context& context) {
   const uint32_t image_idx = context.image_semaphore_.AcquireNextImage(
     context.swap_chain_.get_swapchain()
   );
-
-  context.cmd_buffer_.Reset();
-  vk::command::Record record = context.cmd_buffer_.BeginRecord();
-  {
+  auto record = vk::command::Record(context.cmd_buffers_[0]);
+  record.Begin(); {
     auto clear_color = VkClearValue{{0.0f, 0.0f, 0.0f, 1.0f}};
     auto render_pass_begin_info = context.render_pass_.BeginInfo(
       context.framebuffers_[image_idx].get(),
@@ -49,7 +47,7 @@ void Render(vk::Context& context) {
 
   context.devices_.SubmitDraw(
     context.fence_.get(),
-    context.cmd_buffer_.get(),
+    context.cmd_buffers_[0],
     context.image_semaphore_.get(),
     context.render_semaphore_.get()
   );

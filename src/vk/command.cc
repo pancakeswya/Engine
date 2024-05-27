@@ -25,23 +25,30 @@ Pool::~Pool() {
   vkDestroyCommandPool(logical_device_, pool_, nullptr);
 }
 
-Buffer::Buffer(VkDevice logical_device, VkCommandPool pool) : buffer_() {
+Buffers::Buffers(VkDevice logical_device, VkCommandPool pool, uint32_t count) : buffers_() {
   VkCommandBufferAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = pool;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandBufferCount = 1;
-
-  if (vkAllocateCommandBuffers(logical_device, &alloc_info, &buffer_) != VK_SUCCESS) {
+  alloc_info.commandBufferCount = count;
+  buffers_ = static_cast<VkCommandBuffer*>(
+    ::operator new(count * sizeof(VkCommandBuffer))
+  );
+  if (vkAllocateCommandBuffers(logical_device, &alloc_info, buffers_) != VK_SUCCESS) {
     THROW_UNEXPECTED("failed to allocate command buffers");
   }
 }
 
-Record Buffer::BeginRecord() {
-  return {buffer_};
+Buffers::~Buffers() {
+  ::operator delete(buffers_);
 }
 
+
 Record::Record(VkCommandBuffer buffer) : buffer_(buffer) {
+  vkResetCommandBuffer(buffer_,0);
+}
+
+void Record::Begin() {
   VkCommandBufferBeginInfo begin_info = {};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 

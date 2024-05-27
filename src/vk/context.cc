@@ -41,9 +41,10 @@ Context::Context(glfw::Window& window)
       devices_.get_physical(),
       surface_.get()
     ),
-    cmd_buffer_(
+    cmd_buffers_(
       devices_.get_logical(),
-      cmd_pool_.get()
+      cmd_pool_.get(),
+      1
     ),
     image_semaphore_(
       devices_.get_logical()
