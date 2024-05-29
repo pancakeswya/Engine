@@ -137,7 +137,6 @@ int main(void) {
             return 1;
         }
     }
-  v
     vkDeviceWaitIdle(context.logical_device);
     VulkanContextDestroy(&context);
     glfwTerminate();
