@@ -1,22 +1,8 @@
-#ifndef io_h_
-#define io_h_
+#ifndef IO_H_
+#define IO_H_
 
-#include "base/exception.h"
+#include "error.h"
 
-#include <vector>
-#include <string>
+Error ReadFile(const char* path, char** content, size_t* count);
 
-namespace io {
-
-class Exception : public engine::Exception {
-public:
-  explicit Exception(const std::string& message)
-    : engine::Exception("io error: " + message) {}
-  ~Exception() override = default;
-};
-
-std::vector<char> ReadFileBytes(const std::string& path);
-
-} // namespace io
-
-#endif // io_h_
+#endif // IO_H_

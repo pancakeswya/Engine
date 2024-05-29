@@ -1,65 +1,46 @@
 #ifndef VK_CONTEXT_H_
 #define VK_CONTEXT_H_
 
-#include "vk/command.h"
-#include "vk/devices.h"
-#include "vk/framebuffer.h"
+#include "base/error.h"
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+typedef struct VulkanContext {
+    VkInstance instance;
 #ifdef DEBUG
-#include "vk/messenger.h"
+    VkDebugUtilsMessengerEXT messenger;
 #endif
-#include "vk/instance.h"
-#include "vk/render_pass.h"
-#include "vk/pipeline.h"
-#include "vk/sync.h"
-#include "vk/surface.h"
-#include "vk/swap_chain.h"
-#include "glfw/window.h"
+    VkSurfaceKHR surface;
 
-#include <vulkan/vulkan.h>
+    VkPhysicalDevice physical_device;
+    VkDevice logical_device;
+    VkQueue present_queue;
+    VkQueue graphics_queue;
 
-namespace vk {
+    VkSwapchainKHR swapchain;
+    VkExtent2D extent;
+    VkFormat format;
+    VkImage* images;
+    uint32_t image_count;
+    VkImageView* image_views;
+    uint32_t image_view_count;
 
-class Context;
+    VkRenderPass render_pass;
+    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout;
+    VkFramebuffer* framebuffers;
+    uint32_t framebuffer_count;
 
-} // namespace vk
+    VkCommandPool cmd_pool;
+    VkCommandBuffer* cmd_buffers;
 
-namespace render {
+    VkSemaphore image_semaphore;
+    VkSemaphore render_semaphore;
+    VkFence fence;
+} VulkanContext;
 
-void Render(vk::Context& context);
-
-}
-
-namespace vk {
-
-class Context {
-public:
-  explicit Context(glfw::Window& window);
-  ~Context();
-
-private:
-  friend void render::Render(Context& context);
-
-  Instance instance_;
-#ifdef DEBUG
-  Messenger messenger_;
-#endif
-  Surface surface_;
-  Devices devices_;
-  SwapChain swap_chain_;
-  RenderPass render_pass_;
-  std::vector<VkImage> images_;
-  std::vector<ImageView> views_;
-  std::vector<Framebuffer> framebuffers_;
-  Pipeline::Layout pipeline_layout_;
-  Pipeline pipeline_;
-  command::Pool cmd_pool_;
-  command::Buffers cmd_buffers_;
-  sync::ImageSemaphore image_semaphore_;
-  sync::Semaphore render_semaphore_;
-  sync::Fence fence_;
-};
-
-} // namespace vk
-
+Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window);
+void VulkanContextDestroy(const VulkanContext* context);
 
 #endif // VK_CONTEXT_H_
