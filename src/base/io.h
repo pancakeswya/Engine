@@ -5,4 +5,4 @@
 
 Error ReadFile(const char* path, char** content, size_t* count);
 
-#endif // IO_H_
+#endif  // IO_H_

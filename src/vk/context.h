@@ -7,40 +7,40 @@
 #include <GLFW/glfw3.h>
 
 typedef struct VulkanContext {
-    VkInstance instance;
+  VkInstance instance;
 #ifdef DEBUG
-    VkDebugUtilsMessengerEXT messenger;
+  VkDebugUtilsMessengerEXT messenger;
 #endif
-    VkSurfaceKHR surface;
+  VkSurfaceKHR surface;
 
-    VkPhysicalDevice physical_device;
-    VkDevice logical_device;
-    VkQueue present_queue;
-    VkQueue graphics_queue;
+  VkPhysicalDevice physical_device;
+  VkDevice logical_device;
+  VkQueue present_queue;
+  VkQueue graphics_queue;
 
-    VkSwapchainKHR swapchain;
-    VkExtent2D extent;
-    VkFormat format;
-    VkImage* images;
-    uint32_t image_count;
-    VkImageView* image_views;
-    uint32_t image_view_count;
+  VkSwapchainKHR swapchain;
+  VkExtent2D extent;
+  VkFormat format;
+  VkImage* images;
+  uint32_t image_count;
+  VkImageView* image_views;
+  uint32_t image_view_count;
 
-    VkRenderPass render_pass;
-    VkPipeline pipeline;
-    VkPipelineLayout pipeline_layout;
-    VkFramebuffer* framebuffers;
-    uint32_t framebuffer_count;
+  VkRenderPass render_pass;
+  VkPipeline pipeline;
+  VkPipelineLayout pipeline_layout;
+  VkFramebuffer* framebuffers;
+  uint32_t framebuffer_count;
 
-    VkCommandPool cmd_pool;
-    VkCommandBuffer* cmd_buffers;
+  VkCommandPool cmd_pool;
+  VkCommandBuffer* cmd_buffers;
 
-    VkSemaphore image_semaphore;
-    VkSemaphore render_semaphore;
-    VkFence fence;
+  VkSemaphore image_semaphore;
+  VkSemaphore render_semaphore;
+  VkFence fence;
 } VulkanContext;
 
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window);
 void VulkanContextDestroy(const VulkanContext* context);
 
-#endif // VK_CONTEXT_H_
+#endif  // VK_CONTEXT_H_

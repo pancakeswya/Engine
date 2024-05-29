@@ -38,7 +38,7 @@ static Error recordCommandBuffer(const VulkanContext* context, const uint32_t im
     };
     vkCmdSetViewport(context->cmd_buffers[0], 0, 1, &viewport);
 
-    VkRect2D scissor = {
+    const VkRect2D scissor = {
         .offset = {0, 0},
         .extent = context->extent
     };
@@ -137,6 +137,7 @@ int main(void) {
             return 1;
         }
     }
+  v
     vkDeviceWaitIdle(context.logical_device);
     VulkanContextDestroy(&context);
     glfwTerminate();
