@@ -31,7 +31,8 @@ Error VulkanSwapchainCreate(GLFWwindow* window, VkDevice logical_device,
                             VkSurfaceKHR surface,
                             VkRenderPass render_pass,
                             QueueFamilyIndices* indices,
-                            SurfaceSupportDetails* detailsSwapchain* swapchain);
+                            SurfaceSupportDetails* details,
+                            Swapchain* swapchain);
 void VulkanSwapchainDestroy(Swapchain* swapchain);
 
 #endif // VK_SWAPCHAIN_H_
