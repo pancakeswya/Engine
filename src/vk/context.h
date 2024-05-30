@@ -29,20 +29,22 @@ typedef struct VulkanContext {
   VkDevice logical_device;
   VkQueue present_queue;
   VkQueue graphics_queue;
+  SurfaceSupportDetails support_details;
+  QueueFamilyIndices indices;
 
   VkSwapchainKHR swapchain;
-  VkExtent2D extent;
-  VkFormat format;
   VkImage* images;
   uint32_t image_count;
   VkImageView* image_views;
   uint32_t image_view_count;
+  VkFramebuffer* framebuffers;
+  uint32_t framebuffer_count;
+  VkFormat format;
+  VkExtent2D extent;
 
   VkRenderPass render_pass;
   VkPipeline pipeline;
   VkPipelineLayout pipeline_layout;
-  VkFramebuffer* framebuffers;
-  uint32_t framebuffer_count;
 
   VkCommandPool cmd_pool;
   VkCommandBuffer* cmd_buffers;
@@ -54,9 +56,6 @@ typedef struct VulkanContext {
   uint32_t render_semaphore_count;
   VkFence* fences;
   uint32_t fences_count;
-
-  SurfaceSupportDetails support_details;
-  QueueFamilyIndices indices;
 } VulkanContext;
 
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, uint32_t frames);

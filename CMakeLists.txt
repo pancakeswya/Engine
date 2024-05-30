@@ -16,7 +16,9 @@ add_executable(untitled7
         src/base/io.h
         src/base/io.c
         src/vk/context.h
-        src/vk/context.c)
+        src/vk/context.c
+        src/vk/swapchain.h
+        src/vk/swapchain.c)
 
 target_link_libraries(untitled7 Vulkan::Vulkan glfw)
 
