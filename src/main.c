@@ -1,16 +1,17 @@
 #include "vk/context.h"
+#include "base/error.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <vulkan/vulkan.h>
 
-static Error recordCommandBuffer(const VulkanContext* context, const uint32_t image_index) {
+static Error recordCommandBuffer(VulkanContext* context, const uint32_t image_index) {
     const VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
     };
     VkResult vk_res = vkBeginCommandBuffer(context->cmd_buffers[0], &begin_info);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     const VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
 
@@ -49,28 +50,28 @@ static Error recordCommandBuffer(const VulkanContext* context, const uint32_t im
     vkCmdEndRenderPass(context->cmd_buffers[0]);
     vk_res = vkEndCommandBuffer(context->cmd_buffers[0]);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     return kErrorSuccess;
 }
 
-static Error render(const VulkanContext* context) {
+static Error render(VulkanContext* context) {
     VkResult vk_res = vkWaitForFences(context->logical_device, 1, &context->fence, VK_TRUE, UINT64_MAX);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     vk_res = vkResetFences(context->logical_device, 1, &context->fence);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     uint32_t image_index = 0;
     vk_res = vkAcquireNextImageKHR(context->logical_device, context->swapchain, UINT64_MAX, context->image_semaphore, VK_NULL_HANDLE, &image_index);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     vk_res = vkResetCommandBuffer(context->cmd_buffers[0], 0);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     const Error err = recordCommandBuffer(context, image_index);
     if (!ErrorEqual(err, kErrorSuccess)) {
@@ -92,7 +93,7 @@ static Error render(const VulkanContext* context) {
     };
     vk_res = vkQueueSubmit(context->graphics_queue, 1, &submit_info, context->fence);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     const VkSwapchainKHR swapchains[] = {context->swapchain};
     const VkPresentInfoKHR present_info = {
@@ -105,7 +106,7 @@ static Error render(const VulkanContext* context) {
     };
     vk_res = vkQueuePresentKHR(context->present_queue, &present_info);
     if (vk_res != VK_SUCCESS) {
-        return (Error){vk_res, kErrorTypeVulkan};
+        return VulkanErrorCreate(vk_res);
     }
     return kErrorSuccess;
 }
