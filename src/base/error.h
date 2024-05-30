@@ -16,7 +16,7 @@ typedef enum StdError {
 } StdError;
 
 typedef enum AppError {
-  kAppSucces = 0,
+  kAppSuccess = 0,
   kAppErrorLayersNotSupported,
   kAppErrorDllGetExtFn,
   kAppErrorNoVulkanSupportedGpu
@@ -25,14 +25,14 @@ typedef enum AppError {
 typedef enum ErrorType {
   kErrorTypeStd = 0,
   kErrorTypeApp,
-  kErrorTypeGlfw,
-  kErrorTypeVulkan
+  kErrorTypeVulkan,
+  kErrorTypeGlfw
 } ErrorType;
 
 typedef struct Error {
   union {
-    AppError app;
     StdError std;
+    AppError app;
     VkResult vulkan;
     GlfwError glfw;
     int val;
@@ -40,10 +40,15 @@ typedef struct Error {
   ErrorType type;
 } Error;
 
-static Error kErrorSuccess = {.code = kStdSuccess, .type = kErrorTypeStd};
+static Error kErrorSuccess = {.code.app = kAppSuccess, .type = kErrorTypeStd};
 
 static inline int ErrorEqual(const Error err1, const Error err2) {
   return err1.type == err2.type && err1.code.val == err2.code.val;
 }
+
+#define StdErrorCreate(err) (Error){.code.std = err, .type = kErrorTypeStd}
+#define AppErrorCreate(err) (Error){.code.app = err, .type = kErrorTypeApp}
+#define VulkanErrorCreate(err) (Error){.code.vulkan = err, .type = kErrorTypeVulkan}
+#define GlfwErrorCreate(err) (Error){.code.glfw = err, .type = kErrorTypeGlfw}
 
 #endif  // ERROR_H_

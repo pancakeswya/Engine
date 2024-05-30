@@ -42,7 +42,7 @@ messengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
   return VK_FALSE;
 }
 
-static Error messengerCreate(const VkInstance instance,
+static Error messengerCreate(VkInstance instance,
                              VkDebugUtilsMessengerCreateInfoEXT* create_info,
                              VkDebugUtilsMessengerEXT* messenger) {
   if (messenger == VK_NULL_HANDLE) {
@@ -60,18 +60,18 @@ static Error messengerCreate(const VkInstance instance,
   createMessengerFn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkCreateDebugUtilsMessengerEXT");
   if (createMessengerFn == VK_NULL_HANDLE) {
-    return (Error){kAppErrorDllGetExtFn, kErrorTypeApp};
+    return AppErrorCreate(kAppErrorDllGetExtFn);
   }
   destroyMessengerFn =
       (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
           instance, "vkDestroyDebugUtilsMessengerEXT");
   if (destroyMessengerFn == VK_NULL_HANDLE) {
-    return (Error){kAppErrorDllGetExtFn, kErrorTypeApp};
+    return AppErrorCreate(kAppErrorDllGetExtFn);
   }
-  const VkResult res =
+  const VkResult vk_res =
       createMessengerFn(instance, create_info, NULL, messenger);
-  if (res != VK_SUCCESS) {
-    return (Error){res, kErrorTypeVulkan};
+  if (vk_res != VK_SUCCESS) {
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
@@ -80,18 +80,18 @@ static Error layersSupport(void) {
   uint32_t vk_layer_count = 0;
   VkResult vk_res = vkEnumerateInstanceLayerProperties(&vk_layer_count, NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   VkLayerProperties* available_layers =
       (VkLayerProperties*)malloc(vk_layer_count * sizeof(VkLayerProperties));
   if (available_layers == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   vk_res =
       vkEnumerateInstanceLayerProperties(&vk_layer_count, available_layers);
   if (vk_res != VK_SUCCESS) {
     free(available_layers);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   for (uint32_t i = 0; i < kLayersCount; ++i) {
     bool support = false;
@@ -103,7 +103,7 @@ static Error layersSupport(void) {
     }
     if (support == false) {
       free(available_layers);
-      return (Error){kAppErrorLayersNotSupported, kErrorTypeApp};
+      return AppErrorCreate(kAppErrorLayersNotSupported);
     }
   }
   free(available_layers);
@@ -134,7 +134,7 @@ static Error getInstanceExtensions(const char*** extensions, uint32_t* count) {
 #endif
   *extensions = (const char**)malloc(*count * sizeof(const char*));
   if (*extensions == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   memcpy(*extensions, glfw_extensions, glfw_ext_count * sizeof(const char*));
 #ifdef DEBUG
@@ -144,14 +144,14 @@ static Error getInstanceExtensions(const char*** extensions, uint32_t* count) {
   return kErrorSuccess;
 }
 
-static Error deviceExtensionsSupport(const VkPhysicalDevice device,
+static Error deviceExtensionsSupport(VkPhysicalDevice device,
                                      bool* support) {
   *support = true;
   uint32_t extension_count = 0;
   VkResult vk_res = vkEnumerateDeviceExtensionProperties(
       device, NULL, &extension_count, NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   VkExtensionProperties* available_extensions = (VkExtensionProperties*)malloc(
       extension_count * sizeof(VkExtensionProperties));
@@ -159,7 +159,7 @@ static Error deviceExtensionsSupport(const VkPhysicalDevice device,
                                                 available_extensions);
   if (vk_res != VK_SUCCESS) {
     free(available_extensions);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   for (uint32_t i = 0; i < kDeviceExtensionsCount; ++i) {
     bool found = false;
@@ -179,33 +179,33 @@ static Error deviceExtensionsSupport(const VkPhysicalDevice device,
   return kErrorSuccess;
 }
 
-static Error SurfaceSupport(const VkPhysicalDevice device,
-                            const VkSurfaceKHR surface,
+static Error SurfaceSupport(VkPhysicalDevice device,
+                            VkSurfaceKHR surface,
                             SurfaceSupportDetails* details) {
   VkSurfaceCapabilitiesKHR capabilities = {0};
   VkResult vk_res =
       vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &capabilities);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   uint32_t formats_count = 0;
   vk_res = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formats_count,
                                                 NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   VkSurfaceFormatKHR* formats = NULL;
   if (formats_count != 0) {
     formats =
         (VkSurfaceFormatKHR*)malloc(formats_count * sizeof(VkSurfaceFormatKHR));
     if (formats == NULL) {
-      return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+      return StdErrorCreate(kStdErrorOutOfMemory);
     }
     vk_res = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface,
                                                   &formats_count, formats);
     if (vk_res != VK_SUCCESS) {
       free(formats);
-      return (Error){vk_res, kErrorTypeVulkan};
+      return VulkanErrorCreate(vk_res);
     }
   }
   uint32_t present_modes_count = 0;
@@ -213,7 +213,7 @@ static Error SurfaceSupport(const VkPhysicalDevice device,
       device, surface, &present_modes_count, NULL);
   if (vk_res != VK_SUCCESS) {
     free(formats);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   VkPresentModeKHR* present_modes = NULL;
   if (present_modes_count != 0) {
@@ -221,14 +221,14 @@ static Error SurfaceSupport(const VkPhysicalDevice device,
                                               sizeof(VkPresentModeKHR));
     if (present_modes == NULL) {
       free(formats);
-      return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+      return StdErrorCreate(kStdErrorOutOfMemory);
     }
     vk_res = vkGetPhysicalDeviceSurfacePresentModesKHR(
         device, surface, &present_modes_count, present_modes);
     if (vk_res != VK_SUCCESS) {
       free(present_modes);
       free(formats);
-      return (Error){vk_res, kErrorTypeVulkan};
+      return VulkanErrorCreate(vk_res);
     }
   }
   *details =
@@ -240,8 +240,8 @@ static Error SurfaceSupport(const VkPhysicalDevice device,
   return kErrorSuccess;
 }
 
-static Error findQueueFamilyIndices(const VkPhysicalDevice device,
-                                    const VkSurfaceKHR surface,
+static Error findQueueFamilyIndices(VkPhysicalDevice device,
+                                    VkSurfaceKHR surface,
                                     QueueFamilyIndices* indices,
                                     SurfaceSupportDetails* details,
                                     bool* found) {
@@ -253,7 +253,7 @@ static Error findQueueFamilyIndices(const VkPhysicalDevice device,
   VkQueueFamilyProperties* families = (VkQueueFamilyProperties*)malloc(
       families_count * sizeof(VkQueueFamilyProperties));
   if (families == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, families);
 
@@ -267,7 +267,7 @@ static Error findQueueFamilyIndices(const VkPhysicalDevice device,
         device, i, surface, &present_support);
     if (vk_res != VK_SUCCESS) {
       free(families);
-      return (Error){vk_res, kErrorTypeVulkan};
+      return VulkanErrorCreate(vk_res);
     }
     if (present_support) {
       present_found = true;
@@ -299,28 +299,28 @@ static Error findQueueFamilyIndices(const VkPhysicalDevice device,
   return kErrorSuccess;
 }
 
-static Error createPhysicalDevice(const VkInstance instance,
-                                  const VkSurfaceKHR surface,
+static Error createPhysicalDevice(VkInstance instance,
+                                  VkSurfaceKHR surface,
                                   VkPhysicalDevice* device,
                                   QueueFamilyIndices* indices,
                                   SurfaceSupportDetails* details) {
   uint32_t device_count = 0;
   VkResult vk_res = vkEnumeratePhysicalDevices(instance, &device_count, NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   if (device_count == 0) {
-    return (Error){kAppErrorNoVulkanSupportedGpu, kErrorTypeApp};
+    return AppErrorCreate(kAppErrorNoVulkanSupportedGpu);
   }
   VkPhysicalDevice* devices =
       (VkPhysicalDevice*)malloc(device_count * sizeof(VkPhysicalDevice));
   if (devices == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   vk_res = vkEnumeratePhysicalDevices(instance, &device_count, devices);
   if (vk_res != VK_SUCCESS) {
     free(devices);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   for (uint32_t i = 0; i < device_count; ++i) {
     bool found = false;
@@ -338,7 +338,7 @@ static Error createPhysicalDevice(const VkInstance instance,
   return kErrorSuccess;
 }
 
-static Error createLogicalDevice(const VkPhysicalDevice physical_device,
+static Error createLogicalDevice(VkPhysicalDevice physical_device,
                                  const QueueFamilyIndices* indices,
                                  VkDevice* logical_device) {
   const uint32_t family_ids[] = {indices->graphics, indices->present};
@@ -348,7 +348,7 @@ static Error createLogicalDevice(const VkPhysicalDevice physical_device,
       (VkDeviceQueueCreateInfo*)malloc(unique_family_count *
                                        sizeof(VkDeviceQueueCreateInfo));
   if (queue_create_infos == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   const float queue_priority = 1.0f;
   for (uint32_t i = 0; i < unique_family_count; ++i) {
@@ -377,7 +377,7 @@ static Error createLogicalDevice(const VkPhysicalDevice physical_device,
       vkCreateDevice(physical_device, &create_info, NULL, logical_device);
   free(queue_create_infos);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
@@ -418,10 +418,10 @@ static Error instanceCreate(
       .pNext = messenger_create_info
 #endif
   };
-  const VkResult res = vkCreateInstance(&create_info, NULL, instance);
+  const VkResult vk_res = vkCreateInstance(&create_info, NULL, instance);
   free(ext);
-  if (res != VK_SUCCESS) {
-    return (Error){res, kErrorTypeVulkan};
+  if (vk_res != VK_SUCCESS) {
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
@@ -465,10 +465,10 @@ static VkExtent2D chooseSwapExtent(
   return actual_extent;
 }
 
-static Error createSwapchain(GLFWwindow* window, const VkDevice logical_device,
-                             const VkSurfaceKHR surface,
-                             const QueueFamilyIndices* indices,
-                             const SurfaceSupportDetails* details,
+static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
+                             VkSurfaceKHR surface,
+                             QueueFamilyIndices* indices,
+                             SurfaceSupportDetails* details,
                              VkExtent2D* extent_ptr, VkFormat* format_ptr,
                              VkSwapchainKHR* swapchain) {
   const VkSurfaceFormatKHR surface_format =
@@ -515,7 +515,7 @@ static Error createSwapchain(GLFWwindow* window, const VkDevice logical_device,
   const VkResult vk_res =
       vkCreateSwapchainKHR(logical_device, &create_info, NULL, swapchain);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   *extent_ptr = extent;
   *format_ptr = format;
@@ -523,32 +523,32 @@ static Error createSwapchain(GLFWwindow* window, const VkDevice logical_device,
   return kErrorSuccess;
 }
 
-static Error createImages(const VkDevice logical_device,
-                          const VkSwapchainKHR swapchain, VkImage** images_ptr,
+static Error createImages(VkDevice logical_device,
+                          VkSwapchainKHR swapchain, VkImage** images_ptr,
                           uint32_t* image_count_ptr) {
   uint32_t image_count = 0;
   VkResult vk_res =
       vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   VkImage* images = (VkImage*)malloc(image_count * sizeof(VkImage));
   if (images == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   vk_res =
       vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, images);
   if (vk_res != VK_SUCCESS) {
     free(images);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   *images_ptr = images;
   *image_count_ptr = image_count;
   return kErrorSuccess;
 }
 
-static Error createRenderPass(const VkDevice logical_device,
-                              const VkFormat format,
+static Error createRenderPass(VkDevice logical_device,
+                              VkFormat format,
                               VkRenderPass* render_pass) {
   const VkAttachmentDescription color_attachment = {
       .format = format,
@@ -574,12 +574,12 @@ static Error createRenderPass(const VkDevice logical_device,
   const VkResult vk_res =
       vkCreateRenderPass(logical_device, &render_pass_info, NULL, render_pass);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createPipelineLayout(const VkDevice logical_device,
+static Error createPipelineLayout(VkDevice logical_device,
                                   VkPipelineLayout* pipeline_layout) {
   const VkPipelineLayoutCreateInfo pipeline_layout_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -588,12 +588,12 @@ static Error createPipelineLayout(const VkDevice logical_device,
   const VkResult vk_res = vkCreatePipelineLayout(
       logical_device, &pipeline_layout_info, NULL, pipeline_layout);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createShaderModule(const VkDevice logical_device, const char* path,
+static Error createShaderModule(VkDevice logical_device, const char* path,
                                 VkShaderModule* module) {
   size_t read = 0;
   char* code = NULL;
@@ -609,14 +609,14 @@ static Error createShaderModule(const VkDevice logical_device, const char* path,
       vkCreateShaderModule(logical_device, &create_info, NULL, module);
   free(code);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createPipeline(const VkDevice logical_device,
-                            const VkPipelineLayout pipeline_layout,
-                            const VkRenderPass render_pass,
+static Error createPipeline(VkDevice logical_device,
+                            VkPipelineLayout pipeline_layout,
+                            VkRenderPass render_pass,
                             VkPipeline* pipeline) {
   VkShaderModule vert_shader_module = VK_NULL_HANDLE;
   VkShaderModule frag_shader_module = VK_NULL_HANDLE;
@@ -707,13 +707,13 @@ static Error createPipeline(const VkDevice logical_device,
   vkDestroyShaderModule(logical_device, vert_shader_module, NULL);
   vkDestroyShaderModule(logical_device, frag_shader_module, NULL);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createCmdPool(const VkDevice logical_device,
-                           const QueueFamilyIndices* indices,
+static Error createCmdPool(VkDevice logical_device,
+                           QueueFamilyIndices* indices,
                            VkCommandPool* cmd_pool) {
   const VkCommandPoolCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -722,13 +722,13 @@ static Error createCmdPool(const VkDevice logical_device,
   const VkResult vk_res =
       vkCreateCommandPool(logical_device, &create_info, NULL, cmd_pool);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createCmdBuffers(const VkDevice logical_device,
-                              const VkCommandPool cmd_pool,
+static Error createCmdBuffers(VkDevice logical_device,
+                              VkCommandPool cmd_pool,
                               const uint32_t count,
                               VkCommandBuffer** cmd_buffers_ptr) {
   const VkCommandBufferAllocateInfo alloc_info = {
@@ -742,14 +742,14 @@ static Error createCmdBuffers(const VkDevice logical_device,
       vkAllocateCommandBuffers(logical_device, &alloc_info, cmd_buffers);
   if (vk_res != VK_SUCCESS) {
     free(cmd_buffers);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   *cmd_buffers_ptr = cmd_buffers;
   return kErrorSuccess;
 }
 
-static Error createImageView(const VkDevice logical_device, const VkImage image,
-                             const VkFormat format, VkImageView* view) {
+static Error createImageView(VkDevice logical_device, VkImage image,
+                             VkFormat format, VkImageView* view) {
   const VkImageViewCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
       .image = image,
@@ -767,20 +767,20 @@ static Error createImageView(const VkDevice logical_device, const VkImage image,
   const VkResult vk_res =
       vkCreateImageView(logical_device, &create_info, NULL, view);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createImageViews(const VkDevice logical_device,
-                              const VkImage* images, const uint32_t image_count,
-                              const VkFormat format,
+static Error createImageViews(VkDevice logical_device,
+                              VkImage* images, const uint32_t image_count,
+                              VkFormat format,
                               VkImageView** image_views_ptr,
                               uint32_t* image_view_count_ptr) {
   VkImageView* image_views =
       (VkImageView*)malloc(image_count * sizeof(VkImageView));
   if (image_views == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for (uint32_t i = 0; i < image_count; ++i) {
     const Error err =
@@ -795,9 +795,9 @@ static Error createImageViews(const VkDevice logical_device,
   return kErrorSuccess;
 }
 
-static Error createFramebuffer(const VkDevice logical_device,
-                               const VkRenderPass render_pass,
-                               const VkImageView view, const VkExtent2D extent,
+static Error createFramebuffer(VkDevice logical_device,
+                               VkRenderPass render_pass,
+                               VkImageView view, const VkExtent2D extent,
                                VkFramebuffer* framebuffer) {
   const VkFramebufferCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -810,14 +810,14 @@ static Error createFramebuffer(const VkDevice logical_device,
   const VkResult vk_res =
       vkCreateFramebuffer(logical_device, &create_info, NULL, framebuffer);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createFramebuffers(const VkDevice logical_device,
-                                const VkRenderPass render_pass,
-                                const VkImageView* image_views,
+static Error createFramebuffers(VkDevice logical_device,
+                                VkRenderPass render_pass,
+                                VkImageView* image_views,
                                 const uint32_t image_view_count,
                                 const VkExtent2D extent,
                                 VkFramebuffer** framebuffers_ptr,
@@ -825,7 +825,7 @@ static Error createFramebuffers(const VkDevice logical_device,
   VkFramebuffer* framebuffers =
       (VkFramebuffer*)malloc(image_view_count * sizeof(VkFramebuffer));
   if (framebuffers == NULL) {
-    return (Error){kStdErrorOutOfMemory, kErrorTypeStd};
+    return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for (uint32_t i = 0; i < image_view_count; ++i) {
     const Error err = createFramebuffer(
@@ -840,26 +840,26 @@ static Error createFramebuffers(const VkDevice logical_device,
   return kErrorSuccess;
 }
 
-static Error createSemaphore(const VkDevice logical_device,
+static Error createSemaphore(VkDevice logical_device,
                              VkSemaphore* semaphore) {
   const VkSemaphoreCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
   const VkResult vk_res =
       vkCreateSemaphore(logical_device, &create_info, NULL, semaphore);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
 
-static Error createFence(const VkDevice logical_device, VkFence* fence) {
+static Error createFence(VkDevice logical_device, VkFence* fence) {
   const VkFenceCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
       .flags = VK_FENCE_CREATE_SIGNALED_BIT};
   const VkResult vk_res =
       vkCreateFence(logical_device, &create_info, NULL, fence);
   if (vk_res != VK_SUCCESS) {
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   return kErrorSuccess;
 }
@@ -890,7 +890,7 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
                                             &context->surface);
   if (vk_res != VK_SUCCESS) {
     VulkanContextDestroy(context);
-    return (Error){vk_res, kErrorTypeVulkan};
+    return VulkanErrorCreate(vk_res);
   }
   QueueFamilyIndices indices = {0};
   SurfaceSupportDetails details = {0};
@@ -987,7 +987,7 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
   return kErrorSuccess;
 }
 
-void VulkanContextDestroy(const VulkanContext* context) {
+void VulkanContextDestroy(VulkanContext* context) {
   if (context->fence != VK_NULL_HANDLE) {
     vkDestroyFence(context->logical_device, context->fence, NULL);
   }

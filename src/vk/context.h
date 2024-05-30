@@ -41,6 +41,6 @@ typedef struct VulkanContext {
 } VulkanContext;
 
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window);
-void VulkanContextDestroy(const VulkanContext* context);
+void VulkanContextDestroy(VulkanContext* context);
 
 #endif  // VK_CONTEXT_H_
