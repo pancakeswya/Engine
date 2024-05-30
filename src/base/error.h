@@ -40,7 +40,7 @@ typedef struct Error {
   ErrorType type;
 } Error;
 
-static Error kErrorSuccess = {.code.app = kAppSuccess, .type = kErrorTypeStd};
+static Error kSuccess = {.code.app = kAppSuccess, .type = kErrorTypeStd};
 
 static inline int ErrorEqual(const Error err1, const Error err2) {
   return err1.type == err2.type && err1.code.val == err2.code.val;

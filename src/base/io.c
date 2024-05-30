@@ -34,5 +34,5 @@ Error ReadFile(const char* path, char** content, size_t* count) {
   *content = buffer;
 
   fclose(file);
-  return kErrorSuccess;
+  return kSuccess;
 }

@@ -52,33 +52,33 @@ static Error recordCommandBuffer(VulkanContext* context, const uint32_t image_in
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
-    return kErrorSuccess;
+    return kSuccess;
 }
 
-static Error render(VulkanContext* context) {
-    VkResult vk_res = vkWaitForFences(context->logical_device, 1, &context->fence, VK_TRUE, UINT64_MAX);
+static Error render(VulkanContext* context, uint32_t curr_frame) {
+    VkResult vk_res = vkWaitForFences(context->logical_device, 1, context->fences + curr_frame, VK_TRUE, UINT64_MAX);
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
-    vk_res = vkResetFences(context->logical_device, 1, &context->fence);
+    vk_res = vkResetFences(context->logical_device, 1, context->fences + curr_frame);
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
     uint32_t image_index = 0;
-    vk_res = vkAcquireNextImageKHR(context->logical_device, context->swapchain, UINT64_MAX, context->image_semaphore, VK_NULL_HANDLE, &image_index);
+    vk_res = vkAcquireNextImageKHR(context->logical_device, context->swapchain, UINT64_MAX, context->image_semaphores[curr_frame], VK_NULL_HANDLE, &image_index);
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
-    vk_res = vkResetCommandBuffer(context->cmd_buffers[0], 0);
+    vk_res = vkResetCommandBuffer(context->cmd_buffers[curr_frame], 0);
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
     const Error err = recordCommandBuffer(context, image_index);
-    if (!ErrorEqual(err, kErrorSuccess)) {
+    if (!ErrorEqual(err, kSuccess)) {
         return err;
     }
-    const VkSemaphore wait_semaphores[] = {context->image_semaphore};
-    const VkSemaphore signal_semaphores[] = {context->render_semaphore};
+    const VkSemaphore wait_semaphores[] = {context->image_semaphores[curr_frame]};
+    const VkSemaphore signal_semaphores[] = {context->render_semaphores[curr_frame]};
     const VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
     const VkSubmitInfo submit_info = {
@@ -91,7 +91,7 @@ static Error render(VulkanContext* context) {
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = signal_semaphores
     };
-    vk_res = vkQueueSubmit(context->graphics_queue, 1, &submit_info, context->fence);
+    vk_res = vkQueueSubmit(context->graphics_queue, 1, &submit_info, context->fences[curr_frame]);
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
@@ -108,7 +108,7 @@ static Error render(VulkanContext* context) {
     if (vk_res != VK_SUCCESS) {
         return VulkanErrorCreate(vk_res);
     }
-    return kErrorSuccess;
+    return kSuccess;
 }
 
 int main(void) {
@@ -123,16 +123,17 @@ int main(void) {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(kWindowWidth, kWindowHeight, kTitle, NULL, NULL);
     VulkanContext context = {0};
-    Error err = VulkanContextCreate(&context, window);
-    if (!ErrorEqual(err, kErrorSuccess)) {
+    const uint32_t kMaxFrames = 2;
+    Error err = VulkanContextCreate(&context, window, kMaxFrames);
+    if (!ErrorEqual(err, kSuccess)) {
         printf("code %d, type %d\n", err.code.val, err.type);
         glfwTerminate();
         return 1;
     }
-    while (!glfwWindowShouldClose(window)) {
+    for (uint32_t curr_frame = 0; !glfwWindowShouldClose(window); curr_frame = (curr_frame + 1) % kMaxFrames) {
         glfwPollEvents();
-        err = render(&context);
-        if (!ErrorEqual(err, kErrorSuccess)) {
+        err = render(&context, curr_frame);
+        if (!ErrorEqual(err, kSuccess)) {
             printf("code %d, type %d\n", err.code.val, err.type);
             glfwTerminate();
             return 1;

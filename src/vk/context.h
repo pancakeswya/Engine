@@ -34,13 +34,17 @@ typedef struct VulkanContext {
 
   VkCommandPool cmd_pool;
   VkCommandBuffer* cmd_buffers;
+  uint32_t cmd_buffer_count;
 
-  VkSemaphore image_semaphore;
-  VkSemaphore render_semaphore;
-  VkFence fence;
+  VkSemaphore* image_semaphores;
+  uint32_t image_semaphore_count;
+  VkSemaphore* render_semaphores;
+  uint32_t render_semaphore_count;
+  VkFence* fences;
+  uint32_t fences_count;
 } VulkanContext;
 
-Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window);
+Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, uint32_t frames);
 void VulkanContextDestroy(VulkanContext* context);
 
 #endif  // VK_CONTEXT_H_

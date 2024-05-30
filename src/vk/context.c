@@ -23,10 +23,12 @@ typedef struct SurfaceSupportDetails {
 static const char* kDeviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 static const uint32_t kDeviceExtensionsCount =
     sizeof(kDeviceExtensions) / sizeof(const char*);
+
 static const VkDynamicState kPipelineDynamicStates[] = {
     VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 static const uint32_t kPipelineDynamicStatesCount =
     sizeof(kPipelineDynamicStates) / sizeof(VkDynamicState);
+
 #ifdef DEBUG
 static const char* kLayers[] = {"VK_LAYER_KHRONOS_validation"};
 static const uint32_t kLayersCount = sizeof(kLayers) / sizeof(const char*);
@@ -55,7 +57,7 @@ static Error messengerCreate(VkInstance instance,
                        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
         .pfnUserCallback = messengerCallback};
-    return kErrorSuccess;
+    return kSuccess;
   }
   createMessengerFn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkCreateDebugUtilsMessengerEXT");
@@ -73,7 +75,7 @@ static Error messengerCreate(VkInstance instance,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error layersSupport(void) {
@@ -107,7 +109,7 @@ static Error layersSupport(void) {
     }
   }
   free(available_layers);
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 #endif
@@ -141,7 +143,7 @@ static Error getInstanceExtensions(const char*** extensions, uint32_t* count) {
   static const char* kDebugUtilsExt = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
   (*extensions)[glfw_ext_count] = kDebugUtilsExt;
 #endif
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error deviceExtensionsSupport(VkPhysicalDevice device,
@@ -176,7 +178,7 @@ static Error deviceExtensionsSupport(VkPhysicalDevice device,
     }
   }
   free(available_extensions);
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error SurfaceSupport(VkPhysicalDevice device,
@@ -237,7 +239,7 @@ static Error SurfaceSupport(VkPhysicalDevice device,
                               .formats_count = formats_count,
                               .present_modes = present_modes,
                               .present_modes_count = present_modes_count};
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error findQueueFamilyIndices(VkPhysicalDevice device,
@@ -276,13 +278,13 @@ static Error findQueueFamilyIndices(VkPhysicalDevice device,
     if (graphics_found && present_found) {
       bool ext_support;
       Error err = deviceExtensionsSupport(device, &ext_support);
-      if (!ErrorEqual(err, kErrorSuccess)) {
+      if (!ErrorEqual(err, kSuccess)) {
         free(families);
         return err;
       }
       if (ext_support) {
         err = SurfaceSupport(device, surface, details);
-        if (!ErrorEqual(err, kErrorSuccess)) {
+        if (!ErrorEqual(err, kSuccess)) {
           free(families);
           return err;
         }
@@ -296,7 +298,7 @@ static Error findQueueFamilyIndices(VkPhysicalDevice device,
     }
   }
   free(families);
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createPhysicalDevice(VkInstance instance,
@@ -326,7 +328,7 @@ static Error createPhysicalDevice(VkInstance instance,
     bool found = false;
     const Error err =
         findQueueFamilyIndices(devices[i], surface, indices, details, &found);
-    if (!ErrorEqual(err, kErrorSuccess)) {
+    if (!ErrorEqual(err, kSuccess)) {
       free(devices);
       return err;
     }
@@ -335,7 +337,7 @@ static Error createPhysicalDevice(VkInstance instance,
     }
   }
   free(devices);
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createLogicalDevice(VkPhysicalDevice physical_device,
@@ -379,7 +381,7 @@ static Error createLogicalDevice(VkPhysicalDevice physical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error instanceCreate(
@@ -388,7 +390,7 @@ static Error instanceCreate(
   Error err;
 #ifdef DEBUG
   err = layersSupport();
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
 #else
@@ -404,7 +406,7 @@ static Error instanceCreate(
   uint32_t ext_count;
   const char** ext;
   err = getInstanceExtensions(&ext, &ext_count);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
   const VkInstanceCreateInfo create_info = {
@@ -423,7 +425,7 @@ static Error instanceCreate(
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static VkSurfaceFormatKHR chooseSwapSurfaceFormat(
@@ -520,7 +522,7 @@ static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
   *extent_ptr = extent;
   *format_ptr = format;
 
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createImages(VkDevice logical_device,
@@ -544,7 +546,7 @@ static Error createImages(VkDevice logical_device,
   }
   *images_ptr = images;
   *image_count_ptr = image_count;
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createRenderPass(VkDevice logical_device,
@@ -576,7 +578,7 @@ static Error createRenderPass(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createPipelineLayout(VkDevice logical_device,
@@ -590,7 +592,7 @@ static Error createPipelineLayout(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createShaderModule(VkDevice logical_device, const char* path,
@@ -598,7 +600,7 @@ static Error createShaderModule(VkDevice logical_device, const char* path,
   size_t read = 0;
   char* code = NULL;
   const Error err = ReadFile(path, &code, &read);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
   const VkShaderModuleCreateInfo create_info = {
@@ -611,7 +613,7 @@ static Error createShaderModule(VkDevice logical_device, const char* path,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createPipeline(VkDevice logical_device,
@@ -622,12 +624,12 @@ static Error createPipeline(VkDevice logical_device,
   VkShaderModule frag_shader_module = VK_NULL_HANDLE;
   Error err = createShaderModule(logical_device, "shaders/vert.spv",
                                  &vert_shader_module);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
   err = createShaderModule(logical_device, "shaders/frag.spv",
                            &frag_shader_module);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     vkDestroyShaderModule(logical_device, vert_shader_module, NULL);
     return err;
   }
@@ -709,7 +711,7 @@ static Error createPipeline(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createCmdPool(VkDevice logical_device,
@@ -724,13 +726,14 @@ static Error createCmdPool(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createCmdBuffers(VkDevice logical_device,
                               VkCommandPool cmd_pool,
                               const uint32_t count,
-                              VkCommandBuffer** cmd_buffers_ptr) {
+                              VkCommandBuffer** cmd_buffers_ptr,
+                              uint32_t* cmd_buffer_count) {
   const VkCommandBufferAllocateInfo alloc_info = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
       .commandPool = cmd_pool,
@@ -745,7 +748,9 @@ static Error createCmdBuffers(VkDevice logical_device,
     return VulkanErrorCreate(vk_res);
   }
   *cmd_buffers_ptr = cmd_buffers;
-  return kErrorSuccess;
+  *cmd_buffer_count = count;
+
+  return kSuccess;
 }
 
 static Error createImageView(VkDevice logical_device, VkImage image,
@@ -769,7 +774,7 @@ static Error createImageView(VkDevice logical_device, VkImage image,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createImageViews(VkDevice logical_device,
@@ -784,15 +789,15 @@ static Error createImageViews(VkDevice logical_device,
   }
   for (uint32_t i = 0; i < image_count; ++i) {
     const Error err =
-        createImageView(logical_device, images[i], format, &image_views[i]);
-    if (!ErrorEqual(err, kErrorSuccess)) {
+        createImageView(logical_device, images[i], format, image_views + i);
+    if (!ErrorEqual(err, kSuccess)) {
       free(image_views);
       return err;
     }
   }
   *image_views_ptr = image_views;
   *image_view_count_ptr = image_count;
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createFramebuffer(VkDevice logical_device,
@@ -812,7 +817,7 @@ static Error createFramebuffer(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createFramebuffers(VkDevice logical_device,
@@ -829,15 +834,15 @@ static Error createFramebuffers(VkDevice logical_device,
   }
   for (uint32_t i = 0; i < image_view_count; ++i) {
     const Error err = createFramebuffer(
-        logical_device, render_pass, image_views[i], extent, &framebuffers[i]);
-    if (!ErrorEqual(err, kErrorSuccess)) {
+        logical_device, render_pass, image_views[i], extent, framebuffers + i);
+    if (!ErrorEqual(err, kSuccess)) {
       free(framebuffers);
       return err;
     }
   }
   *framebuffers_ptr = framebuffers;
   *framebuffers_count_ptr = image_view_count;
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createSemaphore(VkDevice logical_device,
@@ -849,7 +854,7 @@ static Error createSemaphore(VkDevice logical_device,
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 static Error createFence(VkDevice logical_device, VkFence* fence) {
@@ -861,27 +866,73 @@ static Error createFence(VkDevice logical_device, VkFence* fence) {
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
-Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
+static Error createSemaphores(
+  VkDevice logical_device,
+  const uint32_t count,
+  VkSemaphore** semaphores_ptr,
+  uint32_t* semaphore_count_ptr
+) {
+  VkSemaphore* semaphores = (VkSemaphore*)malloc(count * sizeof(VkSemaphore));
+  if (semaphores == NULL) {
+    return StdErrorCreate(kStdErrorOutOfMemory);
+  }
+  for(size_t i = 0; i < count; ++i) {
+    const Error err = createSemaphore(logical_device, semaphores + i);
+    if (!ErrorEqual(err, kSuccess)) {
+      free(semaphores);
+      return err;
+    }
+  }
+  *semaphores_ptr = semaphores;
+  *semaphore_count_ptr = count;
+
+  return kSuccess;
+}
+
+static Error createFences(
+  VkDevice logical_device,
+  const uint32_t count,
+  VkFence** fences_ptr,
+  uint32_t* fence_count_ptr
+) {
+  VkFence* fences = (VkFence*)malloc(count * sizeof(VkFence));
+  if (fences == NULL) {
+    return StdErrorCreate(kStdErrorOutOfMemory);
+  }
+  for(size_t i = 0; i < count; ++i) {
+    const Error err = createFence(logical_device, fences + i);
+    if (!ErrorEqual(err, kSuccess)) {
+      free(fences);
+      return err;
+    }
+  }
+  *fences_ptr = fences;
+  *fence_count_ptr = count;
+
+  return kSuccess;
+}
+
+Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint32_t frames) {
   Error err;
   VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
 #ifdef DEBUG
   err = messengerCreate(NULL, &messenger_create_info, NULL);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
 #endif
   err = instanceCreate(&context->instance, &messenger_create_info);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
 #ifdef DEBUG
   err = messengerCreate(context->instance, &messenger_create_info,
                         &context->messenger);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
@@ -896,13 +947,13 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
   SurfaceSupportDetails details = {0};
   err = createPhysicalDevice(context->instance, context->surface,
                              &context->physical_device, &indices, &details);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createLogicalDevice(context->physical_device, &indices,
                             &context->logical_device);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     freeSurfaceSupportDetails(&details);
     VulkanContextDestroy(context);
     return err;
@@ -915,38 +966,38 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
                         &indices, &details, &context->extent, &context->format,
                         &context->swapchain);
   freeSurfaceSupportDetails(&details);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createImages(context->logical_device, context->swapchain,
                      &context->images, &context->image_count);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createImageViews(context->logical_device, context->images,
                          context->image_count, context->format,
                          &context->image_views, &context->image_view_count);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createRenderPass(context->logical_device, context->format,
                          &context->render_pass);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err =
       createPipelineLayout(context->logical_device, &context->pipeline_layout);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createPipeline(context->logical_device, context->pipeline_layout,
                        context->render_pass, &context->pipeline);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
@@ -954,52 +1005,65 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window) {
                            context->image_views, context->image_view_count,
                            context->extent, &context->framebuffers,
                            &context->framebuffer_count);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
   err = createCmdPool(context->logical_device, &indices, &context->cmd_pool);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  err = createCmdBuffers(context->logical_device, context->cmd_pool, 1,
-                         &context->cmd_buffers);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  err = createCmdBuffers(context->logical_device, context->cmd_pool, frames,
+                         &context->cmd_buffers, &context->cmd_buffer_count);
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  err = createSemaphore(context->logical_device, &context->image_semaphore);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  err = createSemaphores(context->logical_device, frames,
+                         &context->image_semaphores,&context->image_semaphore_count);
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  err = createSemaphore(context->logical_device, &context->render_semaphore);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  err = createSemaphores(context->logical_device, frames,
+                         &context->render_semaphores,&context->render_semaphore_count);
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  err = createFence(context->logical_device, &context->fence);
-  if (!ErrorEqual(err, kErrorSuccess)) {
+  err = createFences(context->logical_device, frames,
+                     &context->fences,&context->fences_count);
+  if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  return kErrorSuccess;
+  return kSuccess;
 }
 
 void VulkanContextDestroy(VulkanContext* context) {
-  if (context->fence != VK_NULL_HANDLE) {
-    vkDestroyFence(context->logical_device, context->fence, NULL);
+  if (context->fences != NULL) {
+    for(size_t i = 0; i < context->fences_count; ++i) {
+      vkDestroyFence(context->logical_device, context->fences[i], NULL);
+    }
+    free(context->fences);
   }
-  if (context->render_semaphore != VK_NULL_HANDLE) {
-    vkDestroySemaphore(context->logical_device, context->render_semaphore,
+  if (context->render_semaphores != NULL) {
+    for(size_t i = 0; i < context->render_semaphore_count; ++i) {
+      vkDestroySemaphore(context->logical_device, context->render_semaphores[i],
+                         NULL);
+    }
+    free(context->render_semaphores);
+  }
+  if (context->image_semaphores != NULL) {
+    for(size_t i = 0; i < context->image_semaphore_count; ++i) {
+      vkDestroySemaphore(context->logical_device, context->image_semaphores[i],
                        NULL);
-  }
-  if (context->image_semaphore != VK_NULL_HANDLE) {
-    vkDestroySemaphore(context->logical_device, context->image_semaphore, NULL);
+    }
+    free(context->image_semaphores);
   }
   if (context->cmd_buffers != NULL) {
-    vkFreeCommandBuffers(context->logical_device, context->cmd_pool, 1,
+    vkFreeCommandBuffers(context->logical_device, context->cmd_pool, context->cmd_buffer_count,
                          context->cmd_buffers);
     free(context->cmd_buffers);
   }
