@@ -8,18 +8,6 @@
 
 #include "base/io.h"
 
-typedef struct QueueFamilyIndices {
-  uint32_t graphics, present;
-} QueueFamilyIndices;
-
-typedef struct SurfaceSupportDetails {
-  VkSurfaceCapabilitiesKHR capabilities;
-  VkSurfaceFormatKHR* formats;
-  uint32_t formats_count;
-  VkPresentModeKHR* present_modes;
-  uint32_t present_modes_count;
-} SurfaceSupportDetails;
-
 static const char* kDeviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 static const uint32_t kDeviceExtensionsCount =
     sizeof(kDeviceExtensions) / sizeof(const char*);
@@ -472,7 +460,9 @@ static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
                              QueueFamilyIndices* indices,
                              SurfaceSupportDetails* details,
                              VkExtent2D* extent_ptr, VkFormat* format_ptr,
-                             VkSwapchainKHR* swapchain) {
+                             VkSwapchainKHR* swapchain,
+                             VkImage** images_ptr,
+                             uint32_t* image_count_ptr) {
   const VkSurfaceFormatKHR surface_format =
       chooseSwapSurfaceFormat(details->formats, details->formats_count);
   const VkPresentModeKHR present_mode = chooseSwapPresentMode(
@@ -514,23 +504,11 @@ static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
 
   create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  const VkResult vk_res =
-      vkCreateSwapchainKHR(logical_device, &create_info, NULL, swapchain);
+  VkResult vk_res = vkCreateSwapchainKHR(logical_device, &create_info, NULL, swapchain);
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  *extent_ptr = extent;
-  *format_ptr = format;
-
-  return kSuccess;
-}
-
-static Error createImages(VkDevice logical_device,
-                          VkSwapchainKHR swapchain, VkImage** images_ptr,
-                          uint32_t* image_count_ptr) {
-  uint32_t image_count = 0;
-  VkResult vk_res =
-      vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, NULL);
+  vk_res = vkGetSwapchainImagesKHR(logical_device, *swapchain, &image_count, NULL);
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
@@ -538,14 +516,16 @@ static Error createImages(VkDevice logical_device,
   if (images == NULL) {
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
-  vk_res =
-      vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, images);
+  vk_res = vkGetSwapchainImagesKHR(logical_device, *swapchain, &image_count, images);
   if (vk_res != VK_SUCCESS) {
     free(images);
     return VulkanErrorCreate(vk_res);
   }
   *images_ptr = images;
   *image_count_ptr = image_count;
+  *extent_ptr = extent;
+  *format_ptr = format;
+
   return kSuccess;
 }
 
@@ -915,6 +895,60 @@ static Error createFences(
   return kSuccess;
 }
 
+static void destroySwapchain(VulkanContext* context) {
+  if (context->framebuffers != NULL) {
+    for (size_t i = 0; i < context->framebuffer_count; ++i) {
+      vkDestroyFramebuffer(context->logical_device, context->framebuffers[i],
+                           NULL);
+    }
+    free(context->framebuffers);
+  }
+  if (context->image_views != NULL) {
+    for (size_t i = 0; i < context->image_view_count; ++i) {
+      vkDestroyImageView(context->logical_device, context->image_views[i],
+                         NULL);
+    }
+    free(context->image_views);
+  }
+  if (context->images != NULL) {
+    free(context->images);
+  }
+  if (context->swapchain != VK_NULL_HANDLE) {
+    vkDestroySwapchainKHR(context->logical_device, context->swapchain, NULL);
+  }
+}
+
+Error VulkanContextRecreateSwapchain(VulkanContext* context, GLFWwindow* window) {
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(window, &width, &height);
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window, &width, &height);
+    glfwWaitEvents();
+  }
+  vkDeviceWaitIdle(context->logical_device);
+  destroySwapchain(context);
+  Error err = createSwapchain(window, context->logical_device, context->surface,
+                       &context->indices, &context->support_details, &context->extent, &context->format,
+                       &context->swapchain, &context->images, &context->image_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    return err;
+  }
+  err = createImageViews(context->logical_device, context->images,
+                           context->image_count, context->format,
+                           &context->image_views, &context->image_view_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    return err;
+  }
+  err = createFramebuffers(context->logical_device, context->render_pass,
+                           context->image_views, context->image_view_count,
+                           context->extent, &context->framebuffers,
+                           &context->framebuffer_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    return err;
+  }
+  return kSuccess;
+}
+
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint32_t frames) {
   Error err;
   VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
@@ -943,35 +977,25 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint
     VulkanContextDestroy(context);
     return VulkanErrorCreate(vk_res);
   }
-  QueueFamilyIndices indices = {0};
-  SurfaceSupportDetails details = {0};
   err = createPhysicalDevice(context->instance, context->surface,
-                             &context->physical_device, &indices, &details);
+                             &context->physical_device, &context->indices, &context->support_details);
   if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
   }
-  err = createLogicalDevice(context->physical_device, &indices,
+  err = createLogicalDevice(context->physical_device, &context->indices,
                             &context->logical_device);
   if (!ErrorEqual(err, kSuccess)) {
-    freeSurfaceSupportDetails(&details);
     VulkanContextDestroy(context);
     return err;
   }
-  vkGetDeviceQueue(context->logical_device, indices.graphics, 0,
+  vkGetDeviceQueue(context->logical_device, context->indices.graphics, 0,
                    &context->graphics_queue);
-  vkGetDeviceQueue(context->logical_device, indices.present, 0,
+  vkGetDeviceQueue(context->logical_device, context->indices.present, 0,
                    &context->present_queue);
   err = createSwapchain(window, context->logical_device, context->surface,
-                        &indices, &details, &context->extent, &context->format,
-                        &context->swapchain);
-  freeSurfaceSupportDetails(&details);
-  if (!ErrorEqual(err, kSuccess)) {
-    VulkanContextDestroy(context);
-    return err;
-  }
-  err = createImages(context->logical_device, context->swapchain,
-                     &context->images, &context->image_count);
+                        &context->indices, &context->support_details, &context->extent, &context->format,
+                        &context->swapchain, &context->images, &context->image_count);
   if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
@@ -1009,7 +1033,7 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint
     VulkanContextDestroy(context);
     return err;
   }
-  err = createCmdPool(context->logical_device, &indices, &context->cmd_pool);
+  err = createCmdPool(context->logical_device, &context->indices, &context->cmd_pool);
   if (!ErrorEqual(err, kSuccess)) {
     VulkanContextDestroy(context);
     return err;
@@ -1042,6 +1066,17 @@ Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint
 }
 
 void VulkanContextDestroy(VulkanContext* context) {
+  destroySwapchain(context);
+  if (context->pipeline != VK_NULL_HANDLE) {
+    vkDestroyPipeline(context->logical_device, context->pipeline, NULL);
+  }
+  if (context->pipeline_layout != VK_NULL_HANDLE) {
+    vkDestroyPipelineLayout(context->logical_device, context->pipeline_layout,
+                            NULL);
+  }
+  if (context->render_pass != VK_NULL_HANDLE) {
+    vkDestroyRenderPass(context->logical_device, context->render_pass, NULL);
+  }
   if (context->fences != NULL) {
     for(size_t i = 0; i < context->fences_count; ++i) {
       vkDestroyFence(context->logical_device, context->fences[i], NULL);
@@ -1070,36 +1105,7 @@ void VulkanContextDestroy(VulkanContext* context) {
   if (context->cmd_pool != VK_NULL_HANDLE) {
     vkDestroyCommandPool(context->logical_device, context->cmd_pool, NULL);
   }
-  if (context->framebuffers != NULL) {
-    for (size_t i = 0; i < context->framebuffer_count; ++i) {
-      vkDestroyFramebuffer(context->logical_device, context->framebuffers[i],
-                           NULL);
-    }
-    free(context->framebuffers);
-  }
-  if (context->pipeline != VK_NULL_HANDLE) {
-    vkDestroyPipeline(context->logical_device, context->pipeline, NULL);
-  }
-  if (context->pipeline_layout != VK_NULL_HANDLE) {
-    vkDestroyPipelineLayout(context->logical_device, context->pipeline_layout,
-                            NULL);
-  }
-  if (context->render_pass != VK_NULL_HANDLE) {
-    vkDestroyRenderPass(context->logical_device, context->render_pass, NULL);
-  }
-  if (context->image_views != NULL) {
-    for (size_t i = 0; i < context->image_view_count; ++i) {
-      vkDestroyImageView(context->logical_device, context->image_views[i],
-                         NULL);
-    }
-    free(context->image_views);
-  }
-  if (context->images != NULL) {
-    free(context->images);
-  }
-  if (context->swapchain != VK_NULL_HANDLE) {
-    vkDestroySwapchainKHR(context->logical_device, context->swapchain, NULL);
-  }
+  freeSurfaceSupportDetails(&context->support_details);
   if (context->logical_device != VK_NULL_HANDLE) {
     vkDestroyDevice(context->logical_device, NULL);
   }
@@ -1111,8 +1117,7 @@ void VulkanContextDestroy(VulkanContext* context) {
   if (context->surface != VK_NULL_HANDLE) {
     vkDestroySurfaceKHR(context->instance, context->surface, NULL);
   }
-  if (context->instance == VK_NULL_HANDLE) {
-    return;
+  if (context->instance != VK_NULL_HANDLE) {
+    vkDestroyInstance(context->instance, NULL);
   }
-  vkDestroyInstance(context->instance, NULL);
 }

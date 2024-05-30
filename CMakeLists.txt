@@ -20,4 +20,4 @@ add_executable(untitled7
 
 target_link_libraries(untitled7 Vulkan::Vulkan glfw)
 
-#add_compile_definitions(DEBUG)
+add_compile_definitions(DEBUG)

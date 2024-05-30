@@ -6,6 +6,18 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+typedef struct SurfaceSupportDetails {
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR* formats;
+  uint32_t formats_count;
+  VkPresentModeKHR* present_modes;
+  uint32_t present_modes_count;
+} SurfaceSupportDetails;
+
+typedef struct QueueFamilyIndices {
+  uint32_t graphics, present;
+} QueueFamilyIndices;
+
 typedef struct VulkanContext {
   VkInstance instance;
 #ifdef DEBUG
@@ -42,9 +54,13 @@ typedef struct VulkanContext {
   uint32_t render_semaphore_count;
   VkFence* fences;
   uint32_t fences_count;
+
+  SurfaceSupportDetails support_details;
+  QueueFamilyIndices indices;
 } VulkanContext;
 
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, uint32_t frames);
+Error VulkanContextRecreateSwapchain(VulkanContext* context, GLFWwindow* window);
 void VulkanContextDestroy(VulkanContext* context);
 
 #endif  // VK_CONTEXT_H_
