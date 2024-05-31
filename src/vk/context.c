@@ -1,7 +1,9 @@
 #include "vk/context.h"\
 
+#ifdef DEBUG
 #include <stdbool.h>
 #include <stdio.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
