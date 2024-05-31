@@ -8,7 +8,7 @@ static const VkDynamicState kPipelineDynamicStates[] = {
 static const uint32_t kPipelineDynamicStatesCount =
     sizeof(kPipelineDynamicStates) / sizeof(VkDynamicState);
 
-static Error createRenderPass(VkDevice logical_device,
+static Error renderPassCreate(VkDevice logical_device,
                               VkFormat format,
                               VkRenderPass* render_pass) {
   const VkAttachmentDescription color_attachment = {
@@ -40,7 +40,7 @@ static Error createRenderPass(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createPipelineLayout(VkDevice logical_device,
+static Error pipelineLayoutCreate(VkDevice logical_device,
                                   VkPipelineLayout* pipeline_layout) {
   const VkPipelineLayoutCreateInfo pipeline_layout_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -54,7 +54,7 @@ static Error createPipelineLayout(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createShaderModule(VkDevice logical_device, const char* path,
+static Error shaderModuleCreate(VkDevice logical_device, const char* path,
                                 VkShaderModule* module) {
   size_t read = 0;
   char* code = NULL;
@@ -75,18 +75,18 @@ static Error createShaderModule(VkDevice logical_device, const char* path,
   return kSuccess;
 }
 
-static Error createPipeline(VkDevice logical_device,
+static Error pipelineCreate(VkDevice logical_device,
                             VkPipelineLayout pipeline_layout,
                             VkRenderPass render_pass,
                             VkPipeline* pipeline) {
   VkShaderModule vert_shader_module = VK_NULL_HANDLE;
   VkShaderModule frag_shader_module = VK_NULL_HANDLE;
-  Error err = createShaderModule(logical_device, "shaders/vert.spv",
+  Error err = shaderModuleCreate(logical_device, "shaders/vert.spv",
                                  &vert_shader_module);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = createShaderModule(logical_device, "shaders/frag.spv",
+  err = shaderModuleCreate(logical_device, "shaders/frag.spv",
                            &frag_shader_module);
   if (!ErrorEqual(err, kSuccess)) {
     vkDestroyShaderModule(logical_device, vert_shader_module, NULL);
@@ -174,16 +174,16 @@ static Error createPipeline(VkDevice logical_device,
 }
 
 Error VulkanRenderCreate(VkDevice logical_device, VkFormat format, VulkanRender* render) {
-  Error err = createRenderPass(logical_device, format, &render->pass);
+  Error err = renderPassCreate(logical_device, format, &render->pass);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = createPipelineLayout(logical_device, &render->pipeline_layout);
+  err = pipelineLayoutCreate(logical_device, &render->pipeline_layout);
   if (!ErrorEqual(err, kSuccess)) {
     vkDestroyRenderPass(logical_device, render->pass, NULL);
     return err;
   }
-  err = createPipeline(logical_device, render->pipeline_layout,
+  err = pipelineCreate(logical_device, render->pipeline_layout,
                        render->pass, &render->pipeline);
   if (!ErrorEqual(err, kSuccess)) {
     vkDestroyPipelineLayout(logical_device, render->pipeline_layout, NULL);

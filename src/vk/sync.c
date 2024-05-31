@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-static inline Error createSemaphore(VkDevice logical_device,
+static inline Error semaphoreCreate(VkDevice logical_device,
                              VkSemaphore* semaphore) {
   const VkSemaphoreCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -14,7 +14,7 @@ static inline Error createSemaphore(VkDevice logical_device,
   return kSuccess;
 }
 
-static inline Error createFence(VkDevice logical_device, VkFence* fence) {
+static inline Error fenceCreate(VkDevice logical_device, VkFence* fence) {
   const VkFenceCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
       .flags = VK_FENCE_CREATE_SIGNALED_BIT};
@@ -26,7 +26,7 @@ static inline Error createFence(VkDevice logical_device, VkFence* fence) {
   return kSuccess;
 }
 
-static Error createSemaphores(
+static Error semaphoresCreate(
     VkDevice logical_device,
     const uint32_t count,
     VkSemaphore** semaphores_ptr,
@@ -37,7 +37,7 @@ static Error createSemaphores(
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for(size_t i = 0; i < count; ++i) {
-    const Error err = createSemaphore(logical_device, semaphores + i);
+    const Error err = semaphoreCreate(logical_device, semaphores + i);
     if (!ErrorEqual(err, kSuccess)) {
       free(semaphores);
       return err;
@@ -49,7 +49,7 @@ static Error createSemaphores(
   return kSuccess;
 }
 
-static Error createFences(
+static Error fencesCreate(
     VkDevice logical_device,
     const uint32_t count,
     VkFence** fences_ptr,
@@ -60,7 +60,7 @@ static Error createFences(
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for(size_t i = 0; i < count; ++i) {
-    const Error err = createFence(logical_device, fences + i);
+    const Error err = fenceCreate(logical_device, fences + i);
     if (!ErrorEqual(err, kSuccess)) {
       free(fences);
       return err;
@@ -72,7 +72,7 @@ static Error createFences(
   return kSuccess;
 }
 
-static inline void destroySemaphores(VkDevice logical_device, VkSemaphore* semaphores, const uint32_t semaphore_count) {
+static inline void semaphoresDestroy(VkDevice logical_device, VkSemaphore* semaphores, const uint32_t semaphore_count) {
   if (semaphores == NULL) {
     return;
   }
@@ -82,7 +82,7 @@ static inline void destroySemaphores(VkDevice logical_device, VkSemaphore* semap
   free(semaphores);
 }
 
-static inline void destroyFences(VkDevice logical_device, VkFence* fences, const uint32_t fence_count) {
+static inline void fencesDestroy(VkDevice logical_device, VkFence* fences, const uint32_t fence_count) {
   if (fences == NULL) {
     return;
   }
@@ -92,27 +92,27 @@ static inline void destroyFences(VkDevice logical_device, VkFence* fences, const
   free(fences);
 }
 
-Error VulkanSyncObjectsCreate(VkDevice logical_device, const uint32_t count, VulkanSyncObjects* sync) {
-  Error err = createSemaphores(logical_device, count, &sync->image_semaphores, &sync->image_semaphore_count);
+Error VulkanSyncCreate(VkDevice logical_device, const uint32_t count, VulkanSync* sync) {
+  Error err = semaphoresCreate(logical_device, count, &sync->image_semaphores, &sync->image_semaphore_count);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = createSemaphores(logical_device, count, &sync->render_semaphores, &sync->render_semaphore_count);
+  err = semaphoresCreate(logical_device, count, &sync->render_semaphores, &sync->render_semaphore_count);
   if (!ErrorEqual(err, kSuccess)) {
-    destroySemaphores(logical_device, sync->image_semaphores, sync->image_semaphore_count);
+    semaphoresDestroy(logical_device, sync->image_semaphores, sync->image_semaphore_count);
     return err;
   }
-  err = createFences(logical_device, count, &sync->fences, &sync->fence_count);
+  err = fencesCreate(logical_device, count, &sync->fences, &sync->fence_count);
   if (!ErrorEqual(err, kSuccess)) {
-    destroySemaphores(logical_device, sync->image_semaphores, sync->image_semaphore_count);
-    destroySemaphores(logical_device, sync->render_semaphores, sync->render_semaphore_count);
+    semaphoresDestroy(logical_device, sync->render_semaphores, sync->render_semaphore_count);
+    semaphoresDestroy(logical_device, sync->image_semaphores, sync->image_semaphore_count);
     return err;
   }
   return kSuccess;
 }
 
-void VulkanSyncObjectDestroy(VkDevice logical_device, VulkanSyncObjects* sync) {
-  destroyFences(logical_device, sync->fences, sync->render_semaphore_count);
-  destroySemaphores(logical_device, sync->render_semaphores, sync->render_semaphore_count);
-  destroySemaphores(logical_device, sync->image_semaphores, sync->image_semaphore_count);
+void VulkanSyncDestroy(VkDevice logical_device, VulkanSync* sync) {
+  fencesDestroy(logical_device, sync->fences, sync->render_semaphore_count);
+  semaphoresDestroy(logical_device, sync->render_semaphores, sync->render_semaphore_count);
+  semaphoresDestroy(logical_device, sync->image_semaphores, sync->image_semaphore_count);
 }

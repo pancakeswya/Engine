@@ -49,57 +49,10 @@ static VkExtent2D chooseSwapExtent(
   return actual_extent;
 }
 
-static Error createSwapchainBase(VkDevice logical_device,
-                                 VkSurfaceKHR surface,
-                                 const VulkanDeviceInfo* info,
-                                 int width, int height,
-                                 VulkanSwapchainBase* swapchain_base) {
-  const VulkanSurfaceSupportDetails* details = &info->support_details;
-  const VulkanQueueFamilyIndices* indices =  &info->indices;
-  const VkSurfaceFormatKHR surface_format = chooseSwapSurfaceFormat(details->formats, details->formats_count);
-  const VkPresentModeKHR present_mode = chooseSwapPresentMode(details->present_modes, details->present_modes_count);
-  const VkExtent2D extent = chooseSwapExtent(&details->capabilities, width, height);
-  const VkFormat format = surface_format.format;
 
-  uint32_t image_count = details->capabilities.minImageCount + 1;
-  if (details->capabilities.maxImageCount > 0 &&
-      image_count > details->capabilities.maxImageCount) {
-    image_count = details->capabilities.maxImageCount;
-  }
-
-  VkSwapchainCreateInfoKHR create_info = {
-      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-      .surface = surface,
-      .minImageCount = image_count,
-      .imageFormat = surface_format.format,
-      .imageColorSpace = surface_format.colorSpace,
-      .imageExtent = extent,
-      .imageArrayLayers = 1,
-      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-  };
-  const uint32_t queue_family_indices[] = {indices->graphics, indices->present};
-
-  if (indices->graphics != indices->present) {
-    create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    create_info.queueFamilyIndexCount = 2;
-    create_info.pQueueFamilyIndices = queue_family_indices;
-  } else {
-    create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  }
-
-  create_info.preTransform = details->capabilities.currentTransform;
-  create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  create_info.presentMode = present_mode;
-  create_info.clipped = VK_TRUE;
-
-  create_info.oldSwapchain = VK_NULL_HANDLE;
-
-  VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-  VkResult vk_res = vkCreateSwapchainKHR(logical_device, &create_info, NULL, &swapchain);
-  if (vk_res != VK_SUCCESS) {
-    return VulkanErrorCreate(vk_res);
-  }
-  vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, NULL);
+static Error imagesCreate(VkDevice logical_device, VulkanSwapchain* swapchain, VkImage** images_ptr, uint32_t* image_count_ptr) {
+  uint32_t image_count = 0;
+  VkResult vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain->swapchain, &image_count, NULL);
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
@@ -107,22 +60,17 @@ static Error createSwapchainBase(VkDevice logical_device,
   if (images == NULL) {
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
-  vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, images);
+  vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain->swapchain, &image_count, images);
   if (vk_res != VK_SUCCESS) {
     free(images);
     return VulkanErrorCreate(vk_res);
   }
-  *swapchain_base = (VulkanSwapchainBase) {
-      .swapchain = swapchain,
-      .images = images,
-      .image_count = image_count,
-      .extent = extent,
-      .format = format
-  };
+  *images_ptr = images;
+  *image_count_ptr = image_count;
   return kSuccess;
 }
 
-static Error createImageView(VkDevice logical_device, VkImage image,
+static Error imageViewCreate(VkDevice logical_device, VkImage image,
                              VkFormat format, VkImageView* view) {
   const VkImageViewCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -146,7 +94,7 @@ static Error createImageView(VkDevice logical_device, VkImage image,
   return kSuccess;
 }
 
-static Error createImageViews(VkDevice logical_device,
+static Error imageViewsCreate(VkDevice logical_device,
                               VkImage* images, const uint32_t image_count,
                               VkFormat format,
                               VkImageView** image_views_ptr,
@@ -157,8 +105,7 @@ static Error createImageViews(VkDevice logical_device,
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for (uint32_t i = 0; i < image_count; ++i) {
-    const Error err =
-        createImageView(logical_device, images[i], format, image_views + i);
+    const Error err = imageViewCreate(logical_device, images[i], format, image_views + i);
     if (!ErrorEqual(err, kSuccess)) {
       free(image_views);
       return err;
@@ -169,7 +116,7 @@ static Error createImageViews(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createFramebuffer(VkDevice logical_device,
+static Error framebufferCreate(VkDevice logical_device,
                                VkRenderPass render_pass,
                                VkImageView view,
                                const VkExtent2D extent,
@@ -190,7 +137,7 @@ static Error createFramebuffer(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createFramebuffers(VkDevice logical_device,
+static Error framebuffersCreate(VkDevice logical_device,
                                 VkRenderPass render_pass,
                                 VkImageView* image_views,
                                 const uint32_t image_view_count,
@@ -203,7 +150,7 @@ static Error createFramebuffers(VkDevice logical_device,
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
   for (uint32_t i = 0; i < image_view_count; ++i) {
-    const Error err = createFramebuffer(
+    const Error err = framebufferCreate(
         logical_device, render_pass, image_views[i], extent, framebuffers + i);
     if (!ErrorEqual(err, kSuccess)) {
       free(framebuffers);
@@ -215,17 +162,7 @@ static Error createFramebuffers(VkDevice logical_device,
   return kSuccess;
 }
 
-static inline void destroySwapchainBase(VkDevice logical_device, VulkanSwapchainBase* base) {
-  if (base->images != NULL) {
-    free(base->images);
-  }
-  if (base->swapchain != VK_NULL_HANDLE) {
-    return;
-  }
-  vkDestroySwapchainKHR(logical_device, base->swapchain, NULL);
-}
-
-static inline void destroySwapchainImageViews(
+static inline void swapchainImageViewsDestroy(
     VkDevice logical_device,
     VkImageView* image_views,
     const uint32_t image_view_count
@@ -239,7 +176,7 @@ static inline void destroySwapchainImageViews(
   free(image_views);
 }
 
-static inline void destroySwapchainFramebuffers(
+static inline void swapchainFramebuffersDestroy(
   VkDevice logical_device,
   VkFramebuffer* framebuffers,
   const uint32_t framebuffer_count
@@ -255,41 +192,97 @@ static inline void destroySwapchainFramebuffers(
 
 Error VulkanSwapchainCreate(VkDevice logical_device,
                             VkSurfaceKHR surface,
-                            VkRenderPass render_pass,
                             const VulkanDeviceInfo* info,
-                            const int width,
-                            const int height,
+                            int width, int height,
                             VulkanSwapchain* swapchain) {
-  Error err = createSwapchainBase(logical_device,
-                                  surface,
-                                  info,
-                                  width, height,
-                                  &swapchain->base);
-  if (!ErrorEqual(err, kSuccess)) {
-    return err;
+  const VulkanSurfaceSupportDetails* details = &info->support_details;
+  const VulkanQueueFamilyIndices* indices =  &info->indices;
+
+  const VkSurfaceFormatKHR surface_format = chooseSwapSurfaceFormat(details->formats, details->formats_count);
+  const VkPresentModeKHR present_mode = chooseSwapPresentMode(details->present_modes, details->present_modes_count);
+
+  swapchain->extent = chooseSwapExtent(&details->capabilities, width, height);
+  swapchain->format = surface_format.format;
+
+  uint32_t image_count = details->capabilities.minImageCount + 1;
+  if (details->capabilities.maxImageCount > 0 &&
+      image_count > details->capabilities.maxImageCount) {
+    image_count = details->capabilities.maxImageCount;
   }
-  err = createImageViews(logical_device,
-                         swapchain->base.images,
-                         swapchain->base.image_count, swapchain->base.format,
-                         &swapchain->image_views, &swapchain->image_view_count);
-  if (!ErrorEqual(err, kSuccess)) {
-    destroySwapchainBase(logical_device, &swapchain->base);
-    return err;
+
+  VkSwapchainCreateInfoKHR create_info = {
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .surface = surface,
+      .minImageCount = image_count,
+      .imageFormat = surface_format.format,
+      .imageColorSpace = surface_format.colorSpace,
+      .imageExtent = swapchain->extent,
+      .imageArrayLayers = 1,
+      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+  };
+  const uint32_t queue_family_indices[] = {indices->graphics, indices->present};
+
+  if (indices->graphics != indices->present) {
+    create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    create_info.queueFamilyIndexCount = 2;
+    create_info.pQueueFamilyIndices = queue_family_indices;
+  } else {
+    create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   }
-  err = createFramebuffers(logical_device, render_pass,
-                           swapchain->image_views, swapchain->image_view_count,
-                           swapchain->base.extent, &swapchain->framebuffers,
-                           &swapchain->framebuffer_count);
-  if (!ErrorEqual(err, kSuccess)) {
-    destroySwapchainImageViews(logical_device, swapchain->image_views, swapchain->image_view_count);
-    destroySwapchainBase(logical_device, &swapchain->base);
-    return err;
+
+  create_info.preTransform = details->capabilities.currentTransform;
+  create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  create_info.presentMode = present_mode;
+  create_info.clipped = VK_TRUE;
+
+  create_info.oldSwapchain = VK_NULL_HANDLE;
+
+  const VkResult vk_res = vkCreateSwapchainKHR(logical_device, &create_info, NULL, &swapchain->swapchain);
+  if (vk_res != VK_SUCCESS) {
+    return VulkanErrorCreate(vk_res);
   }
   return kSuccess;
 }
 
 void VulkanSwapchainDestroy(VkDevice logical_device, VulkanSwapchain* swapchain) {
-  destroySwapchainFramebuffers(logical_device, swapchain->framebuffers, swapchain->framebuffer_count);
-  destroySwapchainImageViews(logical_device, swapchain->image_views, swapchain->image_view_count);
-  destroySwapchainBase(logical_device, &swapchain->base);
+  if (swapchain->swapchain == VK_NULL_HANDLE) {
+    return;
+  }
+  vkDestroySwapchainKHR(logical_device, swapchain->swapchain, NULL);
+}
+
+Error VulkanSwapchainImagesCreate(VkDevice logical_device,
+                                  VkRenderPass render_pass,
+                                  VulkanSwapchain* swapchain,
+                                  VulkanSwapchainImages* swap_images) {
+  Error err = imagesCreate(logical_device, swapchain, &swap_images->images, &swap_images->image_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    return err;
+  }
+  err = imageViewsCreate(logical_device,
+                         swap_images->images,
+                         swap_images->image_count,
+                         swapchain->format,
+                         &swap_images->views,
+                         &swap_images->view_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    free(swap_images->images);
+    return err;
+  }
+  err = framebuffersCreate(logical_device, render_pass,
+                           swap_images->views, swap_images->view_count,
+                           swapchain->extent, &swap_images->framebuffers,
+                           &swap_images->framebuffer_count);
+  if (!ErrorEqual(err, kSuccess)) {
+    swapchainImageViewsDestroy(logical_device, swap_images->views, swap_images->view_count);
+    free(swap_images->images);
+    return err;
+  }
+  return kSuccess;
+}
+
+void VulkanSwapchainImagesDestroy(VkDevice logical_device, VulkanSwapchainImages* swap_images) {
+  swapchainFramebuffersDestroy(logical_device, swap_images->framebuffers, swap_images->framebuffer_count);
+  swapchainImageViewsDestroy(logical_device, swap_images->views, swap_images->view_count);
+  free(swap_images->images);
 }

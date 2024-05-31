@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-static Error createCmdPool(VkDevice logical_device,
+static Error cmdPoolCreate(VkDevice logical_device,
                            const VulkanQueueFamilyIndices* indices,
                            VkCommandPool* cmd_pool) {
   const VkCommandPoolCreateInfo create_info = {
@@ -18,7 +18,7 @@ static Error createCmdPool(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createCmdBuffers(VkDevice logical_device,
+static Error cmdBuffersCreate(VkDevice logical_device,
                               VkCommandPool cmd_pool,
                               const uint32_t count,
                               VkCommandBuffer** cmd_buffers_ptr,
@@ -47,11 +47,11 @@ Error VulkanCommandCreate(
   VulkanQueueFamilyIndices* indices,
   const uint32_t count,
   VulkanCommand* cmd) {
-  Error err = createCmdPool(logical_device, indices, &cmd->pool);
+  Error err = cmdPoolCreate(logical_device, indices, &cmd->pool);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = createCmdBuffers(logical_device, cmd->pool, count, &cmd->buffers, &cmd->buffer_count);
+  err = cmdBuffersCreate(logical_device, cmd->pool, count, &cmd->buffers, &cmd->buffer_count);
   if (!ErrorEqual(err, kSuccess)) {
     vkDestroyCommandPool(logical_device, cmd->pool, NULL);
     return err;

@@ -164,7 +164,7 @@ static Error deviceIsSuitable(VkPhysicalDevice device,
   return kSuccess;
 }
 
-static Error createPhysicalDevice(VkInstance instance,
+static Error physicalDeviceCreate(VkInstance instance,
                                   VkSurfaceKHR surface,
                                   VkPhysicalDevice* device,
                                   VulkanDeviceInfo* info) {
@@ -206,7 +206,7 @@ static Error createPhysicalDevice(VkInstance instance,
   return kSuccess;
 }
 
-static Error createLogicalDevice(VkPhysicalDevice physical_device,
+static Error logicalDeviceCreate(VkPhysicalDevice physical_device,
                                  const VulkanQueueFamilyIndices* indices,
                                  const char** layers,
                                  const uint32_t layer_count,
@@ -252,7 +252,7 @@ static Error createLogicalDevice(VkPhysicalDevice physical_device,
   return kSuccess;
 }
 
-static inline void destroyDeviceInfo(VulkanDeviceInfo* info) {
+static inline void deviceInfoDestroy(VulkanDeviceInfo* info) {
   free(info->support_details.formats);
   free(info->support_details.present_modes);
 }
@@ -264,14 +264,14 @@ Error VulkanDeviceCreate(
     const uint32_t layer_count,
     VulkanDevice* device
 ) {
-  Error err = createPhysicalDevice(instance, surface, &device->physical, &device->info);
+  Error err = physicalDeviceCreate(instance, surface, &device->physical, &device->info);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
   const VulkanQueueFamilyIndices indices = device->info.indices;
-  err = createLogicalDevice(device->physical, &indices, layers, layer_count, &device->logical);
+  err = logicalDeviceCreate(device->physical, &indices, layers, layer_count, &device->logical);
   if (!ErrorEqual(err, kSuccess)) {
-    destroyDeviceInfo(&device->info);
+    deviceInfoDestroy(&device->info);
     return err;
   }
   vkGetDeviceQueue(device->logical, indices.graphics, 0, &device->graphics_queue);
@@ -285,5 +285,5 @@ void VulkanDeviceDestroy(
   if (device != VK_NULL_HANDLE) {
     vkDestroyDevice(device->logical, NULL);
   }
-  destroyDeviceInfo(&device->info);
+  deviceInfoDestroy(&device->info);
 }

@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-typedef struct VulkanSyncObjects {
+typedef struct VulkanSync {
   VkSemaphore* image_semaphores;
   uint32_t image_semaphore_count;
 
@@ -14,9 +14,9 @@ typedef struct VulkanSyncObjects {
 
   VkFence* fences;
   uint32_t fence_count;
-} VulkanSyncObjects;
+} VulkanSync;
 
-extern Error VulkanSyncObjectsCreate(VkDevice logical_device, uint32_t count, VulkanSyncObjects* sync);
-extern void VulkanSyncObjectDestroy(VkDevice logical_device, VulkanSyncObjects* sync);
+extern Error VulkanSyncCreate(VkDevice logical_device, uint32_t count, VulkanSync* sync);
+extern void VulkanSyncDestroy(VkDevice logical_device, VulkanSync* sync);
 
 #endif // VK_SYNC_H_

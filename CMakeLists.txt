@@ -26,7 +26,9 @@ add_executable(untitled7
         src/vk/command.h
         src/vk/command.c
         src/vk/render.h
-        src/vk/render.c)
+        src/vk/render.c
+        src/app/app.h
+        src/app/app.c)
 
 target_link_libraries(untitled7 Vulkan::Vulkan glfw)
 

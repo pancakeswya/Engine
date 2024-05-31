@@ -2,11 +2,13 @@
 #define ERROR_H_
 
 #include <vulkan/vulkan.h>
+#include <stdlib.h>
 
 typedef enum GlfwError {
   kGlfwSuccess = 0,
-  kErrorInit,
-  kErrorVulkanExt,
+  kGlfwErrorInit,
+  kGlfwErrorWindowCreate,
+  kGlfwErrorVulkanExt,
 } GlfwError;
 
 typedef enum StdError {
@@ -50,5 +52,6 @@ static inline int ErrorEqual(const Error err1, const Error err2) {
 #define AppErrorCreate(err) (Error){.code.app = err, .type = kErrorTypeApp}
 #define VulkanErrorCreate(err) (Error){.code.vulkan = err, .type = kErrorTypeVulkan}
 #define GlfwErrorCreate(err) (Error){.code.glfw = err, .type = kErrorTypeGlfw}
+#define PrintError(err) fprintf(stderr, "err code = %d, type = %d\n", err.code.val, err.type)
 
 #endif  // ERROR_H_

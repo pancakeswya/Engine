@@ -2,21 +2,14 @@
 #define VK_CONTEXT_H_
 
 #include "base/error.h"
+#include "vk/command.h"
+#include "vk/device.h"
+#include "vk/render.h"
+#include "vk/swapchain.h"
+#include "vk/sync.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-typedef struct SurfaceSupportDetails {
-  VkSurfaceCapabilitiesKHR capabilities;
-  VkSurfaceFormatKHR* formats;
-  uint32_t formats_count;
-  VkPresentModeKHR* present_modes;
-  uint32_t present_modes_count;
-} SurfaceSupportDetails;
-
-typedef struct QueueFamilyIndices {
-  uint32_t graphics, present;
-} QueueFamilyIndices;
 
 typedef struct VulkanContext {
   VkInstance instance;
@@ -24,42 +17,15 @@ typedef struct VulkanContext {
   VkDebugUtilsMessengerEXT messenger;
 #endif
   VkSurfaceKHR surface;
-
-  VkPhysicalDevice physical_device;
-  VkDevice logical_device;
-  VkQueue present_queue;
-  VkQueue graphics_queue;
-  SurfaceSupportDetails support_details;
-  QueueFamilyIndices indices;
-
-  VkSwapchainKHR swapchain;
-  VkImage* images;
-  uint32_t image_count;
-  VkImageView* image_views;
-  uint32_t image_view_count;
-  VkFramebuffer* framebuffers;
-  uint32_t framebuffer_count;
-  VkFormat format;
-  VkExtent2D extent;
-
-  VkRenderPass render_pass;
-  VkPipeline pipeline;
-  VkPipelineLayout pipeline_layout;
-
-  VkCommandPool cmd_pool;
-  VkCommandBuffer* cmd_buffers;
-  uint32_t cmd_buffer_count;
-
-  VkSemaphore* image_semaphores;
-  uint32_t image_semaphore_count;
-  VkSemaphore* render_semaphores;
-  uint32_t render_semaphore_count;
-  VkFence* fences;
-  uint32_t fences_count;
+  VulkanDevice device;
+  VulkanSwapchain swapchain;
+  VulkanSwapchainImages swap_images;
+  VulkanRender render;
+  VulkanCommand cmd;
+  VulkanSync sync;
 } VulkanContext;
 
-Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, uint32_t frames);
-Error VulkanContextRecreateSwapchain(VulkanContext* context, GLFWwindow* window);
-void VulkanContextDestroy(VulkanContext* context);
+extern Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint32_t frames);
+extern void VulkanContextDestroy(VulkanContext* context);
 
 #endif  // VK_CONTEXT_H_

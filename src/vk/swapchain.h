@@ -7,31 +7,35 @@
 
 typedef struct VulkanDeviceInfo VulkanDeviceInfo;
 
-typedef struct VulkanSwapchainBase {
+typedef struct VulkanSwapchain {
   VkSwapchainKHR swapchain;
-  VkImage* images;
-  uint32_t image_count;
   VkFormat format;
   VkExtent2D extent;
-} VulkanSwapchainBase;
+} VulkanSwapchain;
 
-typedef struct VulkanSwapchain {
-  VulkanSwapchainBase base;
+typedef struct VulkanSwapchainImages {
+  VkImage* images;
+  uint32_t image_count;
 
-  VkImageView* image_views;
-  uint32_t image_view_count;
+  VkImageView* views;
+  uint32_t view_count;
 
   VkFramebuffer* framebuffers;
   uint32_t framebuffer_count;
-} VulkanSwapchain;
+} VulkanSwapchainImages;
 
 extern Error VulkanSwapchainCreate(VkDevice logical_device,
                                    VkSurfaceKHR surface,
-                                   VkRenderPass render_pass,
                                    const VulkanDeviceInfo* info,
-                                   int width,
-                                   int height,
+                                   int width, int height,
                                    VulkanSwapchain* swapchain);
+
+extern Error VulkanSwapchainImagesCreate(VkDevice logical_device,
+                                         VkRenderPass render_pass,
+                                         VulkanSwapchain* swapchain,
+                                         VulkanSwapchainImages* images);
+
 extern void VulkanSwapchainDestroy(VkDevice logical_device, VulkanSwapchain* swapchain);
+extern void VulkanSwapchainImagesDestroy(VkDevice logical_device, VulkanSwapchainImages* swap_images);
 
 #endif // VK_SWAPCHAIN_H_
