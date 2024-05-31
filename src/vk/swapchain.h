@@ -26,12 +26,12 @@ typedef struct VulkanSwapchain {
 } VulkanSwapchain;
 
 extern Error VulkanSwapchainCreate(VkDevice logical_device,
-                            const VulkanDeviceInfo* info,
-                            VkSurfaceKHR surface,
-                            VkRenderPass render_pass,
-                            int width,
-                            int height,
-                            VulkanSwapchain* swapchain);
+                                   VkSurfaceKHR surface,
+                                   VkRenderPass render_pass,
+                                   const VulkanDeviceInfo* info,
+                                   int width,
+                                   int height,
+                                   VulkanSwapchain* swapchain);
 extern void VulkanSwapchainDestroy(VkDevice logical_device, VulkanSwapchain* swapchain);
 
 #endif // VK_SWAPCHAIN_H_

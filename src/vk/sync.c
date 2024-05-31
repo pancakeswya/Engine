@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-static Error createSemaphore(VkDevice logical_device,
+static inline Error createSemaphore(VkDevice logical_device,
                              VkSemaphore* semaphore) {
   const VkSemaphoreCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -14,7 +14,7 @@ static Error createSemaphore(VkDevice logical_device,
   return kSuccess;
 }
 
-static Error createFence(VkDevice logical_device, VkFence* fence) {
+static inline Error createFence(VkDevice logical_device, VkFence* fence) {
   const VkFenceCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
       .flags = VK_FENCE_CREATE_SIGNALED_BIT};
@@ -73,7 +73,7 @@ static Error createFences(
 }
 
 static inline void destroySemaphores(VkDevice logical_device, VkSemaphore* semaphores, const uint32_t semaphore_count) {
-  if (semaphores != NULL) {
+  if (semaphores == NULL) {
     return;
   }
   for(size_t i = 0; i < semaphore_count; ++i) {
@@ -83,7 +83,7 @@ static inline void destroySemaphores(VkDevice logical_device, VkSemaphore* semap
 }
 
 static inline void destroyFences(VkDevice logical_device, VkFence* fences, const uint32_t fence_count) {
-  if (fences != NULL) {
+  if (fences == NULL) {
     return;
   }
   for(size_t i = 0; i < fence_count; ++i) {

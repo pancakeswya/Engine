@@ -50,8 +50,8 @@ static VkExtent2D chooseSwapExtent(
 }
 
 static Error createSwapchainBase(VkDevice logical_device,
-                                 const VulkanDeviceInfo* info,
                                  VkSurfaceKHR surface,
+                                 const VulkanDeviceInfo* info,
                                  int width, int height,
                                  VulkanSwapchainBase* swapchain_base) {
   const VulkanSurfaceSupportDetails* details = &info->support_details;
@@ -230,7 +230,7 @@ static inline void destroySwapchainImageViews(
     VkImageView* image_views,
     const uint32_t image_view_count
 ) {
-  if (image_views != NULL) {
+  if (image_views == NULL) {
     return;
   }
   for (size_t i = 0; i < image_view_count; ++i) {
@@ -244,7 +244,7 @@ static inline void destroySwapchainFramebuffers(
   VkFramebuffer* framebuffers,
   const uint32_t framebuffer_count
 ) {
-  if (framebuffers != NULL) {
+  if (framebuffers == NULL) {
     return;
   }
   for (size_t i = 0; i < framebuffer_count; ++i) {
@@ -254,15 +254,15 @@ static inline void destroySwapchainFramebuffers(
 }
 
 Error VulkanSwapchainCreate(VkDevice logical_device,
-                            const VulkanDeviceInfo* info,
                             VkSurfaceKHR surface,
                             VkRenderPass render_pass,
-                            int width,
-                            int height,
+                            const VulkanDeviceInfo* info,
+                            const int width,
+                            const int height,
                             VulkanSwapchain* swapchain) {
   Error err = createSwapchainBase(logical_device,
-                                  info,
                                   surface,
+                                  info,
                                   width, height,
                                   &swapchain->base);
   if (!ErrorEqual(err, kSuccess)) {
