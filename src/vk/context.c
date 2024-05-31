@@ -5,9 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+static const char* kLayers[] = {
 #ifdef DEBUG
-static const char* kLayers[] = {"VK_LAYER_KHRONOS_validation"};
+  "VK_LAYER_KHRONOS_validation"
+#endif
+};
 static const uint32_t kLayersCount = sizeof(kLayers) / sizeof(const char*);
+
+#ifdef DEBUG
 static PFN_vkCreateDebugUtilsMessengerEXT createMessengerFn = VK_NULL_HANDLE;
 static PFN_vkDestroyDebugUtilsMessengerEXT destroyMessengerFn = VK_NULL_HANDLE;
 
@@ -113,15 +119,6 @@ static Error getInstanceExtensions(const char*** extensions, uint32_t* count) {
 static Error instanceCreate(
     VkInstance* instance,
     VkDebugUtilsMessengerCreateInfoEXT* messenger_create_info) {
-  Error err;
-#ifdef DEBUG
-  err = layersSupport();
-  if (!ErrorEqual(err, kSuccess)) {
-    return err;
-  }
-#else
-  (void)messenger_create_info;
-#endif
   const VkApplicationInfo app_info = {
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
       .pApplicationName = "Hello Triangle",
@@ -131,7 +128,7 @@ static Error instanceCreate(
       .apiVersion = VK_API_VERSION_1_0};
   uint32_t ext_count;
   const char** ext;
-  err = getInstanceExtensions(&ext, &ext_count);
+  const Error err = getInstanceExtensions(&ext, &ext_count);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
@@ -140,11 +137,9 @@ static Error instanceCreate(
       .pApplicationInfo = &app_info,
       .enabledExtensionCount = ext_count,
       .ppEnabledExtensionNames = ext,
-#ifdef DEBUG
       .enabledLayerCount = kLayersCount,
       .ppEnabledLayerNames = kLayers,
       .pNext = messenger_create_info
-#endif
   };
   const VkResult vk_res = vkCreateInstance(&create_info, NULL, instance);
   free(ext);
@@ -156,8 +151,12 @@ static Error instanceCreate(
 
 Error VulkanContextCreate(VulkanContext* context, GLFWwindow* window, const uint32_t frames) {
   Error err;
-  VkDebugUtilsMessengerCreateInfoEXT messenger_create_info;
+  VkDebugUtilsMessengerCreateInfoEXT messenger_create_info = {0};
 #ifdef DEBUG
+  err = layersSupport();
+  if (!ErrorEqual(err, kSuccess)) {
+    return err;
+  }
   err = messengerCreate(NULL, &messenger_create_info, NULL);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
