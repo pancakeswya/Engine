@@ -3,36 +3,35 @@
 
 #include "base/error.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
-typedef struct QueueFamilyIndices QueueFamilyIndices;
-typedef struct SurfaceSupportDetails SurfaceSupportDetails;
+typedef struct VulkanDeviceInfo VulkanDeviceInfo;
 
-typedef struct Swapchain {
-  VkSwapchainKHR instance;
-
-  VkDevice logical_device;
-
+typedef struct VulkanSwapchainBase {
+  VkSwapchainKHR swapchain;
   VkImage* images;
   uint32_t image_count;
+  VkFormat format;
+  VkExtent2D extent;
+} VulkanSwapchainBase;
+
+typedef struct VulkanSwapchain {
+  VulkanSwapchainBase base;
 
   VkImageView* image_views;
   uint32_t image_view_count;
 
   VkFramebuffer* framebuffers;
   uint32_t framebuffer_count;
+} VulkanSwapchain;
 
-  VkFormat format;
-  VkExtent2D extent;
-} Swapchain;
-
-Error VulkanSwapchainCreate(GLFWwindow* window, VkDevice logical_device,
+extern Error VulkanSwapchainCreate(VkDevice logical_device,
+                            const VulkanDeviceInfo* info,
                             VkSurfaceKHR surface,
                             VkRenderPass render_pass,
-                            QueueFamilyIndices* indices,
-                            SurfaceSupportDetails* details,
-                            Swapchain* swapchain);
-void VulkanSwapchainDestroy(Swapchain* swapchain);
+                            int width,
+                            int height,
+                            VulkanSwapchain* swapchain);
+extern void VulkanSwapchainDestroy(VkDevice logical_device, VulkanSwapchain* swapchain);
 
 #endif // VK_SWAPCHAIN_H_

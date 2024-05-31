@@ -18,7 +18,11 @@ add_executable(untitled7
         src/vk/context.h
         src/vk/context.c
         src/vk/swapchain.h
-        src/vk/swapchain.c)
+        src/vk/swapchain.c
+        src/vk/device.h
+        src/vk/device.c
+        src/vk/sync.h
+        src/vk/sync.c)
 
 target_link_libraries(untitled7 Vulkan::Vulkan glfw)
 

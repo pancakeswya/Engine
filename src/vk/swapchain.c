@@ -1,5 +1,5 @@
 #include "vk/swapchain.h"
-#include "vk/context.h"
+#include "vk/device.h"
 
 #include <stdlib.h>
 
@@ -16,13 +16,13 @@ static VkSurfaceFormatKHR chooseSwapSurfaceFormat(
     if (available_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB &&
         available_formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
       return available_formats[i];
-        }
+    }
   }
   return available_formats[0];
 }
 
 static VkPresentModeKHR chooseSwapPresentMode(
-    const VkPresentModeKHR available_present_modes[], const uint32_t count) {
+  const VkPresentModeKHR available_present_modes[], const uint32_t count) {
   for (uint32_t i = 0; i < count; ++i) {
     if (available_present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
       return available_present_modes[i];
@@ -32,12 +32,12 @@ static VkPresentModeKHR chooseSwapPresentMode(
 }
 
 static VkExtent2D chooseSwapExtent(
-    GLFWwindow* window, const VkSurfaceCapabilitiesKHR* capabilities) {
+    const VkSurfaceCapabilitiesKHR* capabilities,
+    int width, int height
+) {
   if (capabilities->currentExtent.width != UINT32_MAX) {
     return capabilities->currentExtent;
   }
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
   VkExtent2D actual_extent = {(uint32_t)width, (uint32_t)height};
   actual_extent.width =
       clamp(actual_extent.width, capabilities->minImageExtent.width,
@@ -49,20 +49,16 @@ static VkExtent2D chooseSwapExtent(
   return actual_extent;
 }
 
-static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
-                             VkSurfaceKHR surface,
-                             QueueFamilyIndices* indices,
-                             SurfaceSupportDetails* details,
-                             VkExtent2D* extent_ptr, VkFormat* format_ptr,
-                             VkSwapchainKHR* swapchain,
-                             VkImage** images_ptr,
-                             uint32_t* image_count_ptr) {
-  const VkSurfaceFormatKHR surface_format =
-      chooseSwapSurfaceFormat(details->formats, details->formats_count);
-  const VkPresentModeKHR present_mode = chooseSwapPresentMode(
-      details->present_modes, details->present_modes_count);
-
-  const VkExtent2D extent = chooseSwapExtent(window, &details->capabilities);
+static Error createSwapchainBase(VkDevice logical_device,
+                                 const VulkanDeviceInfo* info,
+                                 VkSurfaceKHR surface,
+                                 int width, int height,
+                                 VulkanSwapchainBase* swapchain_base) {
+  const VulkanSurfaceSupportDetails* details = &info->support_details;
+  const VulkanQueueFamilyIndices* indices =  &info->indices;
+  const VkSurfaceFormatKHR surface_format = chooseSwapSurfaceFormat(details->formats, details->formats_count);
+  const VkPresentModeKHR present_mode = chooseSwapPresentMode(details->present_modes, details->present_modes_count);
+  const VkExtent2D extent = chooseSwapExtent(&details->capabilities, width, height);
   const VkFormat format = surface_format.format;
 
   uint32_t image_count = details->capabilities.minImageCount + 1;
@@ -98,11 +94,12 @@ static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
 
   create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  VkResult vk_res = vkCreateSwapchainKHR(logical_device, &create_info, NULL, swapchain);
+  VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+  VkResult vk_res = vkCreateSwapchainKHR(logical_device, &create_info, NULL, &swapchain);
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
-  vk_res = vkGetSwapchainImagesKHR(logical_device, *swapchain, &image_count, NULL);
+  vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, NULL);
   if (vk_res != VK_SUCCESS) {
     return VulkanErrorCreate(vk_res);
   }
@@ -110,16 +107,18 @@ static Error createSwapchain(GLFWwindow* window, VkDevice logical_device,
   if (images == NULL) {
     return StdErrorCreate(kStdErrorOutOfMemory);
   }
-  vk_res = vkGetSwapchainImagesKHR(logical_device, *swapchain, &image_count, images);
+  vk_res = vkGetSwapchainImagesKHR(logical_device, swapchain, &image_count, images);
   if (vk_res != VK_SUCCESS) {
     free(images);
     return VulkanErrorCreate(vk_res);
   }
-  *images_ptr = images;
-  *image_count_ptr = image_count;
-  *extent_ptr = extent;
-  *format_ptr = format;
-
+  *swapchain_base = (VulkanSwapchainBase) {
+      .swapchain = swapchain,
+      .images = images,
+      .image_count = image_count,
+      .extent = extent,
+      .format = format
+  };
   return kSuccess;
 }
 
@@ -172,7 +171,8 @@ static Error createImageViews(VkDevice logical_device,
 
 static Error createFramebuffer(VkDevice logical_device,
                                VkRenderPass render_pass,
-                               VkImageView view, const VkExtent2D extent,
+                               VkImageView view,
+                               const VkExtent2D extent,
                                VkFramebuffer* framebuffer) {
   const VkFramebufferCreateInfo create_info = {
       .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -215,55 +215,81 @@ static Error createFramebuffers(VkDevice logical_device,
   return kSuccess;
 }
 
-Error VulkanSwapchainCreate(GLFWwindow* window,
-                            VkDevice logical_device,
+static inline void destroySwapchainBase(VkDevice logical_device, VulkanSwapchainBase* base) {
+  if (base->images != NULL) {
+    free(base->images);
+  }
+  if (base->swapchain != VK_NULL_HANDLE) {
+    return;
+  }
+  vkDestroySwapchainKHR(logical_device, base->swapchain, NULL);
+}
+
+static inline void destroySwapchainImageViews(
+    VkDevice logical_device,
+    VkImageView* image_views,
+    const uint32_t image_view_count
+) {
+  if (image_views != NULL) {
+    return;
+  }
+  for (size_t i = 0; i < image_view_count; ++i) {
+    vkDestroyImageView(logical_device, image_views[i], NULL);
+  }
+  free(image_views);
+}
+
+static inline void destroySwapchainFramebuffers(
+  VkDevice logical_device,
+  VkFramebuffer* framebuffers,
+  const uint32_t framebuffer_count
+) {
+  if (framebuffers != NULL) {
+    return;
+  }
+  for (size_t i = 0; i < framebuffer_count; ++i) {
+    vkDestroyFramebuffer(logical_device, framebuffers[i], NULL);
+  }
+  free(framebuffers);
+}
+
+Error VulkanSwapchainCreate(VkDevice logical_device,
+                            const VulkanDeviceInfo* info,
                             VkSurfaceKHR surface,
                             VkRenderPass render_pass,
-                            QueueFamilyIndices* indices,
-                            SurfaceSupportDetails* details,
-                            Swapchain* swapchain) {
-  swapchain->logical_device = logical_device;
-  Error err = createSwapchain(window, logical_device, surface,
-                       indices, details, &swapchain->extent, &swapchain->format,
-                       &swapchain->instance, &swapchain->images, &swapchain->image_count);
+                            int width,
+                            int height,
+                            VulkanSwapchain* swapchain) {
+  Error err = createSwapchainBase(logical_device,
+                                  info,
+                                  surface,
+                                  width, height,
+                                  &swapchain->base);
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = createImageViews(logical_device, swapchain->images,
-                           swapchain->image_count, swapchain->format,
-                           &swapchain->image_views, &swapchain->image_view_count);
+  err = createImageViews(logical_device,
+                         swapchain->base.images,
+                         swapchain->base.image_count, swapchain->base.format,
+                         &swapchain->image_views, &swapchain->image_view_count);
   if (!ErrorEqual(err, kSuccess)) {
+    destroySwapchainBase(logical_device, &swapchain->base);
     return err;
   }
-  err = createFramebuffers(swapchain->logical_device, render_pass,
+  err = createFramebuffers(logical_device, render_pass,
                            swapchain->image_views, swapchain->image_view_count,
-                           swapchain->extent, &swapchain->framebuffers,
+                           swapchain->base.extent, &swapchain->framebuffers,
                            &swapchain->framebuffer_count);
   if (!ErrorEqual(err, kSuccess)) {
+    destroySwapchainImageViews(logical_device, swapchain->image_views, swapchain->image_view_count);
+    destroySwapchainBase(logical_device, &swapchain->base);
     return err;
   }
   return kSuccess;
 }
 
-void VulkanSwapchainDestroy(Swapchain* swapchain) {
-  if (swapchain->framebuffers != NULL) {
-    for (size_t i = 0; i < swapchain->framebuffer_count; ++i) {
-      vkDestroyFramebuffer(swapchain->logical_device, swapchain->framebuffers[i],
-                           NULL);
-    }
-    free(swapchain->framebuffers);
-  }
-  if (swapchain->image_views != NULL) {
-    for (size_t i = 0; i < swapchain->image_view_count; ++i) {
-      vkDestroyImageView(swapchain->logical_device, swapchain->image_views[i],
-                         NULL);
-    }
-    free(swapchain->image_views);
-  }
-  if (swapchain->images != NULL) {
-    free(swapchain->images);
-  }
-  if (swapchain->instance != VK_NULL_HANDLE) {
-    vkDestroySwapchainKHR(swapchain->logical_device, swapchain->instance, NULL);
-  }
+void VulkanSwapchainDestroy(VkDevice logical_device, VulkanSwapchain* swapchain) {
+  destroySwapchainFramebuffers(logical_device, swapchain->framebuffers, swapchain->framebuffer_count);
+  destroySwapchainImageViews(logical_device, swapchain->image_views, swapchain->image_view_count);
+  destroySwapchainBase(logical_device, &swapchain->base);
 }
