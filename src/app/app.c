@@ -18,6 +18,7 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
   WindowObserver* observer = (WindowObserver*)glfwGetWindowUserPointer(window);
   observer->framebuffer_resized = true;
 }
+
 static Error recordCommandBuffer(
   VkCommandBuffer cmd_buffer,
   VkRenderPass render_pass,
@@ -89,18 +90,14 @@ static Error ResizeEvent(VulkanContext* context, GLFWwindow* window) {
   vkDeviceWaitIdle(context->device.logical);
   VulkanSwapchainDestroy(context->device.logical, &context->swapchain);
   VulkanSwapchainImagesDestroy(context->device.logical, &context->swap_images);
-  Error err = VulkanSwapchainCreate(
+  const Error err = VulkanSwapchainCreate(
     context->device.logical, context->surface,
     &context->device.info, width, height, &context->swapchain
   );
   if (!ErrorEqual(err, kSuccess)) {
     return err;
   }
-  err = VulkanSwapchainImagesCreate(context->device.logical, context->render.pass, &context->swapchain, &context->swap_images);
-  if (!ErrorEqual(err, kSuccess)) {
-    return err;
-  }
-  return kSuccess;
+  return VulkanSwapchainImagesCreate(context->device.logical, context->render.pass, &context->swapchain, &context->swap_images);
 }
 
 static Error render(VulkanContext* context, GLFWwindow* window, WindowObserver* observer, const uint32_t frame) {

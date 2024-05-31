@@ -1,5 +1,5 @@
-#ifndef ERROR_H_
-#define ERROR_H_
+#ifndef BASE_ERROR_H_
+#define BASE_ERROR_H_
 
 #include <vulkan/vulkan.h>
 #include <stdio.h>
@@ -54,4 +54,4 @@ static inline int ErrorEqual(const Error err1, const Error err2) {
 #define GlfwErrorCreate(err) (Error){.code.glfw = err, .type = kErrorTypeGlfw}
 #define PrintError(err) fprintf(stderr, "err code = %d, type = %d\n", err.code.val, err.type)
 
-#endif  // ERROR_H_
+#endif  // BASE_ERROR_H_
