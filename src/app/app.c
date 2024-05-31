@@ -4,7 +4,6 @@
 
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 typedef struct WindowObserver {
   bool framebuffer_resized;

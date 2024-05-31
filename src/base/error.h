@@ -2,7 +2,7 @@
 #define ERROR_H_
 
 #include <vulkan/vulkan.h>
-#include <stdlib.h>
+#include <stdio.h>
 
 typedef enum GlfwError {
   kGlfwSuccess = 0,
