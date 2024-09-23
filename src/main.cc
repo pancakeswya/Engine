@@ -1,5 +1,5 @@
-#include "engine/engine.h"
+#include "app/app.h"
 
 int main() {
-  return engine::run();
+  return app::run();
 }

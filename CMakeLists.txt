@@ -12,8 +12,8 @@ include_directories("src")
 
 add_executable(vk_triangle
         src/main.cc
-        src/engine/engine.cc
-        src/engine/engine.h
+        src/app/app.cc
+        src/app/app.h
         src/base/io.cc
         src/base/io.h
         src/backend/render/vk_backend.cc
