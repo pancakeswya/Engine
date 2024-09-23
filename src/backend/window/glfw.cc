@@ -23,7 +23,6 @@ Backend::~Backend() {
 
 GLFWwindow* CreateWindow(const int width, const int height, const char* title) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
   if (window == nullptr) {
     throw Error("Failed to create window");

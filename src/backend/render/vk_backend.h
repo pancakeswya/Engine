@@ -15,7 +15,6 @@ public:
 
   void Render();
 private:
-  GLFWwindow* window_;
   BackendImpl* impl_;
 };
 

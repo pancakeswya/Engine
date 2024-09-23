@@ -8,7 +8,7 @@
 
 namespace vk::config {
 
-constexpr size_t kFrameCount = 1;
+constexpr size_t kFrameCount = 2;
 
 extern bool InstanceLayersIsSupported();
 
