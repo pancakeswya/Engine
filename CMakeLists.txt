@@ -1,35 +1,29 @@
 cmake_minimum_required(VERSION 3.22)
-project(untitled7 C)
+project(vk_triangle)
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+add_subdirectory(shaders)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
-add_subdirectory(shaders)
-
 include_directories("src")
 
-add_executable(untitled7
-        src/main.c
-        src/base/error.h
+add_executable(vk_triangle
+        src/main.cc
+        src/engine/engine.cc
+        src/engine/engine.h
+        src/base/io.cc
         src/base/io.h
-        src/base/io.c
-        src/vk/context.h
-        src/vk/context.c
-        src/vk/swapchain.h
-        src/vk/swapchain.c
-        src/vk/device.h
-        src/vk/device.c
-        src/vk/sync.h
-        src/vk/sync.c
-        src/vk/command.h
-        src/vk/command.c
-        src/vk/render.h
-        src/vk/render.c
-        src/app/app.h
-        src/app/app.c)
+        src/backend/render/vk_backend.cc
+        src/backend/render/vk_backend.h
+        src/backend/render/vk_config.cc
+        src/backend/render/vk_config.h
+        src/backend/render/vk_factory.cc
+        src/backend/render/vk_factory.h
+        src/backend/window/glfw.h
+        src/backend/window/glfw.cc
+)
 
-target_link_libraries(untitled7 Vulkan::Vulkan glfw)
-
-add_compile_definitions(DEBUG)
+target_link_libraries(vk_triangle Vulkan::Vulkan glfw)
