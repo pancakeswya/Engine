@@ -2,6 +2,7 @@
 #include "backend/render/vk_factory.h"
 
 #include <cstring>
+#include <iostream>
 #include <string>
 #include <limits>
 
@@ -14,11 +15,6 @@ struct ShaderStage {
   HandleWrapper<VkShaderModule> module;
 
   std::string_view name;
-};
-
-struct Buffer {
-  HandleWrapper<VkBuffer> buffer_wrapper;
-  HandleWrapper<VkDeviceMemory> memory_wrapper;
 };
 
 } // namespace
@@ -68,7 +64,8 @@ class BackendImpl {
   std::vector<HandleWrapper<VkSemaphore>> render_semaphores_wrapped_;
   std::vector<HandleWrapper<VkFence>> fences_wrapped_;
 
-  Buffer vertices_buffer_;
+  HandleWrapper<VkBuffer> buffer_wrapper_;
+  HandleWrapper<VkDeviceMemory> memory_wrapper_;
 
   const std::vector<Vertex> vertices_ = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -156,10 +153,10 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     fences_wrapped_.emplace_back(factory::CreateFence(logical_device));
   }
   uint32_t data_size = sizeof(Vertex) * vertices_.size();
-  vertices_buffer_.buffer_wrapper = factory::CreateBuffer(logical_device, data_size);
-  VkBuffer buffer = vertices_buffer_.buffer_wrapper.get();
-  vertices_buffer_.memory_wrapper = factory::CreateBufferMemory(logical_device, physical_device_, buffer);
-  VkDeviceMemory memory = vertices_buffer_.memory_wrapper.get();
+  buffer_wrapper_ = factory::CreateBuffer(logical_device, data_size);
+  VkBuffer buffer = buffer_wrapper_.get();
+  memory_wrapper_ = factory::CreateBufferMemory(logical_device, physical_device_, buffer);
+  VkDeviceMemory memory = memory_wrapper_.get();
 
   if (const VkResult result = vkBindBufferMemory(logical_device, buffer, memory, 0); result != VK_SUCCESS) {
     throw Error("failed to bind buffer memory").WithCode(result);
@@ -260,8 +257,9 @@ void BackendImpl::Render() {
   scissor.extent = swapchain_details_.extent;
   vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
 
-  VkBuffer buffer = vertices_buffer_.buffer_wrapper.get();
+  VkBuffer buffer = buffer_wrapper_.get();
   VkDeviceSize offsets[] = {0};
+
   vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &buffer, offsets);
   vkCmdDraw(cmd_buffer, static_cast<uint32_t>(vertices_.size()), 1, 0, 0);
 
