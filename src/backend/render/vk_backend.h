@@ -14,6 +14,7 @@ public:
   ~Backend();
 
   void Render() const;
+  void LoadModel();
 private:
   BackendImpl* impl_;
 };

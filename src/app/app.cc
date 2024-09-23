@@ -12,6 +12,7 @@ int run() noexcept {
     glfw::Backend::Instance window_backend = glfw::Backend::Init();
     GLFWwindow* window = glfw::CreateWindow(640, 480, "test");
     vk::Backend render_backend(window);
+    render_backend.LoadModel();
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       render_backend.Render();

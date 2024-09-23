@@ -25,6 +25,7 @@ class BackendImpl {
   ~BackendImpl();
 
   void Render();
+  void LoadModel();
   void SetResized(bool resized) noexcept;
  private:
   static void FramebufferResizedCallback(GLFWwindow* window, int width, int height);
@@ -73,6 +74,25 @@ class BackendImpl {
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
   };
 };
+
+void BackendImpl::LoadModel() {
+  uint32_t data_size = sizeof(Vertex) * vertices_.size();
+  VkDevice logical_device = logical_device_wrapper_.get();
+
+  buffer_wrapper_ = factory::CreateBuffer(logical_device, data_size);
+  VkBuffer buffer = buffer_wrapper_.get();
+  memory_wrapper_ = factory::CreateBufferMemory(logical_device, physical_device_, buffer);
+  VkDeviceMemory memory = memory_wrapper_.get();
+  if (const VkResult result = vkBindBufferMemory(logical_device, buffer, memory, 0); result != VK_SUCCESS) {
+    throw Error("failed to bind buffer memory").WithCode(result);
+  }
+  void* data;
+  if (const VkResult result = vkMapMemory(logical_device, memory, 0, data_size, 0, &data); result != VK_SUCCESS) {
+    throw Error("failed to map buffer memory").WithCode(result);
+  }
+  std::memcpy(data, vertices_.data(), data_size);
+  vkUnmapMemory(logical_device, memory);
+}
 
 void BackendImpl::SetResized(bool resized) noexcept {
   framebuffer_resized_ = resized;
@@ -152,21 +172,6 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     render_semaphores_wrapped_.emplace_back(factory::CreateSemaphore(logical_device));
     fences_wrapped_.emplace_back(factory::CreateFence(logical_device));
   }
-  uint32_t data_size = sizeof(Vertex) * vertices_.size();
-  buffer_wrapper_ = factory::CreateBuffer(logical_device, data_size);
-  VkBuffer buffer = buffer_wrapper_.get();
-  memory_wrapper_ = factory::CreateBufferMemory(logical_device, physical_device_, buffer);
-  VkDeviceMemory memory = memory_wrapper_.get();
-
-  if (const VkResult result = vkBindBufferMemory(logical_device, buffer, memory, 0); result != VK_SUCCESS) {
-    throw Error("failed to bind buffer memory").WithCode(result);
-  }
-  void* data;
-  if (const VkResult result = vkMapMemory(logical_device, memory, 0, data_size, 0, &data); result != VK_SUCCESS) {
-    throw Error("failed to map buffer memory").WithCode(result);
-  }
-  std::memcpy(data, vertices_.data(), data_size);
-  vkUnmapMemory(logical_device, memory);
 }
 
 void BackendImpl::RecreateSwapchain() {
@@ -313,5 +318,10 @@ Backend::~Backend() { delete impl_; }
 void Backend::Render() const {
   impl_->Render();
 }
+
+void Backend::LoadModel() {
+  impl_->LoadModel();
+}
+
 
 } // vk
