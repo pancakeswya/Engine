@@ -1,6 +1,7 @@
 #include "backend/render/vk_factory.h"
 #include "base/io.h"
 
+#include <algorithm>
 #include <array>
 #include <set>
 #include <optional>
@@ -177,24 +178,28 @@ HandleWrapper<VkFramebuffer> CreateFramebuffer(VkDevice logical_device, VkRender
 } // namespace
 
 HandleWrapper<VkInstance> CreateInstance() {
+#ifdef DEBUG
   if (!config::InstanceLayersIsSupported()) {
     throw Error("Instance layers are not supported");
   }
+  const std::vector<const char*> layers = config::GetInstanceLayers();
+#endif // DEBUG
   const VkApplicationInfo app_info = config::GetApplicationInfo();
   const VkDebugUtilsMessengerCreateInfoEXT messenger_info = config::GetMessengerCreateInfo();
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   const std::vector<const char*> extensions = config::GetInstanceExtensions();
-  const std::vector<const char*> layers = config::GetInstanceLayers();
 
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
+#ifdef DEBUG
   create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
   create_info.ppEnabledLayerNames = layers.data();
   create_info.pNext = &messenger_info;
+#endif // DEBUG
 
   VkInstance instance = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateInstance(&create_info, alloc_cb, &instance); result != VK_SUCCESS) {
@@ -208,6 +213,7 @@ HandleWrapper<VkInstance> CreateInstance() {
   };
 }
 
+#ifdef DEBUG
 HandleWrapper<VkDebugUtilsMessengerEXT> CreateMessenger(VkInstance instance) {
   const auto create_messenger = vkGetInstanceProcAddrByType(instance, vkCreateDebugUtilsMessengerEXT);
   if (create_messenger == nullptr) {
@@ -230,6 +236,7 @@ HandleWrapper<VkDebugUtilsMessengerEXT> CreateMessenger(VkInstance instance) {
     }
   };
 }
+#endif // DEBUG
 
 HandleWrapper<VkSurfaceKHR> CreateSurface(VkInstance instance, GLFWwindow* window) {
   VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -282,9 +289,10 @@ HandleWrapper<VkDevice> CreateLogicalDevice(VkPhysicalDevice physical_device, co
     queue_create_info.pQueuePriorities = &queue_priority;
     queue_create_infos.push_back(queue_create_info);
   }
-
-  const std::vector<const char*> extensions = config::GetDeviceExtensions();
+#ifdef DEBUG
   const std::vector<const char*> layers = config::GetInstanceLayers();
+#endif // DEBUG
+  const std::vector<const char*> extensions = config::GetDeviceExtensions();
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   constexpr VkPhysicalDeviceFeatures device_features = {};
@@ -296,8 +304,10 @@ HandleWrapper<VkDevice> CreateLogicalDevice(VkPhysicalDevice physical_device, co
   create_info.pEnabledFeatures = &device_features;
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
+#ifdef DEBUG
   create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
   create_info.ppEnabledLayerNames = layers.data();
+#endif // DEBUG
   create_info.enabledLayerCount = 0;
 
   VkDevice logical_device = VK_NULL_HANDLE;

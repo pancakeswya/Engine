@@ -13,7 +13,7 @@ public:
   explicit Backend(GLFWwindow* window);
   ~Backend();
 
-  void Render();
+  void Render() const;
 private:
   BackendImpl* impl_;
 };

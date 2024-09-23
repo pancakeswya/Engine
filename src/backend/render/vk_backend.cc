@@ -2,6 +2,7 @@
 #include "backend/render/vk_factory.h"
 
 #include <string>
+#include <limits>
 
 namespace vk {
 
@@ -32,9 +33,10 @@ class BackendImpl {
   size_t current_frame_;
 
   GLFWwindow* window_;
-
-  HandleWrapper<VkInstance> instance_wrapper_;
+#ifdef DEBUG
   HandleWrapper<VkDebugUtilsMessengerEXT> messenger_wrapper_;
+#endif // DEBUG
+  HandleWrapper<VkInstance> instance_wrapper_;
   HandleWrapper<VkSurfaceKHR> surface_wrapper_;
 
   VkPhysicalDevice physical_device_;
@@ -65,7 +67,7 @@ void BackendImpl::SetResized(bool resized) noexcept {
 }
 
 void BackendImpl::FramebufferResizedCallback(GLFWwindow* window, int width[[maybe_unused]], int height[[maybe_unused]]) {
-  auto impl = reinterpret_cast<BackendImpl*>(glfwGetWindowUserPointer(window));
+  auto impl = static_cast<BackendImpl*>(glfwGetWindowUserPointer(window));
   impl->SetResized(true);
 }
 
@@ -77,8 +79,9 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   instance_wrapper_ = factory::CreateInstance();
   VkInstance instance = instance_wrapper_.get();
 
+#ifdef DEBUG
   messenger_wrapper_ = factory::CreateMessenger(instance);
-
+#endif // DEBUG
   surface_wrapper_ = factory::CreateSurface(instance, window_);
   VkSurfaceKHR surface = surface_wrapper_.get();
 
@@ -152,7 +155,14 @@ void BackendImpl::RecreateSwapchain() {
 
   vkDeviceWaitIdle(logical_device);
 
+  framebuffers_wrapped_.clear();
+  swapchain_images_.clear();
+  swapchain_images_.clear();
+  swapchain_wrapper_.reset();
+
   std::tie(swapchain_wrapper_, swapchain_details_) = factory::CreateSwapchain(window_, surface, physical_device_, family_indices_, logical_device);
+  swapchain_images_ = factory::CreateSwapchainImages(swapchain_wrapper_.get(), logical_device);
+
   image_views_wrapped_ = factory::CreateImageViews(swapchain_images_, logical_device, swapchain_details_.format);
   framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, render_pass, swapchain_details_.extent);
 }
@@ -171,10 +181,10 @@ void BackendImpl::Render() {
   VkCommandBuffer cmd_buffer = cmd_buffers_[current_frame_];
   VkPipeline pipeline = pipeline_wrapper_.get();
 
-  if (const VkResult result = vkWaitForFences(logical_device, 1, &fence, VK_TRUE, UINT64_MAX); result != VK_SUCCESS) {
+  if (const VkResult result = vkWaitForFences(logical_device, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); result != VK_SUCCESS) {
     throw Error("failed to wait for fences").WithCode(result);
   }
-  if (const VkResult result = vkAcquireNextImageKHR(logical_device, swapchain, UINT64_MAX, image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
+  if (const VkResult result = vkAcquireNextImageKHR(logical_device, swapchain, std::numeric_limits<uint64_t>::max(), image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
       RecreateSwapchain();
       return;
@@ -249,12 +259,12 @@ void BackendImpl::Render() {
   present_info.pSwapchains = &swapchain;
   present_info.pImageIndices = &image_idx;
 
-  if (const VkResult result = vkQueuePresentKHR(present_queue_, &present_info); result != VK_SUCCESS) {
-    if (result != VK_ERROR_OUT_OF_DATE_KHR && result != VK_SUBOPTIMAL_KHR && !framebuffer_resized_) {
-      throw Error("failed to queue present").WithCode(result);
-    }
+  const VkResult result = vkQueuePresentKHR(present_queue_, &present_info);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
     framebuffer_resized_ = false;
     RecreateSwapchain();
+  } else if (result != VK_SUCCESS) {
+    throw Error("failed to queue present").WithCode(result);
   }
   current_frame_ = (current_frame_ + 1) % config::kFrameCount;
 }
@@ -268,7 +278,7 @@ Backend::Backend(GLFWwindow* window)
 
 Backend::~Backend() { delete impl_; }
 
-void Backend::Render() {
+void Backend::Render() const {
   impl_->Render();
 }
 

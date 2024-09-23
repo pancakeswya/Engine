@@ -10,7 +10,10 @@ namespace vk::config {
 
 constexpr size_t kFrameCount = 2;
 
+#ifdef DEBUG
 extern bool InstanceLayersIsSupported();
+extern std::vector<const char*> GetInstanceLayers();
+#endif // DEBUG
 
 extern VkApplicationInfo GetApplicationInfo() noexcept;
 extern VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept;
@@ -18,7 +21,6 @@ extern const VkAllocationCallbacks* GetAllocationCallbacks() noexcept;
 
 extern std::vector<const char*> GetInstanceExtensions();
 extern std::vector<const char*> GetDeviceExtensions();
-extern std::vector<const char*> GetInstanceLayers();
 extern std::vector<VkDynamicState> GetDynamicStates();
 extern std::vector<VkPipelineStageFlags> GetPipelineStageFlags();
 

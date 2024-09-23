@@ -22,6 +22,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback(
 
 } // namespace
 
+#ifdef DEBUG
 bool InstanceLayersIsSupported() {
   uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -43,6 +44,13 @@ bool InstanceLayersIsSupported() {
   }
   return true;
 }
+
+std::vector<const char*> GetInstanceLayers() {
+  return {
+    "VK_LAYER_KHRONOS_validation"
+  };
+}
+#endif // DEBUG
 
 VkApplicationInfo GetApplicationInfo() noexcept {
   VkApplicationInfo app_info = {};
@@ -84,12 +92,6 @@ std::vector<const char*> GetInstanceExtensions() {
 
 std::vector<const char*> GetDeviceExtensions() {
   return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-}
-
-std::vector<const char*> GetInstanceLayers() {
-  return {
-    "VK_LAYER_KHRONOS_validation"
-  };
 }
 
 std::vector<VkDynamicState> GetDynamicStates() {

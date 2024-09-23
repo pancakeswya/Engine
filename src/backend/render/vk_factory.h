@@ -44,8 +44,10 @@ struct SwapchainDetails {
 
 namespace factory {
 
-extern HandleWrapper<VkInstance> CreateInstance();
+#ifdef DEBUG
 extern HandleWrapper<VkDebugUtilsMessengerEXT> CreateMessenger(VkInstance instance);
+#endif // DEBUG
+extern HandleWrapper<VkInstance> CreateInstance();
 extern HandleWrapper<VkSurfaceKHR> CreateSurface(VkInstance instance, GLFWwindow* window);
 extern HandleWrapper<VkDevice> CreateLogicalDevice(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices);
 extern HandleWrapper<VkShaderModule> CreateShaderModule(VkDevice logical_device, const std::string& path);
