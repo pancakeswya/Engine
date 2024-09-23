@@ -175,6 +175,18 @@ HandleWrapper<VkFramebuffer> CreateFramebuffer(VkDevice logical_device, VkRender
   };
 }
 
+uint32_t FindMemoryType(const uint32_t type_filter, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
+  VkPhysicalDeviceMemoryProperties mem_properties;
+  vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
+
+  for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
+    if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+      return i;
+    }
+  }
+  throw Error("failed to find suitable memory type!");
+}
+
 } // namespace
 
 HandleWrapper<VkInstance> CreateInstance() {
@@ -497,12 +509,16 @@ HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device) {
 
 HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkPipelineShaderStageCreateInfo> &shader_stages) {
   const std::vector<VkDynamicState> dynamic_states = config::GetDynamicStates();
+  const std::vector<VkVertexInputAttributeDescription> attribute_descriptions = Vertex::GetAttributeDescriptions();
+  const std::vector<VkVertexInputBindingDescription> binding_descriptions = Vertex::GetBindingDescriptions();
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
   vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input_info.vertexBindingDescriptionCount = 0;
-  vertex_input_info.vertexAttributeDescriptionCount = 0;
+  vertex_input_info.vertexBindingDescriptionCount = binding_descriptions.size();
+  vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+  vertex_input_info.pVertexBindingDescriptions = binding_descriptions.data();
+  vertex_input_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
   input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -641,6 +657,48 @@ HandleWrapper<VkFence> CreateFence(VkDevice logical_device) {
     fence,
     [logical_device, alloc_cb](VkFence fence) {
       vkDestroyFence(logical_device, fence, alloc_cb);
+    }
+  };
+}
+
+HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, uint32_t data_size) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+  VkBufferCreateInfo buffer_info = {};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.size = data_size;
+  buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  VkBuffer buffer = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateBuffer(logical_device, &buffer_info, alloc_cb, &buffer); result != VK_SUCCESS) {
+    throw Error("failed to create vertex buffer!").WithCode(result);
+  }
+  return {
+    buffer,
+    [logical_device, alloc_cb](VkBuffer buffer) {
+      vkDestroyBuffer(logical_device, buffer, alloc_cb);
+    }
+  };
+}
+
+HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkBuffer buffer) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+  VkMemoryRequirements mem_requirements;
+  vkGetBufferMemoryRequirements(logical_device, buffer, &mem_requirements);
+
+  VkMemoryAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  alloc_info.allocationSize = mem_requirements.size;
+  alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
+  if (const VkResult result = vkAllocateMemory(logical_device, &alloc_info, alloc_cb, &buffer_memory); result != VK_SUCCESS) {
+    throw Error("failed to allocate vertex buffer memory!").WithCode(result);
+  }
+  return {
+    buffer_memory,
+    [logical_device, alloc_cb](VkDeviceMemory buffer_memory) {
+      vkFreeMemory(logical_device, buffer_memory, alloc_cb);
     }
   };
 }

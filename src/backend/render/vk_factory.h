@@ -57,6 +57,8 @@ extern HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipel
 extern HandleWrapper<VkCommandPool> CreateCommandPool(VkDevice logical_device, QueueFamilyIndices indices);
 extern HandleWrapper<VkSemaphore> CreateSemaphore(VkDevice logical_device);
 extern HandleWrapper<VkFence> CreateFence(VkDevice logical_device);
+extern HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, uint32_t data_size);
+extern HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkBuffer buffer);
 
 extern std::pair<VkPhysicalDevice, QueueFamilyIndices> CreatePhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
 extern std::pair<HandleWrapper<VkSwapchainKHR>, SwapchainDetails> CreateSwapchain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilyIndices indices, VkDevice logical_device);
