@@ -1,4 +1,5 @@
 #include "backend/render/vk_factory.h"
+#include "backend/render/vk_config.h"
 #include "base/io.h"
 
 #include <algorithm>
@@ -486,12 +487,12 @@ std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_de
   return framebuffers;
 }
 
-HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device) {
+HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
   VkPipelineLayoutCreateInfo pipeline_layout_info = {};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipeline_layout_info.setLayoutCount = 0;
-  pipeline_layout_info.pushConstantRangeCount = 0;
+  pipeline_layout_info.setLayoutCount = 1;
+  pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
 
   VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
   if (const VkResult result = vkCreatePipelineLayout(logical_device, &pipeline_layout_info, alloc_cb, &pipeline_layout); result != VK_SUCCESS) {
@@ -505,7 +506,17 @@ HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device) {
   };
 }
 
-HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkPipelineShaderStageCreateInfo> &shader_stages) {
+HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::initializer_list<ShaderStage>& shader_stages) {
+  std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
+  shader_stages_infos.reserve(shader_stages.size());
+  for(const ShaderStage& shader_stage : shader_stages) {
+    VkPipelineShaderStageCreateInfo shader_stage_info = {};
+    shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stage_info.stage = shader_stage.bits;
+    shader_stage_info.module = shader_stage.module.get();
+    shader_stage_info.pName = shader_stage.name.data();
+    shader_stages_infos.push_back(shader_stage_info);
+  }
   const std::vector<VkDynamicState> dynamic_states = config::GetDynamicStates();
   const std::vector<VkVertexInputAttributeDescription> attribute_descriptions = Vertex::GetAttributeDescriptions();
   const std::vector<VkVertexInputBindingDescription> binding_descriptions = Vertex::GetBindingDescriptions();
@@ -535,8 +546,9 @@ HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayo
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
   rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
+
 
   VkPipelineMultisampleStateCreateInfo multisampling = {};
   multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -566,7 +578,7 @@ HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayo
   VkGraphicsPipelineCreateInfo pipeline_info = {};
   pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipeline_info.stageCount = 2;
-  pipeline_info.pStages = shader_stages.data();
+  pipeline_info.pStages = shader_stages_infos.data();
   pipeline_info.pVertexInputState = &vertex_input_info;
   pipeline_info.pInputAssemblyState = &input_assembly;
   pipeline_info.pViewportState = &viewport_state;
@@ -669,7 +681,7 @@ HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, VkBufferUsageFlags
 
   VkBuffer buffer = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateBuffer(logical_device, &buffer_info, alloc_cb, &buffer); result != VK_SUCCESS) {
-    throw Error("failed to create vertex buffer!").WithCode(result);
+    throw Error("failed to create vertex buffer").WithCode(result);
   }
   return {
     buffer,
@@ -691,7 +703,7 @@ HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhys
 
   VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
   if (const VkResult result = vkAllocateMemory(logical_device, &alloc_info, alloc_cb, &buffer_memory); result != VK_SUCCESS) {
-    throw Error("failed to allocate vertex buffer memory!").WithCode(result);
+    throw Error("failed to allocate vertex buffer memory").WithCode(result);
   }
   return {
     buffer_memory,
@@ -699,6 +711,73 @@ HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhys
       vkFreeMemory(logical_device, buffer_memory, alloc_cb);
     }
   };
+}
+
+HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_device) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+
+  VkDescriptorSetLayoutBinding ubo_layout_binding = {};
+  ubo_layout_binding.binding = 0;
+  ubo_layout_binding.descriptorCount = 1;
+  ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  ubo_layout_binding.pImmutableSamplers = nullptr;
+  ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  VkDescriptorSetLayoutCreateInfo layout_info = {};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &ubo_layout_binding;
+
+  VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateDescriptorSetLayout(logical_device, &layout_info, alloc_cb, &descriptor_set_layout); result != VK_SUCCESS) {
+    throw Error("failed to create descriptor set layout").WithCode(result);
+  }
+  return {
+    descriptor_set_layout,
+    [logical_device, alloc_cb](VkDescriptorSetLayout descriptor_set_layout) {
+      vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, alloc_cb);
+    }
+  };
+}
+
+HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, const size_t count) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+
+  VkDescriptorPoolSize pool_size = {};
+  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size.descriptorCount = static_cast<uint32_t>(count);
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  pool_info.maxSets = static_cast<uint32_t>(count);
+
+  VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateDescriptorPool(logical_device, &pool_info, alloc_cb, &descriptor_pool); result != VK_SUCCESS) {
+    throw Error("failed to create descriptor pool").WithCode(result);
+  }
+  return {
+    descriptor_pool,
+    [logical_device, alloc_cb](VkDescriptorPool descriptor_pool) {
+      vkDestroyDescriptorPool(logical_device, descriptor_pool, alloc_cb);
+    }
+  };
+}
+
+std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, const size_t count) {
+  std::vector layouts(count, descriptor_set_layout);
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(count);
+  alloc_info.pSetLayouts = layouts.data();
+
+  std::vector<VkDescriptorSet> descriptor_sets(count);
+  if (const VkResult result = vkAllocateDescriptorSets(logical_device, &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
+    throw Error("failed to allocate descriptor sets").WithCode(result);
+  }
+  return descriptor_sets;
 }
 
 } // namespace vk::factory

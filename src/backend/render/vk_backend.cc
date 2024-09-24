@@ -1,21 +1,20 @@
 #include "backend/render/vk_backend.h"
 #include "backend/render/vk_factory.h"
+#include "backend/render/vk_config.h"
+#include "backend/render/vk_types.h"
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <cstring>
-#include <iostream>
+#include <chrono>
 #include <string>
 #include <limits>
 
 namespace vk {
 
 namespace {
-
-struct ShaderStage {
-  VkShaderStageFlagBits bits;
-  HandleWrapper<VkShaderModule> module;
-
-  std::string_view name;
-};
 
 class Buffer {
 public:
@@ -36,7 +35,7 @@ public:
     memory_wrapper_ = factory::CreateBufferMemory(logical_device_, physical_device, properties, buffer_wrapper_.get());
   }
 
-  void Bind() const {
+  void Bind() {
     if (const VkResult result = vkBindBufferMemory(logical_device_, buffer_wrapper_.get(), memory_wrapper_.get(), 0); result != VK_SUCCESS) {
       throw Error("failed to bind buffer memory").WithCode(result);
     }
@@ -76,12 +75,12 @@ class BackendImpl {
   void LoadModel();
   void SetResized(bool resized) noexcept;
  private:
-  static void FramebufferResizedCallback(GLFWwindow* window, int width, int height);
-
-  void RecreateSwapchain();
   template<typename Tp>
   Buffer CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+
+  void RecreateSwapchain();
   void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+  void UpdateUniforms(uint32_t curr_image);
 
   bool framebuffer_resized_;
   size_t current_frame_;
@@ -105,6 +104,10 @@ class BackendImpl {
   std::vector<HandleWrapper<VkImageView>> image_views_wrapped_;
   std::vector<HandleWrapper<VkFramebuffer>> framebuffers_wrapped_;
 
+  HandleWrapper<VkDescriptorSetLayout> descriptor_set_layout_wrapper_;
+  HandleWrapper<VkDescriptorPool> descriptor_pool_wrapper_;
+  std::vector<VkDescriptorSet> descriptor_sets_;
+
   HandleWrapper<VkRenderPass> render_pass_wrapper_;
   HandleWrapper<VkPipelineLayout> pipeline_layout_wrapper_;
   HandleWrapper<VkPipeline> pipeline_wrapper_;
@@ -118,15 +121,19 @@ class BackendImpl {
 
   Buffer vertices_buffer_, indices_buffer_;
 
+  std::array<Buffer, config::kFrameCount> ubo_buffers_;
+  std::array<void*, config::kFrameCount> ubo_mapped_;
+
   const std::vector<Vertex> vertices_ = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
   };
 
-  const std::vector<uint16_t> indices_ = {
+  const std::vector<Index::type> indices_ = {
     0, 1, 2, 2, 3, 0
-};
+  };
 };
 
 template<typename Tp>
@@ -160,15 +167,28 @@ void BackendImpl::SetResized(bool resized) noexcept {
   framebuffer_resized_ = resized;
 }
 
-void BackendImpl::FramebufferResizedCallback(GLFWwindow* window, int width[[maybe_unused]], int height[[maybe_unused]]) {
-  auto impl = static_cast<BackendImpl*>(glfwGetWindowUserPointer(window));
-  impl->SetResized(true);
+void BackendImpl::UpdateUniforms(uint32_t curr_image) {
+  static const std::chrono::time_point start_time = std::chrono::high_resolution_clock::now();
+
+  const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
+  const float time = std::chrono::duration<float>(curr_time - start_time).count();
+
+  UniformBufferObject ubo = {};
+  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
+  ubo.proj[1][1] *= -1;
+
+  std::memcpy(ubo_mapped_[curr_image], &ubo, sizeof(ubo));
 }
 
 BackendImpl::BackendImpl(GLFWwindow* window)
-    : framebuffer_resized_(false), window_(window), current_frame_() {
+    : framebuffer_resized_(false), current_frame_(), window_(window) {
   glfwSetWindowUserPointer(window, this);
-  glfwSetFramebufferSizeCallback(window, FramebufferResizedCallback);
+  glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width[[maybe_unused]], int height[[maybe_unused]]) {
+    auto impl = static_cast<BackendImpl*>(glfwGetWindowUserPointer(window));
+    impl->SetResized(true);
+  });
 
   instance_wrapper_ = factory::CreateInstance();
   VkInstance instance = instance_wrapper_.get();
@@ -190,36 +210,56 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   VkSwapchainKHR swapchain = swapchain_wrapper_.get();
   swapchain_images_ = factory::CreateSwapchainImages(swapchain, logical_device);
 
+  descriptor_set_layout_wrapper_ = factory::CreateDescriptorSetLayout(logical_device);
+  VkDescriptorSetLayout descriptor_set_layout = descriptor_set_layout_wrapper_.get();
+
+  descriptor_pool_wrapper_ = factory::CreateDescriptorPool(logical_device, config::kFrameCount);
+  VkDescriptorPool descriptor_pool = descriptor_pool_wrapper_.get();
+
+  descriptor_sets_ = factory::CreateDescriptorSets(logical_device, descriptor_set_layout, descriptor_pool, config::kFrameCount);
+
+  for(size_t i = 0; i < ubo_buffers_.size(); ++i) {
+    ubo_buffers_[i] = Buffer(logical_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
+    ubo_buffers_[i].Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    ubo_buffers_[i].Bind();
+
+    ubo_mapped_[i] = ubo_buffers_[i].Map();
+
+    VkDescriptorBufferInfo buffer_info = {};
+    buffer_info.buffer = ubo_buffers_[i].Get();
+    buffer_info.offset = 0;
+    buffer_info.range = sizeof(UniformBufferObject);
+
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = descriptor_sets_[i];
+    descriptor_write.dstBinding = 0;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pBufferInfo = &buffer_info;
+
+    vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
+  }
   render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format);
   VkRenderPass render_pass = render_pass_wrapper_.get();
 
-  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device);
+  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, descriptor_set_layout);
   VkPipelineLayout pipeline_layout = pipeline_layout_wrapper_.get();
-  {
-    const std::array shader_stages = {
-        ShaderStage{
-          VK_SHADER_STAGE_VERTEX_BIT,
-          factory::CreateShaderModule(logical_device, "shaders/vert.spv"),
-          "main"
-        },
-        ShaderStage{
-          VK_SHADER_STAGE_FRAGMENT_BIT,
-          factory::CreateShaderModule(logical_device, "shaders/frag.spv"),
-          "main"
-        }
-    };
-    std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
-    shader_stages_infos.reserve(shader_stages.size());
-    for(const ShaderStage& shader_stage : shader_stages) {
-      VkPipelineShaderStageCreateInfo shader_stage_info = {};
-      shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-      shader_stage_info.stage = shader_stage.bits;
-      shader_stage_info.module = shader_stage.module.get();
-      shader_stage_info.pName = shader_stage.name.data();
-      shader_stages_infos.push_back(shader_stage_info);
+  pipeline_wrapper_ = factory::CreatePipeline(logical_device, pipeline_layout, render_pass,
+    {
+      {
+        VK_SHADER_STAGE_VERTEX_BIT,
+        factory::CreateShaderModule(logical_device, "shaders/vert.spv"),
+        "main"
+      },
+      {
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        factory::CreateShaderModule(logical_device, "shaders/frag.spv"),
+        "main"
+      }
     }
-    pipeline_wrapper_ = factory::CreatePipeline(logical_device, pipeline_layout, render_pass, shader_stages_infos);
-  }
+  );
   image_views_wrapped_ = factory::CreateImageViews(swapchain_images_, logical_device, swapchain_details_.format);
   framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, render_pass, swapchain_details_.extent);
 
@@ -321,6 +361,7 @@ void BackendImpl::Render() {
   VkSwapchainKHR swapchain = swapchain_wrapper_.get();
   VkRenderPass render_pass = render_pass_wrapper_.get();
   VkCommandBuffer cmd_buffer = cmd_buffers_[current_frame_];
+  VkPipelineLayout pipeline_layout = pipeline_layout_wrapper_.get();
   VkPipeline pipeline = pipeline_wrapper_.get();
 
   if (const VkResult result = vkWaitForFences(logical_device, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); result != VK_SUCCESS) {
@@ -335,6 +376,7 @@ void BackendImpl::Render() {
       throw Error("failed to acquire next image").WithCode(result);
     }
   }
+  UpdateUniforms(current_frame_);
   if (const VkResult result = vkResetFences(logical_device, 1, &fence); result != VK_SUCCESS) {
     throw Error("failed to reset fences").WithCode(result);
   }
@@ -377,7 +419,8 @@ void BackendImpl::Render() {
   VkDeviceSize offsets[] = {0};
 
   vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, offsets);
-  vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, 0, Index::type_enum);
+  vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets_[current_frame_], 0, nullptr);
   vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(indices_.size()), 1, 0, 0, 0);
 
   vkCmdEndRenderPass(cmd_buffer);

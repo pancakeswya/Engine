@@ -7,7 +7,7 @@ set(SRC_DIR src)
 set(EXTERNAL third_party)
 
 add_subdirectory(shaders)
-# add_compile_definitions(DEBUG)
+add_compile_definitions(DEBUG)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
@@ -27,6 +27,8 @@ add_executable(vk_triangle
         ${SRC_DIR}/backend/render/vk_config.h
         ${SRC_DIR}/backend/render/vk_factory.cc
         ${SRC_DIR}/backend/render/vk_factory.h
+        ${SRC_DIR}/backend/render/vk_types.cc
+        ${SRC_DIR}/backend/render/vk_types.h
         ${SRC_DIR}/backend/window/glfw.h
         ${SRC_DIR}/backend/window/glfw.cc
 )
