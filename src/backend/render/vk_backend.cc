@@ -64,6 +64,24 @@ private:
   VkDevice logical_device_;
 };
 
+void UpdateDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set) {
+  VkDescriptorBufferInfo buffer_info = {};
+  buffer_info.buffer = ubo_buffer;
+  buffer_info.offset = 0;
+  buffer_info.range = sizeof(UniformBufferObject);
+
+  VkWriteDescriptorSet descriptor_write = {};
+  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_write.dstSet = descriptor_set;
+  descriptor_write.dstBinding = 0;
+  descriptor_write.dstArrayElement = 0;
+  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_write.descriptorCount = 1;
+  descriptor_write.pBufferInfo = &buffer_info;
+
+  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
+}
+
 } // namespace
 
 class BackendImpl {
@@ -225,21 +243,7 @@ BackendImpl::BackendImpl(GLFWwindow* window)
 
     ubo_mapped_[i] = ubo_buffers_[i].Map();
 
-    VkDescriptorBufferInfo buffer_info = {};
-    buffer_info.buffer = ubo_buffers_[i].Get();
-    buffer_info.offset = 0;
-    buffer_info.range = sizeof(UniformBufferObject);
-
-    VkWriteDescriptorSet descriptor_write = {};
-    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write.dstSet = descriptor_sets_[i];
-    descriptor_write.dstBinding = 0;
-    descriptor_write.dstArrayElement = 0;
-    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_write.descriptorCount = 1;
-    descriptor_write.pBufferInfo = &buffer_info;
-
-    vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
+    UpdateDescriptorSets(logical_device, ubo_buffers_[i].Get(), descriptor_sets_[i]);
   }
   render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format);
   VkRenderPass render_pass = render_pass_wrapper_.get();
