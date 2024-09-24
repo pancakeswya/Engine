@@ -79,6 +79,8 @@ class BackendImpl {
   static void FramebufferResizedCallback(GLFWwindow* window, int width, int height);
 
   void RecreateSwapchain();
+  template<typename Tp>
+  Buffer CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
   void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
   bool framebuffer_resized_;
@@ -114,32 +116,44 @@ class BackendImpl {
   std::vector<HandleWrapper<VkSemaphore>> render_semaphores_wrapped_;
   std::vector<HandleWrapper<VkFence>> fences_wrapped_;
 
-  Buffer vertices_buffer_;
+  Buffer vertices_buffer_, indices_buffer_;
 
   const std::vector<Vertex> vertices_ = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
   };
+
+  const std::vector<uint16_t> indices_ = {
+    0, 1, 2, 2, 3, 0
+};
 };
 
-void BackendImpl::LoadModel() {
-  uint32_t data_size = sizeof(Vertex) * vertices_.size();
+template<typename Tp>
+Buffer BackendImpl::CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
+  uint32_t data_size = sizeof(Tp) * data.size();
   VkDevice logical_device = logical_device_wrapper_.get();
 
-  Buffer staging_buffer = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, data_size);
-  staging_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  staging_buffer.Bind();
+  Buffer transfer_buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, data_size);
+  transfer_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  transfer_buffer.Bind();
   {
-    void* mapped_buffer = staging_buffer.Map();
-    std::memcpy(mapped_buffer, vertices_.data(), data_size);
-    staging_buffer.Unmap();
+    void* mapped_buffer = transfer_buffer.Map();
+    std::memcpy(mapped_buffer, data.data(), data_size);
+    transfer_buffer.Unmap();
   }
-  vertices_buffer_ = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data_size);
-  vertices_buffer_.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  vertices_buffer_.Bind();
+  Buffer staging_buffer(logical_device, usage, data_size);
+  staging_buffer.Allocate(physical_device_, properties);
+  staging_buffer.Bind();
 
-  CopyBuffer(staging_buffer.Get(), vertices_buffer_.Get(), data_size);
+  CopyBuffer(transfer_buffer.Get(), staging_buffer.Get(), data_size);
+
+  return staging_buffer;
+}
+
+void BackendImpl::LoadModel() {
+  vertices_buffer_ = CreateStagingBuffer(vertices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  indices_buffer_ = CreateStagingBuffer(indices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 void BackendImpl::SetResized(bool resized) noexcept {
@@ -358,11 +372,13 @@ void BackendImpl::Render() {
   scissor.extent = swapchain_details_.extent;
   vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
 
-  VkBuffer buffer = vertices_buffer_.Get();
+  VkBuffer vertices_buffer = vertices_buffer_.Get();
+  VkBuffer indices_buffer = indices_buffer_.Get();
   VkDeviceSize offsets[] = {0};
 
-  vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &buffer, offsets);
-  vkCmdDraw(cmd_buffer, static_cast<uint32_t>(vertices_.size()), 1, 0, 0);
+  vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, offsets);
+  vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(indices_.size()), 1, 0, 0, 0);
 
   vkCmdEndRenderPass(cmd_buffer);
   if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {

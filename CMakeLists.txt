@@ -7,7 +7,7 @@ set(SRC_DIR src)
 set(EXTERNAL third_party)
 
 add_subdirectory(shaders)
-add_compile_definitions(DEBUG)
+# add_compile_definitions(DEBUG)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
