@@ -341,6 +341,7 @@ void BackendImpl::RecreateSwapchain() {
 
   framebuffers_wrapped_.clear();
   image_views_wrapped_.clear();
+  swapchain_wrapper_.reset();
 
   std::tie(swapchain_wrapper_, swapchain_details_) = factory::CreateSwapchain(window_, surface, physical_device_, family_indices_, logical_device);
   swapchain_images_ = factory::CreateSwapchainImages(swapchain_wrapper_.get(), logical_device);
