@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <iostream>
 #include <set>
 #include <optional>
 #include <limits>
@@ -111,7 +112,7 @@ inline VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR
 }
 
 inline VkExtent2D ChooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR& capabilities) {
-  if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+   if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
   }
   int width, height;
@@ -436,8 +437,6 @@ std::pair<HandleWrapper<VkSwapchainKHR>, SwapchainDetails> CreateSwapchain(GLFWw
   create_info.presentMode = present_mode;
   create_info.clipped = VK_TRUE;
 
-  create_info.oldSwapchain = VK_NULL_HANDLE;
-
   VkSwapchainKHR swapchain = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateSwapchainKHR(logical_device, &create_info, alloc_cb, &swapchain); result != VK_SUCCESS) {
     throw Error("failed to create swap chain!").WithCode(result);
@@ -661,12 +660,12 @@ HandleWrapper<VkFence> CreateFence(VkDevice logical_device) {
   };
 }
 
-HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, uint32_t data_size) {
+HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t data_size) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
   VkBufferCreateInfo buffer_info = {};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size = data_size;
-  buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  buffer_info.usage = usage;
   buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VkBuffer buffer = VK_NULL_HANDLE;
@@ -681,7 +680,7 @@ HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, uint32_t data_size
   };
 }
 
-HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkBuffer buffer) {
+HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkBuffer buffer) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
   VkMemoryRequirements mem_requirements;
   vkGetBufferMemoryRequirements(logical_device, buffer, &mem_requirements);
@@ -689,7 +688,7 @@ HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhys
   VkMemoryAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_requirements.size;
-  alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, physical_device, properties);
 
   VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
   if (const VkResult result = vkAllocateMemory(logical_device, &alloc_info, alloc_cb, &buffer_memory); result != VK_SUCCESS) {

@@ -17,6 +17,54 @@ struct ShaderStage {
   std::string_view name;
 };
 
+class Buffer {
+public:
+  Buffer() = default;
+  Buffer(const Buffer&) = delete;
+  Buffer(Buffer&&) = default;
+
+  Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size)
+    : size_(size), logical_device_(logical_device),
+      buffer_wrapper_(factory::CreateBuffer(logical_device, usage, size)) {}
+
+  ~Buffer() = default;
+
+  Buffer& operator=(const Buffer&) = delete;
+  Buffer& operator=(Buffer&&) = default;
+
+  void Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
+    memory_wrapper_ = factory::CreateBufferMemory(logical_device_, physical_device, properties, buffer_wrapper_.get());
+  }
+
+  void Bind() const {
+    if (const VkResult result = vkBindBufferMemory(logical_device_, buffer_wrapper_.get(), memory_wrapper_.get(), 0); result != VK_SUCCESS) {
+      throw Error("failed to bind buffer memory").WithCode(result);
+    }
+  }
+
+  void* Map() {
+    void* data;
+    if (const VkResult result = vkMapMemory(logical_device_, memory_wrapper_.get(), 0, size_, 0, &data); result != VK_SUCCESS) {
+      throw Error("failed to map buffer memory").WithCode(result);
+    }
+    return data;
+  }
+
+  void Unmap() noexcept {
+    vkUnmapMemory(logical_device_, memory_wrapper_.get());
+  }
+
+  [[nodiscard]] VkBuffer Get() const noexcept {
+    return buffer_wrapper_.get();
+  }
+private:
+  uint32_t size_;
+
+  HandleWrapper<VkBuffer> buffer_wrapper_;
+  HandleWrapper<VkDeviceMemory> memory_wrapper_;
+  VkDevice logical_device_;
+};
+
 } // namespace
 
 class BackendImpl {
@@ -31,6 +79,7 @@ class BackendImpl {
   static void FramebufferResizedCallback(GLFWwindow* window, int width, int height);
 
   void RecreateSwapchain();
+  void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
   bool framebuffer_resized_;
   size_t current_frame_;
@@ -65,8 +114,7 @@ class BackendImpl {
   std::vector<HandleWrapper<VkSemaphore>> render_semaphores_wrapped_;
   std::vector<HandleWrapper<VkFence>> fences_wrapped_;
 
-  HandleWrapper<VkBuffer> buffer_wrapper_;
-  HandleWrapper<VkDeviceMemory> memory_wrapper_;
+  Buffer vertices_buffer_;
 
   const std::vector<Vertex> vertices_ = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -79,19 +127,19 @@ void BackendImpl::LoadModel() {
   uint32_t data_size = sizeof(Vertex) * vertices_.size();
   VkDevice logical_device = logical_device_wrapper_.get();
 
-  buffer_wrapper_ = factory::CreateBuffer(logical_device, data_size);
-  VkBuffer buffer = buffer_wrapper_.get();
-  memory_wrapper_ = factory::CreateBufferMemory(logical_device, physical_device_, buffer);
-  VkDeviceMemory memory = memory_wrapper_.get();
-  if (const VkResult result = vkBindBufferMemory(logical_device, buffer, memory, 0); result != VK_SUCCESS) {
-    throw Error("failed to bind buffer memory").WithCode(result);
+  Buffer staging_buffer = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, data_size);
+  staging_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  staging_buffer.Bind();
+  {
+    void* mapped_buffer = staging_buffer.Map();
+    std::memcpy(mapped_buffer, vertices_.data(), data_size);
+    staging_buffer.Unmap();
   }
-  void* data;
-  if (const VkResult result = vkMapMemory(logical_device, memory, 0, data_size, 0, &data); result != VK_SUCCESS) {
-    throw Error("failed to map buffer memory").WithCode(result);
-  }
-  std::memcpy(data, vertices_.data(), data_size);
-  vkUnmapMemory(logical_device, memory);
+  vertices_buffer_ = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data_size);
+  vertices_buffer_.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  vertices_buffer_.Bind();
+
+  CopyBuffer(staging_buffer.Get(), vertices_buffer_.Get(), data_size);
 }
 
 void BackendImpl::SetResized(bool resized) noexcept {
@@ -174,6 +222,54 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   }
 }
 
+void BackendImpl::CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
+  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
+  VkDevice logical_device = logical_device_wrapper_.get();
+
+  VkCommandBufferAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandPool = cmd_pool;
+  alloc_info.commandBufferCount = 1;
+
+  VkCommandBuffer cmd_buffer = VK_NULL_HANDLE;
+  if (const VkResult result = vkAllocateCommandBuffers(logical_device, &alloc_info, &cmd_buffer); result != VK_SUCCESS) {
+    throw Error("failed allocate command buffer").WithCode(result);
+  }
+  HandleWrapper<VkCommandBuffer> cmd_buffer_wrapper(
+    cmd_buffer,
+    [logical_device, cmd_pool](VkCommandBuffer cmd_buffer) {
+    vkFreeCommandBuffers(logical_device, cmd_pool, 1, &cmd_buffer);
+  });
+
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &begin_info); result != VK_SUCCESS) {
+    throw Error("failed to begin recording command buffer").WithCode(result);
+  }
+
+  VkBufferCopy copy_region = {};
+  copy_region.size = size;
+  vkCmdCopyBuffer(cmd_buffer, src, dst, 1, &copy_region);
+
+  if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
+    throw Error("failed to record command buffer").WithCode(result);
+  }
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &cmd_buffer;
+
+  if (const VkResult result = vkQueueSubmit(graphics_queue_, 1, &submit_info, VK_NULL_HANDLE); result != VK_SUCCESS) {
+    throw Error("failed to submit draw command buffer").WithCode(result);
+  }
+  if (const VkResult result = vkQueueWaitIdle(graphics_queue_); result != VK_SUCCESS) {
+    throw Error("failed to queue wait idle").WithCode(result);
+  }
+}
+
 void BackendImpl::RecreateSwapchain() {
   int width = 0, height = 0;
   glfwGetFramebufferSize(window_, &width, &height);
@@ -185,12 +281,12 @@ void BackendImpl::RecreateSwapchain() {
   VkRenderPass render_pass = render_pass_wrapper_.get();
   VkSurfaceKHR surface = surface_wrapper_.get();
 
-  vkDeviceWaitIdle(logical_device);
+  if (const VkResult result = vkDeviceWaitIdle(logical_device); result != VK_SUCCESS) {
+    throw Error("failed to idle device");
+  }
 
   framebuffers_wrapped_.clear();
-  swapchain_images_.clear();
-  swapchain_images_.clear();
-  swapchain_wrapper_.reset();
+  image_views_wrapped_.clear();
 
   std::tie(swapchain_wrapper_, swapchain_details_) = factory::CreateSwapchain(window_, surface, physical_device_, family_indices_, logical_device);
   swapchain_images_ = factory::CreateSwapchainImages(swapchain_wrapper_.get(), logical_device);
@@ -262,7 +358,7 @@ void BackendImpl::Render() {
   scissor.extent = swapchain_details_.extent;
   vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
 
-  VkBuffer buffer = buffer_wrapper_.get();
+  VkBuffer buffer = vertices_buffer_.Get();
   VkDeviceSize offsets[] = {0};
 
   vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &buffer, offsets);
