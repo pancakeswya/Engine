@@ -27,9 +27,14 @@ extern HandleWrapper<VkCommandPool> CreateCommandPool(VkDevice logical_device, Q
 extern HandleWrapper<VkSemaphore> CreateSemaphore(VkDevice logical_device);
 extern HandleWrapper<VkFence> CreateFence(VkDevice logical_device);
 extern HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t data_size);
+extern HandleWrapper<VkDeviceMemory> CreateMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkMemoryRequirements mem_requirements);
+extern HandleWrapper<VkDeviceMemory> CreateImageMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkImage image);
 extern HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkBuffer buffer);
 extern HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_device);
 extern HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, size_t count);
+extern HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
+extern HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format);
+extern HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device);
 
 extern std::pair<VkPhysicalDevice, QueueFamilyIndices> CreatePhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
 extern std::pair<HandleWrapper<VkSwapchainKHR>, SwapchainDetails> CreateSwapchain(GLFWwindow* window, VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilyIndices indices, VkDevice logical_device);
@@ -38,7 +43,7 @@ extern std::vector<VkImage> CreateSwapchainImages(VkSwapchainKHR swapchain, VkDe
 extern std::vector<HandleWrapper<VkImageView>> CreateImageViews(const std::vector<VkImage>& images, VkDevice logical_device, VkFormat format);
 extern std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_device, const std::vector<HandleWrapper<VkImageView>>& image_views, VkRenderPass render_pass,VkExtent2D extent);
 extern std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logical_device, VkCommandPool cmd_pool, uint32_t count);
-std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count);
+extern std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count);
 
 } // namespace vk::factory
 

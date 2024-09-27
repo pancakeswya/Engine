@@ -48,6 +48,7 @@ struct ShaderStage {
 struct Vertex {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 tex_coord;
 
   static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
   static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();

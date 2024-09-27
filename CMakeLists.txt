@@ -14,6 +14,7 @@ find_package(glfw3 REQUIRED)
 
 include_directories("${SRC_DIR}")
 include_directories("${EXTERNAL}/glm")
+include_directories("${EXTERNAL}/stb")
 
 add_executable(vk_triangle
         ${SRC_DIR}/main.cc
@@ -29,6 +30,7 @@ add_executable(vk_triangle
         ${SRC_DIR}/backend/render/vk_factory.h
         ${SRC_DIR}/backend/render/vk_types.cc
         ${SRC_DIR}/backend/render/vk_types.h
+        ${SRC_DIR}/backend/render/vk_wrappers.h
         ${SRC_DIR}/backend/window/glfw.h
         ${SRC_DIR}/backend/window/glfw.cc
 )

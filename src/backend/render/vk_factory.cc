@@ -80,8 +80,11 @@ std::pair<bool, QueueFamilyIndices> FindPhysicalDeviceFamilyIndices(VkPhysicalDe
     if (present_support) {
       present = static_cast<uint32_t>(i);
     }
+    VkPhysicalDeviceFeatures supported_features;
+    vkGetPhysicalDeviceFeatures(device, &supported_features);
     if (graphic.has_value() &&
         present.has_value() &&
+        supported_features.samplerAnisotropy &&
         PhysicalDeviceExtensionSupport(device)) {
       const PhysicalDeviceSurfaceDetails details = GetPhysicalDeviceSurfaceDetails(device, surface);
       if (!details.formats.empty() && !details.present_modes.empty()) {
@@ -121,35 +124,6 @@ inline VkExtent2D ChooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabiliti
   return {
     std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
     std::clamp(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
-  };
-}
-
-HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format) {
-  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
-  VkImageViewCreateInfo create_info = {};
-  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  create_info.image = image;
-  create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  create_info.format = format;
-  create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-  create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  create_info.subresourceRange.baseMipLevel = 0;
-  create_info.subresourceRange.levelCount = 1;
-  create_info.subresourceRange.baseArrayLayer = 0;
-  create_info.subresourceRange.layerCount = 1;
-
-  VkImageView image_view = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateImageView(logical_device, &create_info, alloc_cb, &image_view); result != VK_SUCCESS) {
-    throw Error("failed to create image views!").WithCode(result);
-  }
-  return {
-    image_view,
-    [logical_device, alloc_cb](VkImageView image_view) {
-      vkDestroyImageView(logical_device, image_view, alloc_cb);
-    }
   };
 }
 
@@ -308,7 +282,8 @@ HandleWrapper<VkDevice> CreateLogicalDevice(VkPhysicalDevice physical_device, co
   const std::vector<const char*> extensions = config::GetDeviceExtensions();
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
-  constexpr VkPhysicalDeviceFeatures device_features = {};
+  VkPhysicalDeviceFeatures device_features = {};
+  device_features.samplerAnisotropy = VK_TRUE;
 
   VkDeviceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -691,10 +666,8 @@ HandleWrapper<VkBuffer> CreateBuffer(VkDevice logical_device, VkBufferUsageFlags
   };
 }
 
-HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkBuffer buffer) {
+HandleWrapper<VkDeviceMemory> CreateMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkMemoryRequirements mem_requirements) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
-  VkMemoryRequirements mem_requirements;
-  vkGetBufferMemoryRequirements(logical_device, buffer, &mem_requirements);
 
   VkMemoryAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -713,6 +686,13 @@ HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhys
   };
 }
 
+HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkBuffer buffer) {
+  VkMemoryRequirements mem_requirements;
+  vkGetBufferMemoryRequirements(logical_device, buffer, &mem_requirements);
+
+  return CreateMemory(logical_device, physical_device, properties, mem_requirements);
+}
+
 HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_device) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
@@ -723,10 +703,18 @@ HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_
   ubo_layout_binding.pImmutableSamplers = nullptr;
   ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+  VkDescriptorSetLayoutBinding sampler_layout_binding = {};
+  sampler_layout_binding.binding = 1;
+  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  sampler_layout_binding.pImmutableSamplers = nullptr;
+  sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  std::array<VkDescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
   VkDescriptorSetLayoutCreateInfo layout_info = {};
   layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  layout_info.bindingCount = 1;
-  layout_info.pBindings = &ubo_layout_binding;
+  layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+  layout_info.pBindings = bindings.data();
 
   VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateDescriptorSetLayout(logical_device, &layout_info, alloc_cb, &descriptor_set_layout); result != VK_SUCCESS) {
@@ -743,14 +731,16 @@ HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_
 HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, const size_t count) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
-  VkDescriptorPoolSize pool_size = {};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount = static_cast<uint32_t>(count);
+  std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
+  pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_sizes[0].descriptorCount = static_cast<uint32_t>(count);
+  pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  pool_sizes[1].descriptorCount = static_cast<uint32_t>(count);
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = 1;
-  pool_info.pPoolSizes = &pool_size;
+  pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+  pool_info.pPoolSizes = pool_sizes.data();
   pool_info.maxSets = static_cast<uint32_t>(count);
 
   VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -778,6 +768,103 @@ std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logical_device, VkDes
     throw Error("failed to allocate descriptor sets").WithCode(result);
   }
   return descriptor_sets;
+}
+
+HandleWrapper<VkDeviceMemory> CreateImageMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkImage image) {
+  VkMemoryRequirements mem_requirements;
+  vkGetImageMemoryRequirements(logical_device, image, &mem_requirements);
+
+  return CreateMemory(logical_device, physical_device, properties, mem_requirements);
+}
+
+HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+
+  VkImageCreateInfo image_info = {};
+  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  image_info.imageType = VK_IMAGE_TYPE_2D;
+  image_info.extent.width = width;
+  image_info.extent.height = height;
+  image_info.extent.depth = 1;
+  image_info.mipLevels = 1;
+  image_info.arrayLayers = 1;
+  image_info.format = format;
+  image_info.tiling = tiling;
+  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  image_info.usage = usage;
+  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  VkImage image = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateImage(logical_device, &image_info, alloc_cb, &image); result != VK_SUCCESS) {
+    throw Error("failed to create image!").WithCode(result);
+  }
+  return {
+    image,
+    [logical_device, alloc_cb](VkImage image) {
+      vkDestroyImage(logical_device, image, alloc_cb);
+    }
+  };
+}
+
+HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+
+  VkImageViewCreateInfo view_info = {};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.image = image;
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.format = format;
+  view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = 1;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = 1;
+
+  VkImageView image_view = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateImageView(logical_device, &view_info, alloc_cb, &image_view); result != VK_SUCCESS) {
+    throw Error("failed to create texture image view").WithCode(result);
+  }
+
+  return {
+    image_view,
+    [logical_device, alloc_cb](VkImageView image_view) {
+      vkDestroyImageView(logical_device, image_view, alloc_cb);
+    }
+  };
+}
+
+HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device) {
+  const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+
+  VkPhysicalDeviceProperties properties = {};
+  vkGetPhysicalDeviceProperties(physical_device, &properties);
+
+  VkSamplerCreateInfo sampler_info = {};
+  sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  sampler_info.magFilter = VK_FILTER_LINEAR;
+  sampler_info.minFilter = VK_FILTER_LINEAR;
+  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.anisotropyEnable = VK_TRUE;
+  sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  sampler_info.unnormalizedCoordinates = VK_FALSE;
+  sampler_info.compareEnable = VK_FALSE;
+  sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+  sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+  VkSampler sampler = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateSampler(logical_device, &sampler_info, alloc_cb, &sampler); result != VK_SUCCESS) {
+    throw Error("failed to create texture sampler").WithCode(result);
+  }
+  return {
+    sampler,
+    [logical_device, alloc_cb](VkSampler sampler) {
+      vkDestroySampler(logical_device, sampler, alloc_cb);
+    }
+  };
 }
 
 } // namespace vk::factory
