@@ -89,10 +89,25 @@ public:
         uint32_t channels,
         VkFormat format,
         VkImageTiling tiling,
-        VkImageUsageFlags usage) {
+        VkImageUsageFlags usage) : format_(format) {
     HandleWrapper<VkImage> image = factory::CreateImage(logical_device, width, height, format, tiling, usage);
     static_cast<MemoryObject&>(*this) = MemoryObject(std::move(image), logical_device, width * height * channels);
   }
+
+  void CreateView(VkImageAspectFlags aspect_flags) {
+    view_ = factory::CreateImageView(logical_device_, object_wrapper_.get(), format_, aspect_flags);
+  }
+
+  [[nodiscard]] VkImageView GetView() const noexcept {
+    return view_.get();
+  }
+
+  [[nodiscard]] VkFormat GetFormat() const noexcept {
+    return format_;
+  }
+private:
+  VkFormat format_;
+  HandleWrapper<VkImageView> view_;
 };
 
 #undef DECL_MEMORY_OBJECT

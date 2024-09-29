@@ -127,13 +127,13 @@ inline VkExtent2D ChooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabiliti
   };
 }
 
-HandleWrapper<VkFramebuffer> CreateFramebuffer(VkDevice logical_device, VkRenderPass render_pass, VkImageView view, VkExtent2D extent) {
+HandleWrapper<VkFramebuffer> CreateFramebuffer(VkDevice logical_device, VkRenderPass render_pass, const std::vector<VkImageView>& views, VkExtent2D extent) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
   VkFramebufferCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   create_info.renderPass = render_pass;
-  create_info.attachmentCount = 1;
-  create_info.pAttachments = &view;
+  create_info.attachmentCount = static_cast<uint32_t>(views.size());
+  create_info.pAttachments = views.data();
   create_info.width = extent.width;
   create_info.height = extent.height;
   create_info.layers = 1;
@@ -331,11 +331,11 @@ HandleWrapper<VkShaderModule> CreateShaderModule(VkDevice logical_device, const 
   };
 }
 
-HandleWrapper<VkRenderPass> CreateRenderPass(VkDevice logical_device, VkFormat format) {
+HandleWrapper<VkRenderPass> CreateRenderPass(VkDevice logical_device, VkFormat image_format, VkFormat depth_format) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
   VkAttachmentDescription color_attachment = {};
 
-  color_attachment.format = format;
+  color_attachment.format = image_format;
   color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
   color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -344,21 +344,48 @@ HandleWrapper<VkRenderPass> CreateRenderPass(VkDevice logical_device, VkFormat f
   color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+  VkAttachmentDescription depth_attachment = {};
+  depth_attachment.format = depth_format;
+  depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
   VkAttachmentReference color_attachment_ref = {};
   color_attachment_ref .attachment = 0;
   color_attachment_ref .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+  VkAttachmentReference depth_attachment_ref = {};
+  depth_attachment_ref.attachment = 1;
+  depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   VkSubpassDescription subpass = {};
   subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount = 1;
   subpass.pColorAttachments = &color_attachment_ref;
+  subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
+  VkSubpassDependency dependency = {};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+  std::array attachments = {color_attachment, depth_attachment};
 
   VkRenderPassCreateInfo render_pass_info = {};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  render_pass_info.attachmentCount = 1;
-  render_pass_info.pAttachments = &color_attachment;
+  render_pass_info.attachmentCount = static_cast<uint32_t>(attachments.size());
+  render_pass_info.pAttachments = attachments.data();
   render_pass_info.subpassCount = 1;
   render_pass_info.pSubpasses = &subpass;
+  render_pass_info.dependencyCount = 1;
+  render_pass_info.pDependencies = &dependency;
 
   VkRenderPass render_pass = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateRenderPass(logical_device, &render_pass_info, alloc_cb, &render_pass); result != VK_SUCCESS) {
@@ -446,17 +473,17 @@ std::vector<HandleWrapper<VkImageView>> CreateImageViews(const std::vector<VkIma
   std::vector<HandleWrapper<VkImageView>> image_views;
   image_views.reserve(images.size());
   for(VkImage image : images) {
-    HandleWrapper<VkImageView> image_view = CreateImageView(logical_device, image, format);
+    HandleWrapper<VkImageView> image_view = CreateImageView(logical_device, image, format, VK_IMAGE_ASPECT_COLOR_BIT);
     image_views.emplace_back(std::move(image_view));
   }
   return image_views;
 }
 
-std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_device, const std::vector<HandleWrapper<VkImageView>>& image_views, VkRenderPass render_pass,VkExtent2D extent) {
+std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_device, const std::vector<HandleWrapper<VkImageView>>& image_views, VkImageView depth_view, VkRenderPass render_pass,VkExtent2D extent) {
   std::vector<HandleWrapper<VkFramebuffer>> framebuffers;
   framebuffers.reserve(image_views.size());
   for(const HandleWrapper<VkImageView>& image_view : image_views) {
-    HandleWrapper<VkFramebuffer> framebuffer = CreateFramebuffer(logical_device, render_pass, image_view.get(), extent);
+    HandleWrapper<VkFramebuffer> framebuffer = CreateFramebuffer(logical_device, render_pass, {image_view.get(), depth_view}, extent);
     framebuffers.emplace_back(std::move(framebuffer));
   }
   return framebuffers;
@@ -524,11 +551,18 @@ HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayo
   rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
 
-
   VkPipelineMultisampleStateCreateInfo multisampling = {};
   multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisampling.sampleShadingEnable = VK_FALSE;
   multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+  VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
+  depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  depth_stencil.depthTestEnable = VK_TRUE;
+  depth_stencil.depthWriteEnable = VK_TRUE;
+  depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+  depth_stencil.depthBoundsTestEnable = VK_FALSE;
+  depth_stencil.stencilTestEnable = VK_FALSE;
 
   VkPipelineColorBlendAttachmentState color_blend_attachment = {};
   color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -558,6 +592,7 @@ HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayo
   pipeline_info.pInputAssemblyState = &input_assembly;
   pipeline_info.pViewportState = &viewport_state;
   pipeline_info.pRasterizationState = &rasterizer;
+  pipeline_info.pDepthStencilState = &depth_stencil;
   pipeline_info.pMultisampleState = &multisampling;
   pipeline_info.pColorBlendState = &color_blending;
   pipeline_info.pDynamicState = &dynamic_state;
@@ -710,7 +745,7 @@ HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_
   sampler_layout_binding.pImmutableSamplers = nullptr;
   sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-  std::array<VkDescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
+  std::array bindings = {ubo_layout_binding, sampler_layout_binding};
   VkDescriptorSetLayoutCreateInfo layout_info = {};
   layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -807,7 +842,7 @@ HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint
   };
 }
 
-HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format) {
+HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format, VkImageAspectFlags aspect_flags) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkImageViewCreateInfo view_info = {};
@@ -815,7 +850,7 @@ HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage imag
   view_info.image = image;
   view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
   view_info.format = format;
-  view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  view_info.subresourceRange.aspectMask = aspect_flags;
   view_info.subresourceRange.baseMipLevel = 0;
   view_info.subresourceRange.levelCount = 1;
   view_info.subresourceRange.baseArrayLayer = 0;

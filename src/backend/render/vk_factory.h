@@ -20,7 +20,7 @@ extern HandleWrapper<VkInstance> CreateInstance();
 extern HandleWrapper<VkSurfaceKHR> CreateSurface(VkInstance instance, GLFWwindow* window);
 extern HandleWrapper<VkDevice> CreateLogicalDevice(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices);
 extern HandleWrapper<VkShaderModule> CreateShaderModule(VkDevice logical_device, const std::string& path);
-extern HandleWrapper<VkRenderPass> CreateRenderPass(VkDevice logical_device, VkFormat format);
+extern HandleWrapper<VkRenderPass> CreateRenderPass(VkDevice logical_device, VkFormat image_format, VkFormat depth_format);
 extern HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout);
 extern HandleWrapper<VkPipeline> CreatePipeline(VkDevice logical_device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::initializer_list<ShaderStage>& shader_stages);
 extern HandleWrapper<VkCommandPool> CreateCommandPool(VkDevice logical_device, QueueFamilyIndices indices);
@@ -33,7 +33,7 @@ extern HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device,
 extern HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_device);
 extern HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, size_t count);
 extern HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
-extern HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format);
+extern HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format, VkImageAspectFlags aspect_flags);
 extern HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device);
 
 extern std::pair<VkPhysicalDevice, QueueFamilyIndices> CreatePhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
@@ -41,7 +41,7 @@ extern std::pair<HandleWrapper<VkSwapchainKHR>, SwapchainDetails> CreateSwapchai
 
 extern std::vector<VkImage> CreateSwapchainImages(VkSwapchainKHR swapchain, VkDevice logical_device);
 extern std::vector<HandleWrapper<VkImageView>> CreateImageViews(const std::vector<VkImage>& images, VkDevice logical_device, VkFormat format);
-extern std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_device, const std::vector<HandleWrapper<VkImageView>>& image_views, VkRenderPass render_pass,VkExtent2D extent);
+extern std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_device, const std::vector<HandleWrapper<VkImageView>>& image_views, VkImageView depth_view, VkRenderPass render_pass,VkExtent2D extent);
 extern std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logical_device, VkCommandPool cmd_pool, uint32_t count);
 extern std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count);
 

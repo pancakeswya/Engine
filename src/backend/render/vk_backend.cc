@@ -8,6 +8,7 @@
 #include <stb_image.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -86,6 +87,40 @@ void UpdateDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescri
   vkUpdateDescriptorSets(logical_device, static_cast<uint32_t>(descriptor_writes.size()), descriptor_writes.data(), 0, nullptr);
 }
 
+VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkPhysicalDevice physical_device, VkImageTiling tiling, VkFormatFeatureFlags features) {
+  for (const VkFormat format : formats) {
+    VkFormatProperties props;
+    vkGetPhysicalDeviceFormatProperties(physical_device, format, &props);
+    if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+      return format;
+    }
+    if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+      return format;
+    }
+  }
+  throw Error("failed to find supported format");
+}
+
+inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
+  return FindSupportedFormat(
+      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+      physical_device,
+      VK_IMAGE_TILING_OPTIMAL,
+      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+  );
+}
+
+inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical_device, VkExtent2D extent) {
+  VkFormat depth_format = FindDepthFormat(physical_device);
+
+  Image depth_image(logical_device, extent.width, extent.height, STBI_rgb_alpha, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  depth_image.Allocate(physical_device, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  depth_image.Bind();
+  depth_image.CreateView(VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  return depth_image;
+}
+
 } // namespace
 
 class BackendImpl {
@@ -148,22 +183,27 @@ class BackendImpl {
   HandleWrapper<VkSampler> texture_sampler_;
 
   Buffer vertices_buffer_, indices_buffer_;
-  Image image_;
-
-  HandleWrapper<VkImageView> texture_view_;
+  Image texture_image_, depth_image_;
 
   std::array<Buffer, config::kFrameCount> ubo_buffers_;
   std::array<void*, config::kFrameCount> ubo_mapped_;
 
   const std::vector<Vertex> vertices_ = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+
   };
 
   const std::vector<Index::type> indices_ = {
-    0, 1, 2, 2, 3, 0
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4
   };
 };
 
@@ -210,7 +250,9 @@ BackendImpl::BackendImpl(GLFWwindow* window)
 
     ubo_mapped_[i] = ubo_buffers_[i].Map();
   }
-  render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format);
+  depth_image_ = CreateDepthImage(logical_device, physical_device_, swapchain_details_.extent);
+
+  render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format, depth_image_.GetFormat());
   VkRenderPass render_pass = render_pass_wrapper_.get();
 
   pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, descriptor_set_layout);
@@ -230,7 +272,7 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     }
   );
   image_views_wrapped_ = factory::CreateImageViews(swapchain_images_, logical_device, swapchain_details_.format);
-  framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, render_pass, swapchain_details_.extent);
+  framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, depth_image_.GetView(), render_pass, swapchain_details_.extent);
 
   cmd_pool_wrapper_ = factory::CreateCommandPool(logical_device, family_indices_);
   cmd_buffers_ = factory::CreateCommandBuffers(logical_device, cmd_pool_wrapper_.get(), config::kFrameCount);
@@ -298,11 +340,8 @@ Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlag
   CopyBufferToImage(transfer_buffer.Get(), image, static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height));
   TransitionImageLayout(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  texture_view_ = factory::CreateImageView(logical_device, image, image_format);
+  image_wrapped.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
 
-  for(size_t i = 0; i < ubo_buffers_.size(); ++i) {
-    UpdateDescriptorSets(logical_device, ubo_buffers_[i].Get(), descriptor_sets_[i], texture_view_.get(), texture_sampler_.get());
-  }
   return image_wrapped;
 }
 
@@ -310,7 +349,11 @@ void BackendImpl::LoadModel() {
   vertices_buffer_ = CreateStagingBuffer(vertices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   indices_buffer_ = CreateStagingBuffer(indices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  image_ = CreateStagingImage("/mnt/c/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  texture_image_ = CreateStagingImage("/mnt/c/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  for(size_t i = 0; i < ubo_buffers_.size(); ++i) {
+    UpdateDescriptorSets(logical_device_wrapper_.get(), ubo_buffers_[i].Get(), descriptor_sets_[i], texture_image_.GetView(), texture_sampler_.get());
+  }
 }
 
 void BackendImpl::SetResized(bool resized) noexcept {
@@ -473,7 +516,10 @@ void BackendImpl::RecreateSwapchain() {
   swapchain_images_ = factory::CreateSwapchainImages(swapchain_wrapper_.get(), logical_device);
 
   image_views_wrapped_ = factory::CreateImageViews(swapchain_images_, logical_device, swapchain_details_.format);
-  framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, render_pass, swapchain_details_.extent);
+
+  depth_image_ = CreateDepthImage(logical_device, physical_device_, swapchain_details_.extent);
+
+  framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, depth_image_.GetView(), render_pass, swapchain_details_.extent);
 }
 
 void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
@@ -486,15 +532,18 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
   if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &cmd_buffer_begin_info); result != VK_SUCCESS) {
     throw Error("failed to begin recording command buffer").WithCode(result);
   }
-  VkClearValue clear_color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+  std::array<VkClearValue, 2> clear_values = {};
+  clear_values[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+  clear_values[1].depthStencil = {1.0f, 0};
+
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   render_pass_begin_info.renderPass = render_pass;
   render_pass_begin_info.framebuffer = framebuffers_wrapped_[image_idx].get();
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = swapchain_details_.extent;
-  render_pass_begin_info.clearValueCount = 1;
-  render_pass_begin_info.pClearValues = &clear_color;
+  render_pass_begin_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
+  render_pass_begin_info.pClearValues = clear_values.data();
   vkCmdBeginRenderPass(cmd_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
   vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
