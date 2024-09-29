@@ -616,11 +616,10 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
 
   VkDeviceSize prev_offset = 0;
   VkDeviceSize vertex_offsets[] = {0};
-
+  UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures[0].GetView(), texture_sampler_.get(), descriptor_set);
   for(const obj::UseMtl& usemtl : mesh_.usemtl) {
     VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
-    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures[usemtl.index].GetView(), texture_sampler_.get(), descriptor_set);
     vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, vertex_offsets);
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
