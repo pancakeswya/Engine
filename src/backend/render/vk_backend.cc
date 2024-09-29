@@ -16,6 +16,7 @@
 #include <array>
 #include <cstring>
 #include <chrono>
+#include <iostream>
 #include <string>
 #include <map>
 #include <limits>
@@ -399,13 +400,26 @@ void BackendImpl::LoadModel() {
     "/Users/user/CLionProjects/VulkanEngine/obj/MadaraUchiha/obj/Madara_Uchiha.obj");
 
   mesh_ = FromDataToMesh(data);
+  mesh_.textures.reserve(data.mtl.size());
   for(const obj::NewMtl& mtl : data.mtl) {
+    Image texture;
+    const std::string& path = mtl.map_kd;
     try {
-      Image texture = CreateStagingImage(mtl.map_kd, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-      mesh_.textures.emplace_back(std::move(texture));
-    } catch (...) {
-
+      texture = CreateStagingImage(path, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    } catch (const Error& error) {
+      texture = CreateStagingImage(
+#ifdef __unix__
+  "/mnt/c"
+  #else
+  "C:"
+#endif
+    "/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      std::cerr << "Error creating image " + path + ": " <<  error.what() << std::endl;
     }
+    mesh_.textures.emplace_back(std::move(texture));
+  }
+  for(const VkDescriptorSet descriptor_set : descriptor_sets_) {
+    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
   }
   vertices_buffer_ = CreateStagingBuffer(mesh_.vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   indices_buffer_ = CreateStagingBuffer(mesh_.indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -620,24 +634,17 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
 
   VkDeviceSize prev_offset = 0;
   VkDeviceSize vertex_offsets[] = {0};
-  auto ubo = static_cast<UniformBufferObject*>(ubo_mapped_[curr_frame_]);
-  UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
-  for(const obj::UseMtl& usemtl : mesh_.usemtl) {
-    VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
-    vkCmdPushConstants(
-                cmd_buffer,
-                pipeline_layout,
-                VK_SHADER_STAGE_FRAGMENT_BIT,
-                0,
-                sizeof(unsigned int),
-                &usemtl.index);
+  for(const auto[index, offset] : mesh_.usemtl) {
+    const VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
+
+    vkCmdPushConstants(cmd_buffer, pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned int), &index);
     vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, vertex_offsets);
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
-    vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(usemtl.offset - prev_offset), 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
 
-    prev_offset = usemtl.offset;
+    prev_offset = offset;
   }
   vkCmdEndRenderPass(cmd_buffer);
   if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
