@@ -7,7 +7,7 @@ set(SRC_DIR src)
 set(EXTERNAL third_party)
 
 add_subdirectory(shaders)
-# add_compile_definitions(DEBUG)
+ add_compile_definitions(DEBUG)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
@@ -15,6 +15,7 @@ find_package(glfw3 REQUIRED)
 include_directories("${SRC_DIR}")
 include_directories("${EXTERNAL}/glm")
 include_directories("${EXTERNAL}/stb")
+include_directories("${EXTERNAL}/earcut.hpp/include")
 
 add_executable(vk_triangle
         ${SRC_DIR}/main.cc
@@ -22,6 +23,8 @@ add_executable(vk_triangle
         ${SRC_DIR}/app/app.h
         ${SRC_DIR}/base/io.cc
         ${SRC_DIR}/base/io.h
+        ${SRC_DIR}/obj/parser.h
+        ${SRC_DIR}/obj/parser.cc
         ${SRC_DIR}/backend/render/vk_backend.cc
         ${SRC_DIR}/backend/render/vk_backend.h
         ${SRC_DIR}/backend/render/vk_config.cc

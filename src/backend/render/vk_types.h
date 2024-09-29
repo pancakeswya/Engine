@@ -47,7 +47,7 @@ struct ShaderStage {
 
 struct Vertex {
   glm::vec3 pos;
-  glm::vec3 color;
+  glm::vec3 normal;
   glm::vec2 tex_coord;
 
   static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
@@ -55,9 +55,9 @@ struct Vertex {
 };
 
 struct Index {
-  using type = uint16_t;
+  using type = uint32_t;
 
-  static constexpr VkIndexType type_enum = VK_INDEX_TYPE_UINT16;
+  static constexpr VkIndexType type_enum = VK_INDEX_TYPE_UINT32;
 };
 
 struct UniformBufferObject {

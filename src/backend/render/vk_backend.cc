@@ -3,6 +3,7 @@
 #include "backend/render/vk_config.h"
 #include "backend/render/vk_types.h"
 #include "backend/render/vk_wrappers.h"
+#include "obj/parser.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -15,7 +16,9 @@
 #include <array>
 #include <cstring>
 #include <chrono>
+#include <iostream>
 #include <string>
+#include <map>
 #include <limits>
 
 namespace vk {
@@ -55,36 +58,42 @@ VkCommandBuffer BeginSingleTimeCommands(VkDevice logical_device, VkCommandPool c
   return command_buffer;
 }
 
-void UpdateDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set, VkImageView image_view, VkSampler texture_sampler) {
+void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set) {
   VkDescriptorBufferInfo buffer_info = {};
   buffer_info.buffer = ubo_buffer;
   buffer_info.offset = 0;
   buffer_info.range = sizeof(UniformBufferObject);
 
+  VkWriteDescriptorSet descriptor_write = {};
+
+  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_write.dstSet = descriptor_set;
+  descriptor_write.dstBinding = 0;
+  descriptor_write.dstArrayElement = 0;
+  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_write.descriptorCount = 1;
+  descriptor_write.pBufferInfo = &buffer_info;
+
+  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
+}
+
+void UpdateTextureDescriptorSets(VkDevice logical_device, VkImageView image_view, VkSampler texture_sampler, VkDescriptorSet descriptor_set) {
   VkDescriptorImageInfo image_info = {};
   image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   image_info.imageView = image_view;
   image_info.sampler = texture_sampler;
 
-  std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
+  VkWriteDescriptorSet descriptor_write = {};
 
-  descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_writes[0].dstSet = descriptor_set;
-  descriptor_writes[0].dstBinding = 0;
-  descriptor_writes[0].dstArrayElement = 0;
-  descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptor_writes[0].descriptorCount = 1;
-  descriptor_writes[0].pBufferInfo = &buffer_info;
+  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_write.dstSet = descriptor_set;
+  descriptor_write.dstBinding = 1;
+  descriptor_write.dstArrayElement = 0;
+  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  descriptor_write.descriptorCount = 1;
+  descriptor_write.pImageInfo = &image_info;
 
-  descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_writes[1].dstSet = descriptor_set;
-  descriptor_writes[1].dstBinding = 1;
-  descriptor_writes[1].dstArrayElement = 0;
-  descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_writes[1].descriptorCount = 1;
-  descriptor_writes[1].pImageInfo = &image_info;
-
-  vkUpdateDescriptorSets(logical_device, static_cast<uint32_t>(descriptor_writes.size()), descriptor_writes.data(), 0, nullptr);
+  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
 }
 
 VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkPhysicalDevice physical_device, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -122,6 +131,13 @@ inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical
 }
 
 } // namespace
+
+struct Mesh {
+  std::vector<Index::type> indices;
+  std::vector<Vertex> vertices;
+  std::vector<Image> textures;
+  std::vector<obj::UseMtl> usemtl;
+};
 
 class BackendImpl {
  public:
@@ -183,28 +199,12 @@ class BackendImpl {
   HandleWrapper<VkSampler> texture_sampler_;
 
   Buffer vertices_buffer_, indices_buffer_;
-  Image texture_image_, depth_image_;
+  Image depth_image_;
 
   std::array<Buffer, config::kFrameCount> ubo_buffers_;
   std::array<void*, config::kFrameCount> ubo_mapped_;
 
-  const std::vector<Vertex> vertices_ = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-
-  };
-
-  const std::vector<Index::type> indices_ = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
-  };
+  Mesh mesh_;
 };
 
 BackendImpl::BackendImpl(GLFWwindow* window)
@@ -249,6 +249,7 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     ubo_buffers_[i].Bind();
 
     ubo_mapped_[i] = ubo_buffers_[i].Map();
+    UpdateBufferDescriptorSets(logical_device, ubo_buffers_[i].Get(), descriptor_sets_[i]);
   }
   depth_image_ = CreateDepthImage(logical_device, physical_device_, swapchain_details_.extent);
 
@@ -311,6 +312,8 @@ Buffer BackendImpl::CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsa
 }
 
 Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
+  stbi_set_flip_vertically_on_load(true);
+
   int image_width, image_height, image_channels;
   stbi_uc* pixels = stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha);
   if (pixels == nullptr) {
@@ -345,15 +348,61 @@ Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlag
   return image_wrapped;
 }
 
-void BackendImpl::LoadModel() {
-  vertices_buffer_ = CreateStagingBuffer(vertices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  indices_buffer_ = CreateStagingBuffer(indices_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  texture_image_ = CreateStagingImage("/mnt/c/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  for(size_t i = 0; i < ubo_buffers_.size(); ++i) {
-    UpdateDescriptorSets(logical_device_wrapper_.get(), ubo_buffers_[i].Get(), descriptor_sets_[i], texture_image_.GetView(), texture_sampler_.get());
+struct compare {
+  bool operator()(const obj::Index& lhs, const obj::Index& rhs) const noexcept {
+    if (lhs.fv < rhs.fv) return true;
+    if (rhs.fv < lhs.fv) return false;
+    if (lhs.fn < rhs.fn) return true;
+    if (rhs.fn < lhs.fn) return false;
+    if (lhs.ft < rhs.ft) return true;
+    return rhs.ft < lhs.ft;
   }
+};
+
+Mesh FromDataToMesh(obj::Data& data) {
+  Mesh mesh;
+  std::map<obj::Index, unsigned int, compare> index_map;
+
+  mesh.vertices.reserve(data.indices.size());
+  mesh.indices.reserve(data.indices.size());
+
+  mesh.usemtl = std::move(data.usemtl);
+
+  unsigned int next_combined_idx = 0, combined_idx = 0;
+  for (const obj::Index& index : data.indices) {
+    if (index_map.count(index)) {
+      combined_idx = index_map.at(index);
+    } else {
+      combined_idx = next_combined_idx;
+      index_map.insert({index, combined_idx});
+      unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
+      Vertex vertex = {
+        {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
+        {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
+        {data.vt[i_t], data.vt[i_t + 1]}
+      };
+      mesh.vertices.push_back(vertex);
+      ++next_combined_idx;
+    }
+    mesh.indices.push_back(combined_idx);
+  }
+  return mesh;
+}
+
+void BackendImpl::LoadModel() {
+  obj::Data data = obj::ParseFromFile("/mnt/c/Users/user/CLionProjects/VulkanEngine/obj/gnom/rizhignom.obj");
+
+  mesh_ = FromDataToMesh(data);
+  for(const obj::NewMtl& mtl : data.mtl) {
+    try {
+      Image texture = CreateStagingImage(mtl.map_kd, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      mesh_.textures.emplace_back(std::move(texture));
+    } catch (...) {
+
+    }
+  }
+  vertices_buffer_ = CreateStagingBuffer(mesh_.vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  indices_buffer_ = CreateStagingBuffer(mesh_.indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 void BackendImpl::SetResized(bool resized) noexcept {
@@ -563,13 +612,22 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
 
   VkBuffer vertices_buffer = vertices_buffer_.Get();
   VkBuffer indices_buffer = indices_buffer_.Get();
-  VkDeviceSize offsets[] = {0};
+  VkDescriptorSet descriptor_set = descriptor_sets_[curr_frame_];
 
-  vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, offsets);
-  vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, 0, Index::type_enum);
-  vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets_[curr_frame_], 0, nullptr);
-  vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(indices_.size()), 1, 0, 0, 0);
+  VkDeviceSize prev_offset = 0;
+  VkDeviceSize vertex_offsets[] = {0};
 
+  for(const obj::UseMtl& usemtl : mesh_.usemtl) {
+    VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
+
+    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures[usemtl.index].GetView(), texture_sampler_.get(), descriptor_set);
+    vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, vertex_offsets);
+    vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(usemtl.offset - prev_offset), 1, 0, 0, 0);
+
+    prev_offset = usemtl.offset;
+  }
   vkCmdEndRenderPass(cmd_buffer);
   if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
     throw Error("failed to record command buffer").WithCode(result);

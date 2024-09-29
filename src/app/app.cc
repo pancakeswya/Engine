@@ -11,13 +11,15 @@ int run() noexcept {
   try {
     glfw::Backend::Instance window_backend = glfw::Backend::Init();
     GLFWwindow* window = glfw::CreateWindow(640, 480, "test");
+
     vk::Backend render_backend(window);
     render_backend.LoadModel();
+
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
       render_backend.Render();
     }
-  } catch (const std::runtime_error& error) {
+  } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
     return 1;
   }
