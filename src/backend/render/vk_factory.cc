@@ -491,10 +491,17 @@ std::vector<HandleWrapper<VkFramebuffer>> CreateFramebuffers(VkDevice logical_de
 
 HandleWrapper<VkPipelineLayout> CreatePipelineLayout(VkDevice logical_device, VkDescriptorSetLayout descriptor_set_layout) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
+  VkPushConstantRange pushConstantRange = {};
+  pushConstantRange.offset = 0;
+  pushConstantRange.size = sizeof(unsigned int);
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
   VkPipelineLayoutCreateInfo pipeline_layout_info = {};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipeline_layout_info.setLayoutCount = 1;
   pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
+  pipeline_layout_info.pPushConstantRanges = &pushConstantRange;
+  pipeline_layout_info.pushConstantRangeCount = 1;
 
   VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
   if (const VkResult result = vkCreatePipelineLayout(logical_device, &pipeline_layout_info, alloc_cb, &pipeline_layout); result != VK_SUCCESS) {
@@ -740,7 +747,7 @@ HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_
 
   VkDescriptorSetLayoutBinding sampler_layout_binding = {};
   sampler_layout_binding.binding = 1;
-  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorCount = config::kMaxTextureCount;
   sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   sampler_layout_binding.pImmutableSamplers = nullptr;
   sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -770,7 +777,7 @@ HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, co
   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   pool_sizes[0].descriptorCount = static_cast<uint32_t>(count);
   pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_sizes[1].descriptorCount = static_cast<uint32_t>(count);
+  pool_sizes[1].descriptorCount = static_cast<uint32_t>(count * config::kMaxTextureCount);
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

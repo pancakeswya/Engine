@@ -16,7 +16,6 @@
 #include <array>
 #include <cstring>
 #include <chrono>
-#include <iostream>
 #include <string>
 #include <map>
 #include <limits>
@@ -77,12 +76,13 @@ void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, Vk
   vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
 }
 
-void UpdateTextureDescriptorSets(VkDevice logical_device, VkImageView image_view, VkSampler texture_sampler, VkDescriptorSet descriptor_set) {
-  VkDescriptorImageInfo image_info = {};
-  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  image_info.imageView = image_view;
-  image_info.sampler = texture_sampler;
-
+void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Image>& images, VkSampler texture_sampler, VkDescriptorSet descriptor_set) {
+  std::vector<VkDescriptorImageInfo> image_infos(images.size());
+  for(size_t i = 0; i < images.size(); ++i) {
+    image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_infos[i].imageView = images[i].GetView();
+    image_infos[i].sampler = texture_sampler;
+  }
   VkWriteDescriptorSet descriptor_write = {};
 
   descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -90,8 +90,8 @@ void UpdateTextureDescriptorSets(VkDevice logical_device, VkImageView image_view
   descriptor_write.dstBinding = 1;
   descriptor_write.dstArrayElement = 0;
   descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_write.descriptorCount = 1;
-  descriptor_write.pImageInfo = &image_info;
+  descriptor_write.descriptorCount = image_infos.size();
+  descriptor_write.pImageInfo = image_infos.data();
 
   vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
 }
@@ -390,7 +390,13 @@ Mesh FromDataToMesh(obj::Data& data) {
 }
 
 void BackendImpl::LoadModel() {
-  obj::Data data = obj::ParseFromFile("/mnt/c/Users/user/CLionProjects/VulkanEngine/obj/gnom/rizhignom.obj");
+  obj::Data data = obj::ParseFromFile(
+#ifdef __unix__
+  "/mnt/c"
+  #else
+  "C:"
+#endif
+    "/Users/user/CLionProjects/VulkanEngine/obj/MadaraUchiha/obj/Madara_Uchiha.obj");
 
   mesh_ = FromDataToMesh(data);
   for(const obj::NewMtl& mtl : data.mtl) {
@@ -415,13 +421,11 @@ void BackendImpl::UpdateUniforms() {
   const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
   const float time = std::chrono::duration<float>(curr_time - start_time).count();
 
-  UniformBufferObject ubo = {};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
-  ubo.proj[1][1] *= -1;
-
-  std::memcpy(ubo_mapped_[curr_frame_], &ubo, sizeof(ubo));
+  auto ubo = static_cast<UniformBufferObject*>(ubo_mapped_[curr_frame_]);
+  ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo->proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
+  ubo->proj[1][1] *= -1;
 }
 
 void BackendImpl::CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
@@ -616,10 +620,18 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
 
   VkDeviceSize prev_offset = 0;
   VkDeviceSize vertex_offsets[] = {0};
-  UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures[0].GetView(), texture_sampler_.get(), descriptor_set);
+  auto ubo = static_cast<UniformBufferObject*>(ubo_mapped_[curr_frame_]);
+  UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
   for(const obj::UseMtl& usemtl : mesh_.usemtl) {
     VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
+    vkCmdPushConstants(
+                cmd_buffer,
+                pipeline_layout,
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                0,
+                sizeof(unsigned int),
+                &usemtl.index);
     vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, vertex_offsets);
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);

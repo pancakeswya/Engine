@@ -10,6 +10,7 @@
 namespace vk::config {
 
 inline constexpr size_t kFrameCount = 2;
+inline constexpr size_t kMaxTextureCount = 14;
 
 #ifdef DEBUG
 extern bool InstanceLayersIsSupported();
