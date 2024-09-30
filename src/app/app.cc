@@ -7,23 +7,21 @@
 
 namespace app {
 
-int run() noexcept {
-  try {
-    glfw::Backend::Instance window_backend = glfw::Backend::Init();
-    GLFWwindow* window = glfw::CreateWindow(1280, 720, "VulkanFun");
+int run() noexcept try {
+  glfw::Backend::Instance window_backend = glfw::Backend::Init();
+  GLFWwindow* window = glfw::CreateWindow(1280, 720, "VulkanFun");
 
-    vk::Backend render_backend(window);
-    render_backend.LoadModel("../obj/MadaraUchiha/obj/Madara_Uchiha.obj");
+  vk::Backend render_backend(window);
+  render_backend.LoadModel("../obj/MadaraUchiha/obj/Madara_Uchiha.obj");
 
-    while (!glfwWindowShouldClose(window)) {
-      glfwPollEvents();
-      render_backend.Render();
-    }
-  } catch (const std::exception& error) {
-    std::cerr << error.what() << std::endl;
-    return 1;
+  while (!glfwWindowShouldClose(window)) {
+    glfwPollEvents();
+    render_backend.Render();
   }
   return 0;
+} catch (const std::exception& error) {
+  std::cerr << error.what() << std::endl;
+  return 1;
 }
 
 } // namespace app
