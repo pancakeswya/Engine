@@ -54,51 +54,51 @@ HandleWrapper<VkCommandBuffer> BeginSingleTimeCommands(VkDevice logical_device, 
 } // namespace
 
 void Buffer::CopyBuffer(const Buffer& src, VkCommandPool cmd_pool, VkQueue graphics_queue) {
-    VkDevice logical_device = logical_device_;
+  VkDevice logical_device = logical_device_;
 
-    VkCommandBufferAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandPool = cmd_pool;
-    alloc_info.commandBufferCount = 1;
+  VkCommandBufferAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandPool = cmd_pool;
+  alloc_info.commandBufferCount = 1;
 
-    VkCommandBuffer cmd_buffer = VK_NULL_HANDLE;
-    if (const VkResult result = vkAllocateCommandBuffers(logical_device, &alloc_info, &cmd_buffer); result != VK_SUCCESS) {
-      throw Error("failed allocate command buffer").WithCode(result);
-    }
-    HandleWrapper<VkCommandBuffer> cmd_buffer_wrapper(
-      cmd_buffer,
-      [logical_device, cmd_pool](VkCommandBuffer cmd_buffer) {
-      vkFreeCommandBuffers(logical_device, cmd_pool, 1, &cmd_buffer);
-    });
-
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &begin_info); result != VK_SUCCESS) {
-      throw Error("failed to begin recording command buffer").WithCode(result);
-    }
-
-    VkBufferCopy copy_region = {};
-    copy_region.size = src.size_;
-    vkCmdCopyBuffer(cmd_buffer, src.Get(), object_wrapper_.get(), 1, &copy_region);
-
-    if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
-      throw Error("failed to record command buffer").WithCode(result);
-    }
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &cmd_buffer;
-
-    if (const VkResult result = vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE); result != VK_SUCCESS) {
-      throw Error("failed to submit draw command buffer").WithCode(result);
-    }
-    if (const VkResult result = vkQueueWaitIdle(graphics_queue); result != VK_SUCCESS) {
-      throw Error("failed to queue wait idle").WithCode(result);
-    }
+  VkCommandBuffer cmd_buffer = VK_NULL_HANDLE;
+  if (const VkResult result = vkAllocateCommandBuffers(logical_device, &alloc_info, &cmd_buffer); result != VK_SUCCESS) {
+    throw Error("failed allocate command buffer").WithCode(result);
   }
+  HandleWrapper<VkCommandBuffer> cmd_buffer_wrapper(
+    cmd_buffer,
+    [logical_device, cmd_pool](VkCommandBuffer cmd_buffer) {
+    vkFreeCommandBuffers(logical_device, cmd_pool, 1, &cmd_buffer);
+  });
+
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &begin_info); result != VK_SUCCESS) {
+    throw Error("failed to begin recording command buffer").WithCode(result);
+  }
+
+  VkBufferCopy copy_region = {};
+  copy_region.size = src.size_;
+  vkCmdCopyBuffer(cmd_buffer, src.Get(), object_wrapper_.get(), 1, &copy_region);
+
+  if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
+    throw Error("failed to record command buffer").WithCode(result);
+  }
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &cmd_buffer;
+
+  if (const VkResult result = vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE); result != VK_SUCCESS) {
+    throw Error("failed to submit draw command buffer").WithCode(result);
+  }
+  if (const VkResult result = vkQueueWaitIdle(graphics_queue); result != VK_SUCCESS) {
+    throw Error("failed to queue wait idle").WithCode(result);
+  }
+}
 
 void Image::TransitImageLayout(VkCommandPool cmd_pool, VkQueue graphics_queue, VkImageLayout old_layout, VkImageLayout new_layout) {
   VkImageMemoryBarrier barrier = {};

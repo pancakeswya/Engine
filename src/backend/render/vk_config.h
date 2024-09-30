@@ -1,9 +1,10 @@
 #ifndef BACKEND_RENDER_VK_CONFIG_H_
 #define BACKEND_RENDER_VK_CONFIG_H_
 
-#include <vulkan/vulkan.h>
+#include "backend/render/vk_types.h"
 
 #include <vector>
+#include <vulkan/vulkan.h>
 
 #define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
@@ -19,6 +20,7 @@ extern bool InstanceLayersIsSupported();
 extern std::vector<const char*> GetInstanceLayers();
 #endif // DEBUG
 
+extern ImageSettings GetImageSettings() noexcept;
 extern VkApplicationInfo GetApplicationInfo() noexcept;
 extern VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept;
 extern const VkAllocationCallbacks* GetAllocationCallbacks() noexcept;

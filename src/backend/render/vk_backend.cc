@@ -5,9 +5,6 @@
 #include "backend/render/vk_wrappers.h"
 #include "obj/parser.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
@@ -16,53 +13,14 @@
 #include <array>
 #include <cstring>
 #include <chrono>
-#include <iostream>
 #include <string>
-#include <unordered_map>
 #include <limits>
+
+#include "vk_object.h"
 
 namespace vk {
 
 namespace {
-
-void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set) {
-  VkDescriptorBufferInfo buffer_info = {};
-  buffer_info.buffer = ubo_buffer;
-  buffer_info.offset = 0;
-  buffer_info.range = sizeof(UniformBufferObject);
-
-  VkWriteDescriptorSet descriptor_write = {};
-
-  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.dstSet = descriptor_set;
-  descriptor_write.dstBinding = 0;
-  descriptor_write.dstArrayElement = 0;
-  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptor_write.descriptorCount = 1;
-  descriptor_write.pBufferInfo = &buffer_info;
-
-  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
-}
-
-void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Image>& images, VkSampler texture_sampler, VkDescriptorSet descriptor_set) {
-  std::vector<VkDescriptorImageInfo> image_infos(images.size());
-  for(size_t i = 0; i < images.size(); ++i) {
-    image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_infos[i].imageView = images[i].GetView();
-    image_infos[i].sampler = texture_sampler;
-  }
-  VkWriteDescriptorSet descriptor_write = {};
-
-  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.dstSet = descriptor_set;
-  descriptor_write.dstBinding = 1;
-  descriptor_write.dstArrayElement = 0;
-  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_write.descriptorCount = image_infos.size();
-  descriptor_write.pImageInfo = image_infos.data();
-
-  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
-}
 
 VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkPhysicalDevice physical_device, VkImageTiling tiling, VkFormatFeatureFlags features) {
   for (const VkFormat format : formats) {
@@ -90,7 +48,7 @@ inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
 inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical_device, VkExtent2D extent) {
   VkFormat depth_format = FindDepthFormat(physical_device);
 
-  Image depth_image(logical_device, extent, STBI_rgb_alpha, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  Image depth_image(logical_device, extent, config::GetImageSettings().channels, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
   depth_image.Allocate(physical_device, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   depth_image.Bind();
   depth_image.CreateView(VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -100,26 +58,14 @@ inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical
 
 } // namespace
 
-struct Mesh {
-  Buffer indices;
-  Buffer vertices;
-  std::vector<Image> textures;
-  std::vector<obj::UseMtl> usemtl;
-};
-
 class BackendImpl {
  public:
   explicit BackendImpl(GLFWwindow* window);
   ~BackendImpl();
 
   void Render();
-  void LoadModel();
+  void LoadModel(const std::string& path);
  private:
-  Image CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-
-  std::vector<Image> CreateStagingImagesFromObj(const obj::Data& data);
-  void LoadObj(obj::Data& data);
-
   void RecreateSwapchain();
   void UpdateUniforms();
 
@@ -147,10 +93,6 @@ class BackendImpl {
   std::vector<HandleWrapper<VkImageView>> image_views_wrapped_;
   std::vector<HandleWrapper<VkFramebuffer>> framebuffers_wrapped_;
 
-  HandleWrapper<VkDescriptorSetLayout> descriptor_set_layout_wrapper_;
-  HandleWrapper<VkDescriptorPool> descriptor_pool_wrapper_;
-  std::vector<VkDescriptorSet> descriptor_sets_;
-
   HandleWrapper<VkRenderPass> render_pass_wrapper_;
   HandleWrapper<VkPipelineLayout> pipeline_layout_wrapper_;
   HandleWrapper<VkPipeline> pipeline_wrapper_;
@@ -166,10 +108,8 @@ class BackendImpl {
 
   Image depth_image_;
 
-  std::array<Buffer, config::kFrameCount> ubo_buffers_;
-  std::array<UniformBufferObject*, config::kFrameCount> ubo_mapped_;
-
-  Mesh mesh_;
+  Object object_;
+  ObjectFactory object_factory_;
 };
 
 BackendImpl::BackendImpl(GLFWwindow* window)
@@ -200,39 +140,27 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   VkSwapchainKHR swapchain = swapchain_wrapper_.get();
   swapchain_images_ = factory::CreateSwapchainImages(swapchain, logical_device);
 
-  descriptor_set_layout_wrapper_ = factory::CreateDescriptorSetLayout(logical_device);
-  VkDescriptorSetLayout descriptor_set_layout = descriptor_set_layout_wrapper_.get();
-
-  descriptor_pool_wrapper_ = factory::CreateDescriptorPool(logical_device, config::kFrameCount);
-  VkDescriptorPool descriptor_pool = descriptor_pool_wrapper_.get();
-
-  descriptor_sets_ = factory::CreateDescriptorSets(logical_device, descriptor_set_layout, descriptor_pool, config::kFrameCount);
-
-  for(size_t i = 0; i < ubo_buffers_.size(); ++i) {
-    ubo_buffers_[i] = Buffer(logical_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
-    ubo_buffers_[i].Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    ubo_buffers_[i].Bind();
-
-    ubo_mapped_[i] = static_cast<UniformBufferObject*>(ubo_buffers_[i].Map());
-    UpdateBufferDescriptorSets(logical_device, ubo_buffers_[i].Get(), descriptor_sets_[i]);
-  }
   depth_image_ = CreateDepthImage(logical_device, physical_device_, swapchain_details_.extent);
 
   render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format, depth_image_.GetFormat());
   VkRenderPass render_pass = render_pass_wrapper_.get();
 
-  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, descriptor_set_layout);
+  object_factory_ = ObjectFactory(logical_device, physical_device_);
+  object_ = object_factory_.CreateObject(config::kFrameCount);
+
+  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, object_.descriptor_set_layout_wrapper.get());
+
   VkPipelineLayout pipeline_layout = pipeline_layout_wrapper_.get();
   pipeline_wrapper_ = factory::CreatePipeline(logical_device, pipeline_layout, render_pass,
   {
       {
           VK_SHADER_STAGE_VERTEX_BIT,
-          factory::CreateShaderModule(logical_device, "shaders/vert.spv"),
+          factory::CreateShaderModule(logical_device, "../build/shaders/vert.spv"),
           "main"
       },
       {
           VK_SHADER_STAGE_FRAGMENT_BIT,
-          factory::CreateShaderModule(logical_device, "shaders/frag.spv"),
+          factory::CreateShaderModule(logical_device, "../build/shaders/frag.spv"),
           "main"
       }
     }
@@ -254,140 +182,9 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   texture_sampler_ = factory::CreateTextureSampler(logical_device, physical_device_);
 }
 
-Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
-  stbi_set_flip_vertically_on_load(true);
-
-  int image_width, image_height, image_channels;
-  stbi_uc* pixels = stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha);
-  if (pixels == nullptr) {
-    throw Error("failed to load texture image");
-  }
-  HandleWrapper<stbi_uc*> image_wrapper(pixels, [](stbi_uc* pixels) {
-    stbi_image_free(pixels);
-  });
-  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
-  VkDevice logical_device = logical_device_wrapper_.get();
-
-  VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
-  VkDeviceSize image_size = image_width * image_height * STBI_rgb_alpha;
-
-  Buffer transfer_buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
-  transfer_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  transfer_buffer.Bind();
-
-  void* mapped_buffer = transfer_buffer.Map();
-  std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
-  transfer_buffer.Unmap();
-
-  Image image(logical_device, image_extent, STBI_rgb_alpha, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, usage);
-  image.Allocate(physical_device_, properties);
-  image.Bind();
-
-  image.TransitImageLayout(cmd_pool, graphics_queue_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  image.CopyBuffer(transfer_buffer, cmd_pool_wrapper_.get(), graphics_queue_);
-  image.TransitImageLayout(cmd_pool, graphics_queue_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-  image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
-
-  return image;
-}
-
-std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
-  std::unordered_map<obj::Index, unsigned int, obj::Index::Hash> index_map;
-
-  Buffer transfer_vertices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
-  transfer_vertices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  transfer_vertices.Bind();
-
-  Buffer transfer_indices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index::type) * data.indices.size());
-  transfer_indices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  transfer_indices.Bind();
-
-  auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
-  auto mapped_indices = static_cast<Index::type*>(transfer_indices.Map());
-
-  unsigned int next_combined_idx = 0, combined_idx = 0;
-  for (const obj::Index& index : data.indices) {
-    if (index_map.count(index)) {
-      combined_idx = index_map.at(index);
-    } else {
-      combined_idx = next_combined_idx;
-      index_map.insert({index, combined_idx});
-      unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
-      *mapped_vertices++ = Vertex{
-          {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
-          {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
-          {data.vt[i_t], data.vt[i_t + 1]}
-      };
-      ++next_combined_idx;
-    }
-    *mapped_indices++ = combined_idx;
-  }
-  transfer_vertices.Unmap();
-  transfer_indices.Unmap();
-
-  return {std::move(transfer_vertices), std::move(transfer_indices)};
-}
-
-std::vector<Image> BackendImpl::CreateStagingImagesFromObj(const obj::Data& data) {
-  std::vector<Image> textures;
-
-  textures.reserve(data.mtl.size());
-  for(const obj::NewMtl& mtl : data.mtl) {
-    Image texture;
-    const std::string& path = mtl.map_kd;
-    try {
-      texture = CreateStagingImage(path, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    } catch (const Error& error) {
-      texture = CreateStagingImage(
-#ifdef __unix__
-          "/mnt/c"
-#else
-          "C:"
-#endif
-          "/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-      std::cerr << "Error creating image " + path + ": " <<  error.what() << std::endl;
-    }
-    textures.emplace_back(std::move(texture));
-  }
-  return textures;
-}
-
-void BackendImpl::LoadObj(obj::Data& data) {
-  auto[transfer_vertices, transfer_indices] = CreateTransferBuffersFromObj(data, logical_device_wrapper_.get(), physical_device_);
-
-  VkDevice logical_device = logical_device_wrapper_.get();
-  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
-
-  mesh_.vertices = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, transfer_vertices.Size());
-
-  mesh_.vertices.Allocate(physical_device_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  mesh_.vertices.Bind();
-  mesh_.vertices.CopyBuffer(transfer_vertices, cmd_pool, graphics_queue_);
-
-  mesh_.indices = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, transfer_indices.Size());
-  mesh_.indices.Allocate(physical_device_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  mesh_.indices.Bind();
-  mesh_.indices.CopyBuffer(transfer_indices, cmd_pool, graphics_queue_);
-
-  mesh_.textures = CreateStagingImagesFromObj(data);
-  mesh_.usemtl = std::move(data.usemtl);
-
-  for(VkDescriptorSet descriptor_set : descriptor_sets_) {
-    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
-  }
-}
-
-void BackendImpl::LoadModel() {
-  obj::Data data = obj::ParseFromFile(
-#ifdef __unix__
-  "/mnt/c"
-  #else
-  "C:"
-#endif
-    "/Users/user/CLionProjects/VulkanEngine/obj/MadaraUchiha/obj/Madara_Uchiha.obj");
-
-  LoadObj(data);
+void BackendImpl::LoadModel(const std::string& path) {
+  ObjectLoader object_loader = object_factory_.CreateObjectLoader(texture_sampler_.get(), cmd_pool_wrapper_.get(), graphics_queue_);
+  object_loader.Load(path, object_);
 }
 
 void BackendImpl::UpdateUniforms() {
@@ -396,7 +193,7 @@ void BackendImpl::UpdateUniforms() {
   const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
   const float time = std::chrono::duration<float>(curr_time - start_time).count();
 
-  UniformBufferObject* ubo = ubo_mapped_[curr_frame_];
+  UniformBufferObject* ubo = object_.ubo_mapped[curr_frame_];
   ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
@@ -471,14 +268,14 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
   scissor.extent = swapchain_details_.extent;
   vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
 
-  VkBuffer vertices_buffer = mesh_.vertices.Get();
-  VkBuffer indices_buffer = mesh_.indices.Get();
-  VkDescriptorSet descriptor_set = descriptor_sets_[curr_frame_];
+  VkBuffer vertices_buffer = object_.vertices.Get();
+  VkBuffer indices_buffer = object_.indices.Get();
+  VkDescriptorSet descriptor_set = object_.descriptor_sets[curr_frame_];
 
   VkDeviceSize prev_offset = 0;
   VkDeviceSize vertex_offsets[] = {0};
 
-  for(const auto[index, offset] : mesh_.usemtl) {
+  for(const auto[index, offset] : object_.usemtl) {
     const VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
     vkCmdPushConstants(cmd_buffer, pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned int), &index);
@@ -576,8 +373,8 @@ void Backend::Render() const {
   impl_->Render();
 }
 
-void Backend::LoadModel() {
-  impl_->LoadModel();
+void Backend::LoadModel(const std::string& path) {
+  impl_->LoadModel(path);
 }
 
 

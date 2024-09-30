@@ -10,10 +10,10 @@ namespace app {
 int run() noexcept {
   try {
     glfw::Backend::Instance window_backend = glfw::Backend::Init();
-    GLFWwindow* window = glfw::CreateWindow(640, 480, "test");
+    GLFWwindow* window = glfw::CreateWindow(1280, 720, "VulkanFun");
 
     vk::Backend render_backend(window);
-    render_backend.LoadModel();
+    render_backend.LoadModel("../obj/MadaraUchiha/obj/Madara_Uchiha.obj");
 
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();

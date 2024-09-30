@@ -1,19 +1,12 @@
 #ifndef BACKEND_RENDER_VK_WRAPPERS_H_
 #define BACKEND_RENDER_VK_WRAPPERS_H_
 
+#include "backend/render/vk_types.h"
 #include "backend/render/vk_factory.h"
 
 #include <vulkan/vulkan.h>
 
 namespace vk {
-
-#define DECL_MEMORY_OBJECT(NAME)           \
-  NAME() = default;                        \
-  NAME(const NAME&) = delete;              \
-  NAME(NAME&&) = default;                  \
-  ~NAME() = default;                       \
-  NAME& operator=(const NAME&) = delete;   \
-  NAME& operator=(NAME&&) = default
 
 #define DECL_MEMORY_OBJECT_CALLBACKS(NAME)                             \
 template<>                                                             \
@@ -28,13 +21,11 @@ struct MemoryObjectCallbacks;
 DECL_MEMORY_OBJECT_CALLBACKS(Buffer);
 DECL_MEMORY_OBJECT_CALLBACKS(Image);
 
+#undef DECL_MEMORY_OBJECT_CALLBACKS
+
 template<typename Tp>
 class MemoryObject {
 public:
-  DECL_MEMORY_OBJECT(MemoryObject);
-
-  MemoryObject(HandleWrapper<Tp>&& object_wrapper, VkDevice logical_device, uint32_t size);
-
   void Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties);
   void Bind();
 
@@ -50,7 +41,7 @@ protected:
 
 class Buffer : public MemoryObject<VkBuffer> {
 public:
-  DECL_MEMORY_OBJECT(Buffer);
+  DECL_UNIQUE_OBJECT(Buffer);
 
   Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size);
 
@@ -62,7 +53,7 @@ public:
 
 class Image : public MemoryObject<VkImage> {
 public:
-  DECL_MEMORY_OBJECT(Image);
+  DECL_UNIQUE_OBJECT(Image);
 
   Image(VkDevice logical_device,
         VkExtent2D extent,
@@ -84,13 +75,6 @@ private:
 
   HandleWrapper<VkImageView> view_;
 };
-
-#undef DECL_MEMORY_OBJECT
-#undef DECL_MEMORY_OBJECT_CALLBACKS
-
-template <typename Tp>
-inline MemoryObject<Tp>::MemoryObject(HandleWrapper<Tp>&& object_wrapper, VkDevice logical_device, uint32_t size)
-  : size_(size), logical_device_(logical_device), object_wrapper_(std::move(object_wrapper)) {}
 
 template<typename Tp>
 inline void MemoryObject<Tp>::Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
@@ -115,8 +99,9 @@ inline size_t MemoryObject<Tp>::Size() const noexcept {
 }
 
 inline Buffer::Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size) {
-  HandleWrapper<VkBuffer> buffer = factory::CreateBuffer(logical_device, usage, size);
-  static_cast<MemoryObject&>(*this) = MemoryObject(std::move(buffer), logical_device, size);
+  object_wrapper_ = factory::CreateBuffer(logical_device, usage, size);
+  logical_device_ = logical_device;
+  size_ = size;
 }
 
 inline void* Buffer::Map() {
@@ -137,8 +122,9 @@ inline Image::Image(VkDevice logical_device,
         VkFormat format,
         VkImageTiling tiling,
         VkImageUsageFlags usage) : extent_(extent), format_(format) {
-  HandleWrapper<VkImage> image = factory::CreateImage(logical_device, extent, format, tiling, usage);
-  static_cast<MemoryObject&>(*this) = MemoryObject(std::move(image), logical_device, extent.width * extent.height * channels);
+  object_wrapper_ = factory::CreateImage(logical_device, extent, format, tiling, usage);
+  logical_device_ = logical_device;
+  size_ = extent.width * extent.height * channels;
 }
 
 inline void Image::CreateView(VkImageAspectFlags aspect_flags) {

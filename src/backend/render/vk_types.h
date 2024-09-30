@@ -12,6 +12,14 @@
 
 namespace vk {
 
+#define DECL_UNIQUE_OBJECT(NAME)           \
+  NAME() = default;                        \
+  NAME(const NAME&) = delete;              \
+  NAME(NAME&&) = default;                  \
+  ~NAME() = default;                       \
+  NAME& operator=(const NAME&) = delete;   \
+  NAME& operator=(NAME&&) = default
+
 template<typename HandleType>
 using HandleWrapper = std::unique_ptr<std::remove_pointer_t<HandleType>, std::function<void(HandleType)>>;
 
@@ -21,6 +29,11 @@ struct Error final : std::runtime_error {
   [[nodiscard]] Error WithCode(const VkResult result) const {
     return Error{std::string(what()) + " [Code: " + std::to_string(result) + ']'};
   }
+};
+
+struct ImageSettings {
+  int channels;
+  VkFormat format;
 };
 
 struct QueueFamilyIndices {

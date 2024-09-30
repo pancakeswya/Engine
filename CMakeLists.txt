@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(vk_triangle)
+project(vk_engine)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -19,7 +19,7 @@ include_directories("${EXTERNAL}/glm")
 include_directories("${EXTERNAL}/stb")
 include_directories("${EXTERNAL}/earcut.hpp/include")
 
-add_executable(vk_triangle
+add_executable(vk_engine
         ${SRC_DIR}/main.cc
         ${SRC_DIR}/app/app.cc
         ${SRC_DIR}/app/app.h
@@ -35,9 +35,12 @@ add_executable(vk_triangle
         ${SRC_DIR}/backend/render/vk_factory.h
         ${SRC_DIR}/backend/render/vk_types.cc
         ${SRC_DIR}/backend/render/vk_types.h
+        ${SRC_DIR}/backend/render/vk_object.h
+        ${SRC_DIR}/backend/render/vk_object.cc
         ${SRC_DIR}/backend/render/vk_wrappers.h
+        ${SRC_DIR}/backend/render/vk_wrappers.cc
         ${SRC_DIR}/backend/window/glfw.h
         ${SRC_DIR}/backend/window/glfw.cc
 )
 
-target_link_libraries(vk_triangle Vulkan::Vulkan glfw)
+target_link_libraries(vk_engine Vulkan::Vulkan glfw)

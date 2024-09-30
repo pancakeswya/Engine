@@ -1,10 +1,12 @@
 #include "backend/render/vk_config.h"
 
+#include <stb_image.h>
+#ifdef DEBUG
+#include <cstring>
+#endif
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-
 #include <iostream>
-#include <cstring>
 
 namespace vk::config {
 
@@ -56,13 +58,20 @@ VkApplicationInfo GetApplicationInfo() noexcept {
   VkApplicationInfo app_info = {};
 
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.pApplicationName = "Hello Triangle";
+  app_info.pApplicationName = "VulkanFun";
   app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  app_info.pEngineName = "No Engine";
+  app_info.pEngineName = "Simple Engine";
   app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
   app_info.apiVersion = VK_API_VERSION_1_0;
 
   return app_info;
+}
+
+ImageSettings GetImageSettings() noexcept {
+  return {
+    STBI_rgb_alpha,
+    VK_FORMAT_R8G8B8A8_SRGB
+  };
 }
 
 VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept {
