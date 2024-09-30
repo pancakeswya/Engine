@@ -1,5 +1,10 @@
 set(SHADER_SOURCE_DIR .)
 set(SHADER_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(SHADER_DEFAULT_MAX_TEXTURE 10)
+
+if (NOT DEFINED SHADER_MAX_TEXTURE)
+    set(SHADER_MAX_TEXTURE ${SHADER_DEFAULT_MAX_TEXTURE})
+endif()
 
 find_package(Vulkan REQUIRED COMPONENTS glslc)
 find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
@@ -32,7 +37,7 @@ foreach(source IN LISTS SHADER_SOURCES)
     string(SUBSTRING "${SHADERNAME}" 1 -1 SHADERNAME)
     add_custom_command(
             COMMAND
-            ${glslc_executable}
+            ${glslc_executable} -DMAX_TEXTURES=${SHADER_MAX_TEXTURE}
             -O -MD -MF ${SHADERNAME}.d
             -o ${SHADER_BINARY_DIR}/${SHADERNAME}.spv ${source}
             OUTPUT ${SHADER_BINARY_DIR}/${SHADERNAME}.spv

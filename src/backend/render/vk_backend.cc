@@ -18,7 +18,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <limits>
 
 namespace vk {
@@ -134,8 +134,8 @@ inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical
 } // namespace
 
 struct Mesh {
-  std::vector<Index::type> indices;
-  std::vector<Vertex> vertices;
+  Buffer indices;
+  Buffer vertices;
   std::vector<Image> textures;
   std::vector<obj::UseMtl> usemtl;
 };
@@ -149,9 +149,11 @@ class BackendImpl {
   void LoadModel();
   void SetResized(bool resized) noexcept;
  private:
-  template<typename Tp>
-  Buffer CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+  Buffer CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
   Image CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+
+  std::vector<Image> CreateStagingImagesFromObj(const obj::Data& data);
+  void LoadObj(obj::Data& data);
 
   void RecreateSwapchain();
   void UpdateUniforms();
@@ -199,11 +201,10 @@ class BackendImpl {
 
   HandleWrapper<VkSampler> texture_sampler_;
 
-  Buffer vertices_buffer_, indices_buffer_;
   Image depth_image_;
 
   std::array<Buffer, config::kFrameCount> ubo_buffers_;
-  std::array<void*, config::kFrameCount> ubo_mapped_;
+  std::array<UniformBufferObject*, config::kFrameCount> ubo_mapped_;
 
   Mesh mesh_;
 };
@@ -249,7 +250,7 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     ubo_buffers_[i].Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     ubo_buffers_[i].Bind();
 
-    ubo_mapped_[i] = ubo_buffers_[i].Map();
+    ubo_mapped_[i] = static_cast<UniformBufferObject*>(ubo_buffers_[i].Map());
     UpdateBufferDescriptorSets(logical_device, ubo_buffers_[i].Get(), descriptor_sets_[i]);
   }
   depth_image_ = CreateDepthImage(logical_device, physical_device_, swapchain_details_.extent);
@@ -290,24 +291,12 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   texture_sampler_ = factory::CreateTextureSampler(logical_device, physical_device_);
 }
 
-template<typename Tp>
-Buffer BackendImpl::CreateStagingBuffer(const std::vector<Tp>& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
-  uint32_t data_size = sizeof(Tp) * data.size();
-  VkDevice logical_device = logical_device_wrapper_.get();
-
-  Buffer transfer_buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, data_size);
-  transfer_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  transfer_buffer.Bind();
-  {
-    void* mapped_buffer = transfer_buffer.Map();
-    std::memcpy(mapped_buffer, data.data(), data_size);
-    transfer_buffer.Unmap();
-  }
-  Buffer staging_buffer(logical_device, usage, data_size);
+Buffer BackendImpl::CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
+  Buffer staging_buffer(logical_device_wrapper_.get(), usage, transfer_buffer.Size());
   staging_buffer.Allocate(physical_device_, properties);
   staging_buffer.Bind();
 
-  CopyBuffer(transfer_buffer.Get(), staging_buffer.Get(), data_size);
+  CopyBuffer(transfer_buffer.Get(), staging_buffer.Get(), transfer_buffer.Size());
 
   return staging_buffer;
 }
@@ -349,25 +338,19 @@ Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlag
   return image_wrapped;
 }
 
-struct compare {
-  bool operator()(const obj::Index& lhs, const obj::Index& rhs) const noexcept {
-    if (lhs.fv < rhs.fv) return true;
-    if (rhs.fv < lhs.fv) return false;
-    if (lhs.fn < rhs.fn) return true;
-    if (rhs.fn < lhs.fn) return false;
-    if (lhs.ft < rhs.ft) return true;
-    return rhs.ft < lhs.ft;
-  }
-};
+std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
+  std::unordered_map<obj::Index, unsigned int, obj::Index::Hash> index_map;
 
-Mesh FromDataToMesh(obj::Data& data) {
-  Mesh mesh;
-  std::map<obj::Index, unsigned int, compare> index_map;
+  Buffer transfer_vertices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
+  transfer_vertices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  transfer_vertices.Bind();
 
-  mesh.vertices.reserve(data.indices.size());
-  mesh.indices.reserve(data.indices.size());
+  Buffer transfer_indices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index::type) * data.indices.size());
+  transfer_indices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  transfer_indices.Bind();
 
-  mesh.usemtl = std::move(data.usemtl);
+  auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
+  auto mapped_indices = static_cast<Index::type*>(transfer_indices.Map());
 
   unsigned int next_combined_idx = 0, combined_idx = 0;
   for (const obj::Index& index : data.indices) {
@@ -377,17 +360,56 @@ Mesh FromDataToMesh(obj::Data& data) {
       combined_idx = next_combined_idx;
       index_map.insert({index, combined_idx});
       unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
-      Vertex vertex = {
-        {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
-        {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
-        {data.vt[i_t], data.vt[i_t + 1]}
+      *(mapped_vertices++) = Vertex{
+          {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
+          {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
+          {data.vt[i_t], data.vt[i_t + 1]}
       };
-      mesh.vertices.push_back(vertex);
       ++next_combined_idx;
     }
-    mesh.indices.push_back(combined_idx);
+    *(mapped_indices++) = combined_idx;
   }
-  return mesh;
+  transfer_vertices.Unmap();
+  transfer_indices.Unmap();
+
+  return {std::move(transfer_vertices), std::move(transfer_indices)};
+}
+
+std::vector<Image> BackendImpl::CreateStagingImagesFromObj(const obj::Data& data) {
+  std::vector<Image> textures;
+
+  textures.reserve(data.mtl.size());
+  for(const obj::NewMtl& mtl : data.mtl) {
+    Image texture;
+    const std::string& path = mtl.map_kd;
+    try {
+      texture = CreateStagingImage(path, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    } catch (const Error& error) {
+      texture = CreateStagingImage(
+#ifdef __unix__
+          "/mnt/c"
+#else
+          "C:"
+#endif
+          "/Users/niyaz/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      std::cerr << "Error creating image " + path + ": " <<  error.what() << std::endl;
+    }
+    textures.emplace_back(std::move(texture));
+  }
+  return textures;
+}
+
+void BackendImpl::LoadObj(obj::Data& data) {
+  auto[transfer_vertices, transfer_indices] = CreateTransferBuffersFromObj(data, logical_device_wrapper_.get(), physical_device_);
+
+  mesh_.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  mesh_.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  mesh_.textures = CreateStagingImagesFromObj(data);
+  mesh_.usemtl = std::move(data.usemtl);
+
+  for(VkDescriptorSet descriptor_set : descriptor_sets_) {
+    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
+  }
 }
 
 void BackendImpl::LoadModel() {
@@ -397,32 +419,9 @@ void BackendImpl::LoadModel() {
   #else
   "C:"
 #endif
-    "/Users/user/CLionProjects/VulkanEngine/obj/MadaraUchiha/obj/Madara_Uchiha.obj");
+    "/Users/niyaz/CLionProjects/VulkanEngine/obj/Madara Uchiha/obj/Madara_Uchiha.obj");
 
-  mesh_ = FromDataToMesh(data);
-  mesh_.textures.reserve(data.mtl.size());
-  for(const obj::NewMtl& mtl : data.mtl) {
-    Image texture;
-    const std::string& path = mtl.map_kd;
-    try {
-      texture = CreateStagingImage(path, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    } catch (const Error& error) {
-      texture = CreateStagingImage(
-#ifdef __unix__
-  "/mnt/c"
-  #else
-  "C:"
-#endif
-    "/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-      std::cerr << "Error creating image " + path + ": " <<  error.what() << std::endl;
-    }
-    mesh_.textures.emplace_back(std::move(texture));
-  }
-  for(const VkDescriptorSet descriptor_set : descriptor_sets_) {
-    UpdateTextureDescriptorSets(logical_device_wrapper_.get(), mesh_.textures, texture_sampler_.get(), descriptor_set);
-  }
-  vertices_buffer_ = CreateStagingBuffer(mesh_.vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  indices_buffer_ = CreateStagingBuffer(mesh_.indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  LoadObj(data);
 }
 
 void BackendImpl::SetResized(bool resized) noexcept {
@@ -435,7 +434,7 @@ void BackendImpl::UpdateUniforms() {
   const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
   const float time = std::chrono::duration<float>(curr_time - start_time).count();
 
-  auto ubo = static_cast<UniformBufferObject*>(ubo_mapped_[curr_frame_]);
+  UniformBufferObject* ubo = ubo_mapped_[curr_frame_];
   ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
@@ -628,8 +627,8 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
   scissor.extent = swapchain_details_.extent;
   vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
 
-  VkBuffer vertices_buffer = vertices_buffer_.Get();
-  VkBuffer indices_buffer = indices_buffer_.Get();
+  VkBuffer vertices_buffer = mesh_.vertices.Get();
+  VkBuffer indices_buffer = mesh_.indices.Get();
   VkDescriptorSet descriptor_set = descriptor_sets_[curr_frame_];
 
   VkDeviceSize prev_offset = 0;

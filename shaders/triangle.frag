@@ -1,6 +1,6 @@
 #version 450
 
-layout(binding = 1) uniform sampler2D texSampler[14];
+layout(binding = 1) uniform sampler2D texSampler[MAX_TEXTURES];
 
 layout(push_constant) uniform constants {
     uint imgIdx;

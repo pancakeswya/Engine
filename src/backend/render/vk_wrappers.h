@@ -49,6 +49,10 @@ public:
   [[nodiscard]] Tp Get() const noexcept {
     return object_wrapper_.get();
   }
+
+  [[nodiscard]] size_t Size() const noexcept {
+    return size_;
+  }
 protected:
   uint32_t size_;
   VkDevice logical_device_;

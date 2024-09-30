@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 #include <stdexcept>
 
 namespace obj {
@@ -15,6 +16,18 @@ struct Index {
   unsigned int fv;
   unsigned int fn;
   unsigned int ft;
+
+  bool operator==(const Index& other) const noexcept {
+    return other.fv == fv && other.fn == fn && other.ft == ft;
+  }
+
+  struct Hash {
+    size_t operator()(const Index& idx) const {
+      return std::hash<unsigned int>()(idx.fv) ^
+             std::hash<unsigned int>()(idx.fn) ^
+             std::hash<unsigned int>()(idx.ft);
+    }
+  };
 };
 
 struct NewMtl {

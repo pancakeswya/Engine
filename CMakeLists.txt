@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR src)
 set(EXTERNAL third_party)
 
+set(SHADER_MAX_TEXTURE 14)
 add_subdirectory(shaders)
+add_compile_definitions(MAX_TEXTURE_COUNT=${SHADER_MAX_TEXTURE})
 # add_compile_definitions(DEBUG)
 
 find_package(Vulkan REQUIRED)
@@ -25,10 +27,10 @@ add_executable(vk_triangle
         ${SRC_DIR}/base/io.h
         ${SRC_DIR}/obj/parser.h
         ${SRC_DIR}/obj/parser.cc
-        ${SRC_DIR}/backend/render/vk_backend.cc
-        ${SRC_DIR}/backend/render/vk_backend.h
         ${SRC_DIR}/backend/render/vk_config.cc
         ${SRC_DIR}/backend/render/vk_config.h
+        ${SRC_DIR}/backend/render/vk_backend.cc
+        ${SRC_DIR}/backend/render/vk_backend.h
         ${SRC_DIR}/backend/render/vk_factory.cc
         ${SRC_DIR}/backend/render/vk_factory.h
         ${SRC_DIR}/backend/render/vk_types.cc
