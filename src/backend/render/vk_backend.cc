@@ -25,39 +25,6 @@ namespace vk {
 
 namespace {
 
-void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmd_pool, VkDevice logical_device, VkQueue graphics_queue) {
-  vkEndCommandBuffer(commandBuffer);
-
-  VkSubmitInfo submitInfo{};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-
-  vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(graphics_queue);
-
-  vkFreeCommandBuffers(logical_device, cmd_pool, 1, &commandBuffer);
-}
-
-VkCommandBuffer BeginSingleTimeCommands(VkDevice logical_device, VkCommandPool cmd_pool) {
-  VkCommandBufferAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandPool = cmd_pool;
-  alloc_info.commandBufferCount = 1;
-
-  VkCommandBuffer command_buffer;
-  vkAllocateCommandBuffers(logical_device, &alloc_info, &command_buffer);
-
-  VkCommandBufferBeginInfo begin_info = {};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(command_buffer, &begin_info);
-
-  return command_buffer;
-}
-
 void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set) {
   VkDescriptorBufferInfo buffer_info = {};
   buffer_info.buffer = ubo_buffer;
@@ -123,7 +90,7 @@ inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
 inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical_device, VkExtent2D extent) {
   VkFormat depth_format = FindDepthFormat(physical_device);
 
-  Image depth_image(logical_device, extent.width, extent.height, STBI_rgb_alpha, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  Image depth_image(logical_device, extent, STBI_rgb_alpha, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
   depth_image.Allocate(physical_device, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   depth_image.Bind();
   depth_image.CreateView(VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -147,9 +114,7 @@ class BackendImpl {
 
   void Render();
   void LoadModel();
-  void SetResized(bool resized) noexcept;
  private:
-  Buffer CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
   Image CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 
   std::vector<Image> CreateStagingImagesFromObj(const obj::Data& data);
@@ -157,10 +122,8 @@ class BackendImpl {
 
   void RecreateSwapchain();
   void UpdateUniforms();
-  void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
-  void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
-  void TransitionImageLayout(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout);
 
   bool framebuffer_resized_;
   size_t curr_frame_;
@@ -214,7 +177,7 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   glfwSetWindowUserPointer(window, this);
   glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width[[maybe_unused]], int height[[maybe_unused]]) {
     auto impl = static_cast<BackendImpl*>(glfwGetWindowUserPointer(window));
-    impl->SetResized(true);
+    impl->framebuffer_resized_ = true;
   });
 
   instance_wrapper_ = factory::CreateInstance();
@@ -291,16 +254,6 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   texture_sampler_ = factory::CreateTextureSampler(logical_device, physical_device_);
 }
 
-Buffer BackendImpl::CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
-  Buffer staging_buffer(logical_device_wrapper_.get(), usage, transfer_buffer.Size());
-  staging_buffer.Allocate(physical_device_, properties);
-  staging_buffer.Bind();
-
-  CopyBuffer(transfer_buffer.Get(), staging_buffer.Get(), transfer_buffer.Size());
-
-  return staging_buffer;
-}
-
 Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
   stbi_set_flip_vertically_on_load(true);
 
@@ -309,33 +262,34 @@ Image BackendImpl::CreateStagingImage(const std::string& path, VkBufferUsageFlag
   if (pixels == nullptr) {
     throw Error("failed to load texture image");
   }
-  VkDeviceSize image_size = image_width * image_height * STBI_rgb_alpha;
   HandleWrapper<stbi_uc*> image_wrapper(pixels, [](stbi_uc* pixels) {
     stbi_image_free(pixels);
   });
+  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
   VkDevice logical_device = logical_device_wrapper_.get();
+
+  VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
+  VkDeviceSize image_size = image_width * image_height * STBI_rgb_alpha;
+
   Buffer transfer_buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
   transfer_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_buffer.Bind();
-  {
-    void* mapped_buffer = transfer_buffer.Map();
-    std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
-    transfer_buffer.Unmap();
-  }
-  VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
-  Image image_wrapped(logical_device, image_width, image_height, STBI_rgb_alpha, image_format, VK_IMAGE_TILING_OPTIMAL, usage);
-  image_wrapped.Allocate(physical_device_, properties);
-  image_wrapped.Bind();
 
-  VkImage image = image_wrapped.Get();
+  void* mapped_buffer = transfer_buffer.Map();
+  std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
+  transfer_buffer.Unmap();
 
-  TransitionImageLayout(image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  CopyBufferToImage(transfer_buffer.Get(), image, static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height));
-  TransitionImageLayout(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  Image image(logical_device, image_extent, STBI_rgb_alpha, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, usage);
+  image.Allocate(physical_device_, properties);
+  image.Bind();
 
-  image_wrapped.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
+  image.TransitImageLayout(cmd_pool, graphics_queue_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  image.CopyBuffer(transfer_buffer, cmd_pool_wrapper_.get(), graphics_queue_);
+  image.TransitImageLayout(cmd_pool, graphics_queue_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  return image_wrapped;
+  image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
+
+  return image;
 }
 
 std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
@@ -360,14 +314,14 @@ std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, Vk
       combined_idx = next_combined_idx;
       index_map.insert({index, combined_idx});
       unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
-      *(mapped_vertices++) = Vertex{
+      *mapped_vertices++ = Vertex{
           {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
           {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
           {data.vt[i_t], data.vt[i_t + 1]}
       };
       ++next_combined_idx;
     }
-    *(mapped_indices++) = combined_idx;
+    *mapped_indices++ = combined_idx;
   }
   transfer_vertices.Unmap();
   transfer_indices.Unmap();
@@ -391,7 +345,7 @@ std::vector<Image> BackendImpl::CreateStagingImagesFromObj(const obj::Data& data
 #else
           "C:"
 #endif
-          "/Users/niyaz/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+          "/Users/user/CLionProjects/VulkanEngine/textures/texture.jpg", VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
       std::cerr << "Error creating image " + path + ": " <<  error.what() << std::endl;
     }
     textures.emplace_back(std::move(texture));
@@ -402,8 +356,20 @@ std::vector<Image> BackendImpl::CreateStagingImagesFromObj(const obj::Data& data
 void BackendImpl::LoadObj(obj::Data& data) {
   auto[transfer_vertices, transfer_indices] = CreateTransferBuffersFromObj(data, logical_device_wrapper_.get(), physical_device_);
 
-  mesh_.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  mesh_.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  VkDevice logical_device = logical_device_wrapper_.get();
+  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
+
+  mesh_.vertices = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, transfer_vertices.Size());
+
+  mesh_.vertices.Allocate(physical_device_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  mesh_.vertices.Bind();
+  mesh_.vertices.CopyBuffer(transfer_vertices, cmd_pool, graphics_queue_);
+
+  mesh_.indices = Buffer(logical_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, transfer_indices.Size());
+  mesh_.indices.Allocate(physical_device_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  mesh_.indices.Bind();
+  mesh_.indices.CopyBuffer(transfer_indices, cmd_pool, graphics_queue_);
+
   mesh_.textures = CreateStagingImagesFromObj(data);
   mesh_.usemtl = std::move(data.usemtl);
 
@@ -419,13 +385,9 @@ void BackendImpl::LoadModel() {
   #else
   "C:"
 #endif
-    "/Users/niyaz/CLionProjects/VulkanEngine/obj/Madara Uchiha/obj/Madara_Uchiha.obj");
+    "/Users/user/CLionProjects/VulkanEngine/obj/MadaraUchiha/obj/Madara_Uchiha.obj");
 
   LoadObj(data);
-}
-
-void BackendImpl::SetResized(bool resized) noexcept {
-  framebuffer_resized_ = resized;
 }
 
 void BackendImpl::UpdateUniforms() {
@@ -439,124 +401,6 @@ void BackendImpl::UpdateUniforms() {
   ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
   ubo->proj[1][1] *= -1;
-}
-
-void BackendImpl::CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
-  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
-  VkDevice logical_device = logical_device_wrapper_.get();
-
-  VkCommandBufferAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandPool = cmd_pool;
-  alloc_info.commandBufferCount = 1;
-
-  VkCommandBuffer cmd_buffer = VK_NULL_HANDLE;
-  if (const VkResult result = vkAllocateCommandBuffers(logical_device, &alloc_info, &cmd_buffer); result != VK_SUCCESS) {
-    throw Error("failed allocate command buffer").WithCode(result);
-  }
-  HandleWrapper<VkCommandBuffer> cmd_buffer_wrapper(
-    cmd_buffer,
-    [logical_device, cmd_pool](VkCommandBuffer cmd_buffer) {
-    vkFreeCommandBuffers(logical_device, cmd_pool, 1, &cmd_buffer);
-  });
-
-  VkCommandBufferBeginInfo begin_info = {};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &begin_info); result != VK_SUCCESS) {
-    throw Error("failed to begin recording command buffer").WithCode(result);
-  }
-
-  VkBufferCopy copy_region = {};
-  copy_region.size = size;
-  vkCmdCopyBuffer(cmd_buffer, src, dst, 1, &copy_region);
-
-  if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
-    throw Error("failed to record command buffer").WithCode(result);
-  }
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffer;
-
-  if (const VkResult result = vkQueueSubmit(graphics_queue_, 1, &submit_info, VK_NULL_HANDLE); result != VK_SUCCESS) {
-    throw Error("failed to submit draw command buffer").WithCode(result);
-  }
-  if (const VkResult result = vkQueueWaitIdle(graphics_queue_); result != VK_SUCCESS) {
-    throw Error("failed to queue wait idle").WithCode(result);
-  }
-}
-
-void BackendImpl::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-  VkDevice logical_device = logical_device_wrapper_.get();
-  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
-
-  VkCommandBuffer command_buffer = BeginSingleTimeCommands(logical_device, cmd_pool);
-
-  VkBufferImageCopy region = {};
-  region.bufferOffset = 0;
-  region.bufferRowLength = 0;
-  region.bufferImageHeight = 0;
-  region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  region.imageSubresource.mipLevel = 0;
-  region.imageSubresource.baseArrayLayer = 0;
-  region.imageSubresource.layerCount = 1;
-  region.imageOffset = {0, 0, 0};
-  region.imageExtent = { width, height, 1 };
-
-  vkCmdCopyBufferToImage(command_buffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-  EndSingleTimeCommands(command_buffer, cmd_pool, logical_device, graphics_queue_);
-}
-
-void BackendImpl::TransitionImageLayout(VkImage image, VkImageLayout old_layout, VkImageLayout new_layout) {
-  VkImageMemoryBarrier barrier = {};
-  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  barrier.oldLayout = old_layout;
-  barrier.newLayout = new_layout;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = image;
-  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
-  barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 1;
-
-  VkPipelineStageFlags source_stage;
-  VkPipelineStageFlags destination_stage;
-
-  if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-    source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    destination_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-  } else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    source_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    destination_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-  } else {
-    throw Error("unsupported layout transition");
-  }
-
-  VkDevice logical_device = logical_device_wrapper_.get();
-  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
-
-  VkCommandBuffer command_buffer = BeginSingleTimeCommands(logical_device, cmd_pool);
-  vkCmdPipelineBarrier(
-      command_buffer,
-      source_stage, destination_stage,
-      0,
-      0, nullptr,
-      0, nullptr,
-      1, &barrier
-  );
-  EndSingleTimeCommands(command_buffer, cmd_pool, logical_device, graphics_queue_);
 }
 
 void BackendImpl::RecreateSwapchain() {

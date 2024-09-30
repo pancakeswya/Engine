@@ -33,26 +33,13 @@ class MemoryObject {
 public:
   DECL_MEMORY_OBJECT(MemoryObject);
 
-  MemoryObject(HandleWrapper<Tp>&& object_wrapper, VkDevice logical_device, uint32_t size)
-    : size_(size), logical_device_(logical_device), object_wrapper_(std::move(object_wrapper)) {}
+  MemoryObject(HandleWrapper<Tp>&& object_wrapper, VkDevice logical_device, uint32_t size);
 
-  void Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
-    memory_wrapper_ = MemoryObjectCallbacks<Tp>::create_memory(logical_device_, physical_device, properties, object_wrapper_.get());
-  }
+  void Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties);
+  void Bind();
 
-  void Bind() {
-    if (const VkResult result = MemoryObjectCallbacks<Tp>::bind_memory(logical_device_, object_wrapper_.get(), memory_wrapper_.get(), 0); result != VK_SUCCESS) {
-      throw Error("failed to bind memory").WithCode(result);
-    }
-  }
-
-  [[nodiscard]] Tp Get() const noexcept {
-    return object_wrapper_.get();
-  }
-
-  [[nodiscard]] size_t Size() const noexcept {
-    return size_;
-  }
+  [[nodiscard]] Tp Get() const noexcept;
+  [[nodiscard]] size_t Size() const noexcept;
 protected:
   uint32_t size_;
   VkDevice logical_device_;
@@ -65,22 +52,12 @@ class Buffer : public MemoryObject<VkBuffer> {
 public:
   DECL_MEMORY_OBJECT(Buffer);
 
-  Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size) {
-    HandleWrapper<VkBuffer> buffer = factory::CreateBuffer(logical_device, usage, size);
-    static_cast<MemoryObject&>(*this) = MemoryObject(std::move(buffer), logical_device, size);
-  }
+  Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size);
 
-  void* Map() {
-    void* data;
-    if (const VkResult result = vkMapMemory(logical_device_, memory_wrapper_.get(), 0, size_, 0, &data); result != VK_SUCCESS) {
-      throw Error("failed to map buffer memory").WithCode(result);
-    }
-    return data;
-  }
+  void* Map();
+  void Unmap() noexcept;
 
-  void Unmap() noexcept {
-    vkUnmapMemory(logical_device_, memory_wrapper_.get());
-  }
+  void CopyBuffer(const Buffer& src, VkCommandPool cmd_pool, VkQueue graphics_queue);
 };
 
 class Image : public MemoryObject<VkImage> {
@@ -88,34 +65,93 @@ public:
   DECL_MEMORY_OBJECT(Image);
 
   Image(VkDevice logical_device,
-        uint32_t width,
-        uint32_t height,
+        VkExtent2D extent,
         uint32_t channels,
         VkFormat format,
         VkImageTiling tiling,
-        VkImageUsageFlags usage) : format_(format) {
-    HandleWrapper<VkImage> image = factory::CreateImage(logical_device, width, height, format, tiling, usage);
-    static_cast<MemoryObject&>(*this) = MemoryObject(std::move(image), logical_device, width * height * channels);
-  }
+        VkImageUsageFlags usage);
 
-  void CreateView(VkImageAspectFlags aspect_flags) {
-    view_ = factory::CreateImageView(logical_device_, object_wrapper_.get(), format_, aspect_flags);
-  }
+  void CreateView(VkImageAspectFlags aspect_flags);
 
-  [[nodiscard]] VkImageView GetView() const noexcept {
-    return view_.get();
-  }
+  void TransitImageLayout(VkCommandPool cmd_pool, VkQueue graphics_queue, VkImageLayout old_layout, VkImageLayout new_layout);
+  void CopyBuffer(const Buffer& src, VkCommandPool cmd_pool, VkQueue graphics_queue);
 
-  [[nodiscard]] VkFormat GetFormat() const noexcept {
-    return format_;
-  }
+  [[nodiscard]] VkImageView GetView() const noexcept;
+  [[nodiscard]] VkFormat GetFormat() const noexcept;
 private:
+  VkExtent2D extent_;
   VkFormat format_;
+
   HandleWrapper<VkImageView> view_;
 };
 
 #undef DECL_MEMORY_OBJECT
 #undef DECL_MEMORY_OBJECT_CALLBACKS
+
+template <typename Tp>
+inline MemoryObject<Tp>::MemoryObject(HandleWrapper<Tp>&& object_wrapper, VkDevice logical_device, uint32_t size)
+  : size_(size), logical_device_(logical_device), object_wrapper_(std::move(object_wrapper)) {}
+
+template<typename Tp>
+inline void MemoryObject<Tp>::Allocate(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
+  memory_wrapper_ = MemoryObjectCallbacks<Tp>::create_memory(logical_device_, physical_device, properties, object_wrapper_.get());
+}
+
+template<typename Tp>
+inline void MemoryObject<Tp>::Bind() {
+  if (const VkResult result = MemoryObjectCallbacks<Tp>::bind_memory(logical_device_, object_wrapper_.get(), memory_wrapper_.get(), 0); result != VK_SUCCESS) {
+    throw Error("failed to bind memory").WithCode(result);
+  }
+}
+
+template<typename Tp>
+inline Tp MemoryObject<Tp>::Get() const noexcept {
+  return object_wrapper_.get();
+}
+
+template<typename Tp>
+inline size_t MemoryObject<Tp>::Size() const noexcept {
+  return size_;
+}
+
+inline Buffer::Buffer(VkDevice logical_device, VkBufferUsageFlags usage, uint32_t size) {
+  HandleWrapper<VkBuffer> buffer = factory::CreateBuffer(logical_device, usage, size);
+  static_cast<MemoryObject&>(*this) = MemoryObject(std::move(buffer), logical_device, size);
+}
+
+inline void* Buffer::Map() {
+  void* data;
+  if (const VkResult result = vkMapMemory(logical_device_, memory_wrapper_.get(), 0, size_, 0, &data); result != VK_SUCCESS) {
+    throw Error("failed to map buffer memory").WithCode(result);
+  }
+  return data;
+}
+
+inline void Buffer::Unmap() noexcept {
+  vkUnmapMemory(logical_device_, memory_wrapper_.get());
+}
+
+inline Image::Image(VkDevice logical_device,
+        VkExtent2D extent,
+        uint32_t channels,
+        VkFormat format,
+        VkImageTiling tiling,
+        VkImageUsageFlags usage) : extent_(extent), format_(format) {
+  HandleWrapper<VkImage> image = factory::CreateImage(logical_device, extent, format, tiling, usage);
+  static_cast<MemoryObject&>(*this) = MemoryObject(std::move(image), logical_device, extent.width * extent.height * channels);
+}
+
+inline void Image::CreateView(VkImageAspectFlags aspect_flags) {
+  view_ = factory::CreateImageView(logical_device_, object_wrapper_.get(), format_, aspect_flags);
+}
+
+inline VkImageView Image::GetView() const noexcept {
+  return view_.get();
+}
+
+inline VkFormat Image::GetFormat() const noexcept {
+  return format_;
+}
 
 } // namespace vk
 

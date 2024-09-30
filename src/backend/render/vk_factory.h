@@ -32,7 +32,7 @@ extern HandleWrapper<VkDeviceMemory> CreateImageMemory(VkDevice logical_device, 
 extern HandleWrapper<VkDeviceMemory> CreateBufferMemory(VkDevice logical_device, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, VkBuffer buffer);
 extern HandleWrapper<VkDescriptorSetLayout> CreateDescriptorSetLayout(VkDevice logical_device);
 extern HandleWrapper<VkDescriptorPool> CreateDescriptorPool(VkDevice logical_device, size_t count);
-extern HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
+extern HandleWrapper<VkImage> CreateImage(VkDevice logical_device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage);
 extern HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format, VkImageAspectFlags aspect_flags);
 extern HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device);
 

@@ -819,15 +819,13 @@ HandleWrapper<VkDeviceMemory> CreateImageMemory(VkDevice logical_device, VkPhysi
   return CreateMemory(logical_device, physical_device, properties, mem_requirements);
 }
 
-HandleWrapper<VkImage> CreateImage(VkDevice logical_device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
+HandleWrapper<VkImage> CreateImage(VkDevice logical_device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkImageCreateInfo image_info = {};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent.width = width;
-  image_info.extent.height = height;
-  image_info.extent.depth = 1;
+  image_info.extent = { extent.width, extent.height, 1 };
   image_info.mipLevels = 1;
   image_info.arrayLayers = 1;
   image_info.format = format;
