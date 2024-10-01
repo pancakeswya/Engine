@@ -3,8 +3,9 @@
 
 #include "backend/render/vk_types.h"
 
-#include <vector>
 #include <vulkan/vulkan.h>
+
+#include <vector>
 
 #define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 

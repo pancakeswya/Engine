@@ -332,7 +332,7 @@ const char* ParseMtl(const char* p, Data& data) {
       ptr = SkipSpace(ptr);
       switch (*ptr) {
         case 'n':
-          ptr++;
+          ++ptr;
           if (ptr[0] == 'e' && ptr[1] == 'w' && ptr[2] == 'm' &&
               ptr[3] == 't' && ptr[4] == 'l' && IsSpace(ptr[5])) {
             if (!new_mtl.name.empty()) {
@@ -375,12 +375,12 @@ const char* ParseMtl(const char* p, Data& data) {
           }
           break;
         case 'm':
-          ptr++;
+          ++ptr;
           if (ptr[0] == 'a' && ptr[1] == 'p' && ptr[2] == '_') {
             ptr += 3;
             std::string* map_ptr = nullptr;
             if (*ptr == 'K') {
-              ptr++;
+              ++ptr;
               if (ptr[0] == 'a' && IsSpace(ptr[1])) {
                 ++ptr;
                 new_mtl.map_ka = GetName(&ptr);

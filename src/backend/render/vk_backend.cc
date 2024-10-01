@@ -3,6 +3,7 @@
 #include "backend/render/vk_config.h"
 #include "backend/render/vk_types.h"
 #include "backend/render/vk_wrappers.h"
+#include "backend/render/vk_object.h"
 #include "obj/parser.h"
 
 #define GLM_FORCE_RADIANS
@@ -15,8 +16,6 @@
 #include <chrono>
 #include <string>
 #include <limits>
-
-#include "vk_object.h"
 
 namespace vk {
 

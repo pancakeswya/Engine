@@ -1,11 +1,12 @@
 #include "backend/render/vk_object.h"
 #include "backend/render/vk_config.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include <array>
 #include <algorithm>
 #include <cstring>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include <unordered_map>
 
 namespace vk {
@@ -73,7 +74,7 @@ void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Ind
   }
 }
 
-std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
+std::pair<Buffer, Buffer> CreateTransferBuffers(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
   Buffer transfer_vertices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
   transfer_vertices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_vertices.Bind();
@@ -118,7 +119,7 @@ std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) cons
   return textures;
 }
 
-Image ObjectLoader::CreateStaginImageFromPixels(unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const {
+Image ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const {
   VkDeviceSize image_size = extent.width * extent.height * image_settings.channels;
 
   Buffer transfer_buffer(logical_device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
@@ -185,7 +186,7 @@ inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, V
 void ObjectLoader::Load(const std::string& path, Object& object) const {
   obj::Data data = obj::ParseFromFile(path);
 
-  auto[transfer_vertices, transfer_indices] = CreateTransferBuffersFromObj(data, logical_device_, physical_device_);
+  auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data, logical_device_, physical_device_);
 
   object.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   object.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);

@@ -1,5 +1,5 @@
-#ifndef VK_BACKEND_H_
-#define VK_BACKEND_H_
+#ifndef BACKEND_RENDER_VK_BACKEND_H_
+#define BACKEND_RENDER_VK_BACKEND_H_
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -23,4 +23,4 @@ private:
 
 } // namespace vk::backend
 
-#endif // VK_BACKEND_H_
+#endif // BACKEND_RENDER_VK_BACKEND_H_

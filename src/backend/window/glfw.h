@@ -2,6 +2,7 @@
 #define BACKEND_WINDOW_GLFW_H_
 
 #include <GLFW/glfw3.h>
+
 #include <memory>
 #include <stdexcept>
 

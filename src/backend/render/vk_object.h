@@ -5,9 +5,10 @@
 #include "backend/render/vk_wrappers.h"
 #include "obj/parser.h"
 
-#include <vector>
-#include <optional>
 #include <vulkan/vulkan.h>
+
+#include <optional>
+#include <vector>
 
 namespace vk {
 
@@ -31,7 +32,7 @@ public:
 private:
   [[nodiscard]] Buffer CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage) const;
   [[nodiscard]] Image CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
-  [[nodiscard]] Image CreateStaginImageFromPixels(unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const;
+  [[nodiscard]] Image CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const;
   [[nodiscard]] std::optional<Image> CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] std::vector<Image> CreateStagingImages(const obj::Data& data) const;
 

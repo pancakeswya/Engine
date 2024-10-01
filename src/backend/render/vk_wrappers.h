@@ -8,20 +8,20 @@
 
 namespace vk {
 
-#define DECL_MEMORY_OBJECT_CALLBACKS(NAME)                             \
-template<>                                                             \
-struct MemoryObjectCallbacks<Vk##NAME> {                               \
-  static constexpr auto create_memory = factory::Create##NAME##Memory; \
-  static constexpr auto bind_memory = vkBind##NAME##Memory;            \
-}
-
 template<typename Tp>
 struct MemoryObjectCallbacks;
 
-DECL_MEMORY_OBJECT_CALLBACKS(Buffer);
-DECL_MEMORY_OBJECT_CALLBACKS(Image);
+template <>
+struct MemoryObjectCallbacks<VkBuffer> {
+  static constexpr auto create_memory = factory::CreateBufferMemory;
+  static constexpr auto bind_memory = vkBindBufferMemory;
+};
 
-#undef DECL_MEMORY_OBJECT_CALLBACKS
+template <>
+struct MemoryObjectCallbacks<VkImage> {
+  static constexpr auto create_memory = factory::CreateImageMemory;
+  static constexpr auto bind_memory = vkBindImageMemory;
+};
 
 template<typename Tp>
 class MemoryObject {
