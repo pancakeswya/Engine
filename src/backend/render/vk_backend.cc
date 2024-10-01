@@ -377,5 +377,4 @@ void Backend::LoadModel(const std::string& path) {
   impl_->LoadModel(path);
 }
 
-
 } // vk

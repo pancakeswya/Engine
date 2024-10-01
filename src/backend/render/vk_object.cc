@@ -51,9 +51,29 @@ void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Imag
   vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
 }
 
-std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
+void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Index::type* mapped_indices) {
   std::unordered_map<obj::Index, unsigned int, obj::Index::Hash> index_map;
 
+  unsigned int next_combined_idx = 0, combined_idx = 0;
+  for (const obj::Index& index : data.indices) {
+    if (index_map.count(index)) {
+      combined_idx = index_map.at(index);
+    } else {
+      combined_idx = next_combined_idx;
+      index_map.emplace(index, combined_idx);
+      unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
+      *mapped_vertices++ = Vertex{
+          {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
+          {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
+          {data.vt[i_t], data.vt[i_t + 1]}
+      };
+      ++next_combined_idx;
+    }
+    *mapped_indices++ = combined_idx;
+  }
+}
+
+std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
   Buffer transfer_vertices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
   transfer_vertices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_vertices.Bind();
@@ -65,23 +85,8 @@ std::pair<Buffer, Buffer> CreateTransferBuffersFromObj(const obj::Data& data, Vk
   auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
   auto mapped_indices = static_cast<Index::type*>(transfer_indices.Map());
 
-  unsigned int next_combined_idx = 0, combined_idx = 0;
-  for (const obj::Index& index : data.indices) {
-    if (index_map.count(index)) {
-      combined_idx = index_map.at(index);
-    } else {
-      combined_idx = next_combined_idx;
-      index_map.insert({index, combined_idx});
-      unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
-      *mapped_vertices++ = Vertex{
-              {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
-              {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
-              {data.vt[i_t], data.vt[i_t + 1]}
-      };
-      ++next_combined_idx;
-    }
-    *mapped_indices++ = combined_idx;
-  }
+  RemoveDuplicatesAndCopy(data, mapped_vertices, mapped_indices);
+
   transfer_vertices.Unmap();
   transfer_indices.Unmap();
 
@@ -143,7 +148,7 @@ Image ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyF
   constexpr uint32_t image_width = 16;
   constexpr uint32_t image_height = 16;
 
-  std::array<uint8_t, image_width * image_height> dummy_colors;
+  std::array<unsigned char, image_width * image_height> dummy_colors;
   std::fill(dummy_colors.begin(), dummy_colors.end(), 0xff);
 
   constexpr VkExtent2D extent = { image_width, image_height };

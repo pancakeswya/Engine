@@ -12,7 +12,7 @@ int run() noexcept try {
   GLFWwindow* window = glfw::CreateWindow(1280, 720, "VulkanFun");
 
   vk::Backend render_backend(window);
-  render_backend.LoadModel("../obj/MadaraUchiha/obj/Madara_Uchiha.obj");
+  render_backend.LoadModel("../obj/Madara Uchiha/obj/Madara_Uchiha.obj");
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
