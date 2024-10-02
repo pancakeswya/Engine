@@ -12,17 +12,17 @@ struct Error final : std::runtime_error {
   using runtime_error::runtime_error;
 };
 
-struct Index {
+struct Indices {
   unsigned int fv;
   unsigned int fn;
   unsigned int ft;
 
-  bool operator==(const Index& other) const noexcept {
+  bool operator==(const Indices& other) const noexcept {
     return other.fv == fv && other.fn == fn && other.ft == ft;
   }
 
   struct Hash {
-    size_t operator()(const Index& idx) const {
+    size_t operator()(const Indices& idx) const {
       return std::hash<unsigned int>()(idx.fv) ^
              std::hash<unsigned int>()(idx.fn) ^
              std::hash<unsigned int>()(idx.ft);
@@ -56,7 +56,7 @@ struct Data {
   std::vector<float> vt;
   std::vector<float> v;
 
-  std::vector<Index> indices;
+  std::vector<Indices> indices;
   std::vector<UseMtl> usemtl;
   std::vector<NewMtl> mtl;
 };

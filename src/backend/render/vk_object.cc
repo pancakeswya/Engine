@@ -53,10 +53,10 @@ void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Imag
 }
 
 void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Index::type* mapped_indices) {
-  std::unordered_map<obj::Index, unsigned int, obj::Index::Hash> index_map;
+  std::unordered_map<obj::Indices, unsigned int, obj::Indices::Hash> index_map;
 
   unsigned int next_combined_idx = 0, combined_idx = 0;
-  for (const obj::Index& index : data.indices) {
+  for (const obj::Indices& index : data.indices) {
     if (index_map.count(index)) {
       combined_idx = index_map.at(index);
     } else {

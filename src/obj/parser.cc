@@ -6,6 +6,8 @@
 #include <fstream>
 #include <cmath>
 
+#include <glm/glm.hpp>
+
 namespace obj {
 
 namespace {
@@ -77,168 +79,90 @@ inline const char* ReadMtlTriple(const char* ptr, float triple[3]) noexcept {
   return ptr;
 }
 
-struct Point3D {
-  float x, y, z;
-};
-
-inline float GetLength(const Point3D& e) noexcept {
-  return std::sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
-}
-
-inline Point3D Cross(const Point3D& v1, const Point3D& v2) noexcept {
-  return {v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z,
-          v1.x * v2.y - v1.y * v2.x};
-}
-
-inline Point3D Normalize(const Point3D& e) noexcept {
-  float inv_length = 1.0f / GetLength(e);
-  return {e.x * inv_length, e.y * inv_length, e.z * inv_length};
-}
-
-inline float Dot(const Point3D& v1, const Point3D& v2) noexcept {
-  return (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z);
-}
-
-inline Point3D WorldToLocal(const Point3D& a, const Point3D& u,
-                            const Point3D& v, const Point3D& w) noexcept {
-  return {Dot(a, u), Dot(a, v), Dot(a, w)};
-}
-
-void ProcessPolygon(Data& data, const std::vector<Index>& raw_ind,
-                    unsigned int npolys) {
+void ProcessPolygon(Data& data, const std::vector<Indices>& raw_indices) {
   // quad to 2 triangles
-  if (npolys == 4) {
-    auto vi0 = size_t(raw_ind[0].fv);
-    auto vi1 = size_t(raw_ind[1].fv);
-    auto vi2 = size_t(raw_ind[2].fv);
-    auto vi3 = size_t(raw_ind[3].fv);
+  const size_t indices_len = raw_indices.size();
+  if (indices_len == 4) {
+    const auto vi0 = static_cast<size_t>(raw_indices[0].fv);
+    const auto vi1 = static_cast<size_t>(raw_indices[1].fv);
+    const auto vi2 = static_cast<size_t>(raw_indices[2].fv);
+    const auto vi3 = static_cast<size_t>(raw_indices[3].fv);
 
     if (((3 * vi0 + 2) >= data.v.size()) || ((3 * vi1 + 2) >= data.v.size()) ||
         ((3 * vi2 + 2) >= data.v.size()) || ((3 * vi3 + 2) >= data.v.size())) {
       throw Error("invalid obj model");
     }
-    float v0x = data.v[vi0 * 3 + 0];
-    float v0y = data.v[vi0 * 3 + 1];
-    float v0z = data.v[vi0 * 3 + 2];
-    float v1x = data.v[vi1 * 3 + 0];
-    float v1y = data.v[vi1 * 3 + 1];
-    float v1z = data.v[vi1 * 3 + 2];
-    float v2x = data.v[vi2 * 3 + 0];
-    float v2y = data.v[vi2 * 3 + 1];
-    float v2z = data.v[vi2 * 3 + 2];
-    float v3x = data.v[vi3 * 3 + 0];
-    float v3y = data.v[vi3 * 3 + 1];
-    float v3z = data.v[vi3 * 3 + 2];
+    const glm::vec3 v0 = {data.v[vi0 * 3 + 0], data.v[vi0 * 3 + 1], data.v[vi0 * 3 + 2] };
+    const glm::vec3 v1 = { data.v[vi1 * 3 + 0], data.v[vi1 * 3 + 1], data.v[vi1 * 3 + 2] };
+    const glm::vec3 v2 = { data.v[vi2 * 3 + 0], data.v[vi2 * 3 + 1], data.v[vi2 * 3 + 2] };
+    const glm::vec3 v3 = { data.v[vi3 * 3 + 0], data.v[vi3 * 3 + 1], data.v[vi3 * 3 + 2] };
 
-    float e02x = v2x - v0x;
-    float e02y = v2y - v0y;
-    float e02z = v2z - v0z;
-    float e13x = v3x - v1x;
-    float e13y = v3y - v1y;
-    float e13z = v3z - v1z;
-
-    float sqr02 = e02x * e02x + e02y * e02y + e02z * e02z;
-    float sqr13 = e13x * e13x + e13y * e13y + e13z * e13z;
+    const glm::vec3 e02 = v2 - v0;
+    const glm::vec3 e13 = v3 - v1;
     // find nearest edge
-    if (sqr02 < sqr13) {
-      data.indices.push_back(raw_ind[0]);
-      data.indices.push_back(raw_ind[1]);
-      data.indices.push_back(raw_ind[2]);
-      data.indices.push_back(raw_ind[0]);
-      data.indices.push_back(raw_ind[2]);
-      data.indices.push_back(raw_ind[3]);
+    data.indices.push_back(raw_indices[0]);
+    data.indices.push_back(raw_indices[1]);
+    if (glm::dot(e02, e02) < glm::dot(e13, e13)) {
+      data.indices.push_back(raw_indices[2]);
+      data.indices.push_back(raw_indices[0]);
     } else {
-      data.indices.push_back(raw_ind[0]);
-      data.indices.push_back(raw_ind[1]);
-      data.indices.push_back(raw_ind[3]);
-      data.indices.push_back(raw_ind[1]);
-      data.indices.push_back(raw_ind[2]);
-      data.indices.push_back(raw_ind[3]);
+      data.indices.push_back(raw_indices[3]);
+      data.indices.push_back(raw_indices[1]);
     }
-  } else if (npolys > 4) {
-    Index i0 = {}, i0_2 = {};
+    data.indices.push_back(raw_indices[2]);
+    data.indices.push_back(raw_indices[3]);
+  } else if (indices_len > 4) {
+    glm::vec3 n1 = {};
+    for (size_t k = 0; k < indices_len; ++k) {
+      const auto vi1 = static_cast<size_t>(raw_indices[k % indices_len].fv);
+      const auto vi2 = static_cast<size_t>(raw_indices[(k + 1) % indices_len].fv);
 
-    Point3D n1 = {};
-    for (size_t k = 0; k < npolys; ++k) {
-      i0 = raw_ind[k % npolys];
-      auto vi0 = size_t(i0.fv);
+      const glm::vec3 point1 = { data.v[vi1 * 3 + 0], data.v[vi1 * 3 + 1], data.v[vi1 * 3 + 2] };
+      const glm::vec3 point2 = { data.v[vi2 * 3 + 0], data.v[vi2 * 3 + 1], data.v[vi2 * 3 + 2] };
 
-      size_t j = (k + 1) % npolys;
-      i0_2 = raw_ind[j];
-      auto vi0_2 = size_t(i0_2.fv);
+      const glm::vec3 a = point1 - point2;
+      const glm::vec3 b = point1 + point2;
 
-      float v0x = data.v[vi0 * 3 + 0];
-      float v0y = data.v[vi0 * 3 + 1];
-      float v0z = data.v[vi0 * 3 + 2];
-
-      float v0x_2 = data.v[vi0_2 * 3 + 0];
-      float v0y_2 = data.v[vi0_2 * 3 + 1];
-      float v0z_2 = data.v[vi0_2 * 3 + 2];
-
-      const Point3D point1 = {v0x, v0y, v0z};
-      const Point3D point2 = {v0x_2, v0y_2, v0z_2};
-
-      Point3D a = {point1.x - point2.x, point1.y - point2.y,
-                   point1.z - point2.z};
-      Point3D b = {point1.x + point2.x, point1.y + point2.y,
-                   point1.z + point2.z};
-
-      n1.x += (a.y * b.z);
-      n1.y += (a.z * b.x);
-      n1.z += (a.x * b.y);
+      n1.x += a.y * b.z;
+      n1.y += a.z * b.x;
+      n1.z += a.x * b.y;
     }
-    float length_n = GetLength(n1);
-
+    const float length_n = glm::length(n1);
     if (length_n <= 0) {
       throw Error("Invalid obj model");
     }
-    float inv_length = -1.0f / length_n;
-    n1.x *= inv_length;
-    n1.y *= inv_length;
-    n1.z *= inv_length;
+    const glm::vec3 axis_w = n1 * (-1.0f / length_n);
 
-    Point3D axis_w, axis_v, axis_u;
-    axis_w = n1;
-    Point3D a;
-    if (std::abs(axis_w.x) > 0.9999999f) {
-      a = {0.0f, 1.0f, 0.0f};
-    } else {
-      a = {1.0f, 0.0f, 0.0f};
-    }
-    axis_v = Normalize(Cross(axis_w, a));
-    axis_u = Cross(axis_w, axis_v);
+    glm::vec3 a = {};
+    if (std::abs(axis_w.x) > 0.9999999f) a.y = 1.0f; else a.x = 1.0f;
+
+    const glm::vec3 axis_v = glm::normalize(glm::cross(axis_w, a));
+    const glm::vec3 axis_u = glm::cross(axis_w, axis_v);
+
     using Point2D = std::pair<float, float>;
 
     std::vector<std::vector<Point2D>> polygon;
-
     std::vector<Point2D> polyline;
 
-    for (size_t k = 0; k < npolys; ++k) {
-      i0 = raw_ind[k];
-      auto vi0 = size_t(i0.fv);
+    for (const Indices& indices : raw_indices) {
+      auto vi0 = static_cast<size_t>(indices.fv);
       if (3 * vi0 + 2 >= data.v.size()) {
         throw Error("invalid model file");
       }
+      glm::vec3 polypoint = {data.v[vi0 * 3 + 0], data.v[vi0 * 3 + 1], data.v[vi0 * 3 + 2]};
 
-      float v0x = data.v[vi0 * 3 + 0];
-      float v0y = data.v[vi0 * 3 + 1];
-      float v0z = data.v[vi0 * 3 + 2];
-
-      Point3D polypoint = {v0x, v0y, v0z};
-      Point3D loc = WorldToLocal(polypoint, axis_u, axis_v, axis_w);
-
-      polyline.emplace_back(loc.x, loc.y);
+      polyline.emplace_back(glm::dot(polypoint, axis_u), glm::dot(polypoint, axis_v));
     }
     polygon.push_back(polyline);
-    std::vector<unsigned int> order = mapbox::earcut(polygon);
+    std::vector order = mapbox::earcut(polygon);
     if (order.size() % 3 != 0) {
       throw Error("invalid obj model");
     }
-    for (unsigned int idx : order) {
-      data.indices.push_back(raw_ind[idx]);
+    for (const auto idx : order) {
+      data.indices.push_back(raw_indices[idx]);
     }
   } else {
-    std::move(raw_ind.begin(), raw_ind.end(), std::back_inserter(data.indices));
+    std::move(raw_indices.begin(), raw_indices.end(), std::back_inserter(data.indices));
   }
 }
 
@@ -259,53 +183,50 @@ const char* ParseVertex(const char* ptr, std::vector<float>& verts) {
 
 const char* ParseFacet(const char* ptr, Data& data) {
   char* end = nullptr;
-  long int tmp_i;
 
-  std::vector<Index> raw_ind;
-  size_t npolys = 0;
+  std::vector<Indices> raw_indices;
   while (*ptr != '\n') {
-    Index idx = {};
-    tmp_i = std::strtol(ptr, &end, 10);
-    if (end == ptr || tmp_i == 0) {
+    Indices indices = {};
+    long int index = std::strtol(ptr, &end, 10);
+    if (end == ptr || index == 0) {
       throw Error("failed to parse facet");
-    } else if (tmp_i < 0) {
-      idx.fv = data.v.size() / 3 - static_cast<unsigned int>(-tmp_i);
-    } else if (tmp_i > 0) {
-      idx.fv = static_cast<unsigned int>(tmp_i) - 1;
+    } else if (index < 0) {
+      indices.fv = data.v.size() / 3 - static_cast<unsigned int>(-index);
+    } else if (index > 0) {
+      indices.fv = static_cast<unsigned int>(index) - 1;
     }
     ptr = end;
     if (*ptr == '/') {
       ++ptr;
       if (IsDigit(*ptr)) {
-        tmp_i = std::strtol(ptr, &end, 10);
-        if (end == ptr || tmp_i == 0) {
+        index = std::strtol(ptr, &end, 10);
+        if (end == ptr || index == 0) {
           throw Error("invalid seporator in facet");
         }
-        if (tmp_i < 0) {
-          idx.ft = data.vt.size() / 2 - static_cast<unsigned int>(-tmp_i);
-        } else if (tmp_i > 0) {
-          idx.ft = static_cast<unsigned int>(tmp_i) - 1;
+        if (index < 0) {
+          indices.ft = data.vt.size() / 2 - static_cast<unsigned int>(-index);
+        } else if (index > 0) {
+          indices.ft = static_cast<unsigned int>(index) - 1;
         }
         ptr = end;
       }
     }
     if (*ptr == '/') {
-      tmp_i = std::strtol(++ptr, &end, 10);
-      if (end == ptr || tmp_i == 0) {
+      index = std::strtol(++ptr, &end, 10);
+      if (end == ptr || index == 0) {
         throw Error("invalid seporator in facet");
       }
-      if (tmp_i < 0) {
-        idx.fn = data.vn.size() / 3 - static_cast<unsigned int>(-tmp_i);
-      } else if (tmp_i > 0) {
-        idx.fn = static_cast<unsigned int>(tmp_i) - 1;
+      if (index < 0) {
+        indices.fn = data.vn.size() / 3 - static_cast<unsigned int>(-index);
+      } else if (index > 0) {
+        indices.fn = static_cast<unsigned int>(index) - 1;
       }
       ptr = end;
     }
-    raw_ind.push_back(idx);
+    raw_indices.push_back(indices);
     ptr = SkipSpace(ptr);
-    ++npolys;
   }
-  ProcessPolygon(data, raw_ind, npolys);
+  ProcessPolygon(data, raw_indices);
   return ptr;
 }
 
@@ -401,6 +322,7 @@ const char* ParseMtl(const char* p, Data& data) {
           }
           break;
         case '#':
+        default:
           break;
       }
       ptr = SkipLine(ptr);
