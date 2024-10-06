@@ -146,7 +146,7 @@ Image ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkE
 
   commander.TransitImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   commander.CopyBuffer(transfer_buffer);
-  commander.GenerateMipmaps();\
+  commander.GenerateMipmaps();
 
   return image;
 }
