@@ -20,13 +20,13 @@ inline std::string GetDirPath(const std::string& path) {
   return p.generic_string();
 }
 
-inline bool IsSpace(char c) noexcept {
+inline bool IsSpace(const char c) noexcept {
   return (c == ' ') || (c == '\t') || (c == '\r');
 }
 
-inline bool IsDigit(char c) noexcept { return (c >= '0') && (c <= '9'); }
+inline bool IsDigit(const char c) noexcept { return (c >= '0') && (c <= '9'); }
 
-inline bool IsEndOfName(char c) noexcept {
+inline bool IsEndOfName(const char c) noexcept {
   return (c == '\t') || (c == '\r') || (c == '\n');
 }
 
@@ -42,11 +42,10 @@ const char* SkipLine(const char* ptr) noexcept {
   return ++ptr;
 }
 
-long int FileSize(std::ifstream& file) {
-  long int p, n;
-  p = file.tellg();
+std::streamsize FileSize(std::ifstream& file) {
+  const long int p = file.tellg();
   file.seekg(0, std::ifstream::end);
-  n = file.tellg();
+  const long int n = file.tellg();
   file.seekg(p, std::ifstream::beg);
   if (n > 0) {
     return n;
@@ -65,28 +64,25 @@ std::string GetName(const char** ptr) {
   return name;
 }
 
-inline const char* ReadMtlSingle(const char* ptr, float& mtl) noexcept {
+template<int count>
+inline const char* ReadMtl(const char* ptr, float* mtl) noexcept {
   char* end = nullptr;
-  mtl = std::strtof(ptr, &end);
-  return end;
+  *mtl = std::strtof(ptr, &end);
+  return ReadMtl<count - 1>(end, mtl + 1);
 }
 
-inline const char* ReadMtlTriple(const char* ptr, float triple[3]) noexcept {
-  ptr = ReadMtlSingle(ptr, triple[0]);
-  ptr = ReadMtlSingle(ptr, triple[1]);
-  ptr = ReadMtlSingle(ptr, triple[2]);
-
+template<>
+inline const char* ReadMtl<0>(const char* ptr, [[maybe_unused]]float* mtl) noexcept {
   return ptr;
 }
 
 void ProcessPolygon(Data& data, const std::vector<Indices>& raw_indices) {
   // quad to 2 triangles
-  const size_t indices_len = raw_indices.size();
-  if (indices_len == 4) {
-    const auto vi0 = static_cast<size_t>(raw_indices[0].fv);
-    const auto vi1 = static_cast<size_t>(raw_indices[1].fv);
-    const auto vi2 = static_cast<size_t>(raw_indices[2].fv);
-    const auto vi3 = static_cast<size_t>(raw_indices[3].fv);
+  if (const size_t indices_len = raw_indices.size(); indices_len == 4) {
+    const unsigned int vi0 = raw_indices[0].fv;
+    const unsigned int vi1 = raw_indices[1].fv;
+    const unsigned int vi2 = raw_indices[2].fv;
+    const unsigned int vi3 = raw_indices[3].fv;
 
     if (((3 * vi0 + 2) >= data.v.size()) || ((3 * vi1 + 2) >= data.v.size()) ||
         ((3 * vi2 + 2) >= data.v.size()) || ((3 * vi3 + 2) >= data.v.size())) {
@@ -114,8 +110,8 @@ void ProcessPolygon(Data& data, const std::vector<Indices>& raw_indices) {
   } else if (indices_len > 4) {
     glm::vec3 n1 = {};
     for (size_t k = 0; k < indices_len; ++k) {
-      const auto vi1 = static_cast<size_t>(raw_indices[k % indices_len].fv);
-      const auto vi2 = static_cast<size_t>(raw_indices[(k + 1) % indices_len].fv);
+      const unsigned int vi1 = raw_indices[k].fv;
+      const unsigned int vi2 = raw_indices[(k + 1) % indices_len].fv;
 
       const glm::vec3 point1 = { data.v[vi1 * 3 + 0], data.v[vi1 * 3 + 1], data.v[vi1 * 3 + 2] };
       const glm::vec3 point2 = { data.v[vi2 * 3 + 0], data.v[vi2 * 3 + 1], data.v[vi2 * 3 + 2] };
@@ -145,7 +141,7 @@ void ProcessPolygon(Data& data, const std::vector<Indices>& raw_indices) {
     std::vector<Point2D> polyline;
 
     for (const Indices& indices : raw_indices) {
-      auto vi0 = static_cast<size_t>(indices.fv);
+      const unsigned int vi0 = indices.fv;
       if (3 * vi0 + 2 >= data.v.size()) {
         throw Error("invalid model file");
       }
@@ -153,7 +149,7 @@ void ProcessPolygon(Data& data, const std::vector<Indices>& raw_indices) {
 
       polyline.emplace_back(glm::dot(polypoint, axis_u), glm::dot(polypoint, axis_v));
     }
-    polygon.push_back(polyline);
+    polygon.push_back(std::move(polyline));
     std::vector order = mapbox::earcut(polygon);
     if (order.size() % 3 != 0) {
       throw Error("invalid obj model");
@@ -171,7 +167,7 @@ const char* ParseVertex(const char* ptr, std::vector<float>& verts) {
   char* end = nullptr;
 
   for (int i = 0; i < count; ++i) {
-    float vert = std::strtof(ptr, &end);
+    const float vert = std::strtof(ptr, &end);
     if (end == ptr) {
      throw Error("invalid file verices");
     }
@@ -230,108 +226,111 @@ const char* ParseFacet(const char* ptr, Data& data) {
   return ptr;
 }
 
-const char* ParseMtl(const char* p, Data& data) {
-  std::string path_mtl = GetName(&p);
+void ParseMtlFile(std::ifstream& mtl_file, Data& data) {
+  NewMtl new_mtl;
+  bool found_d = false;
+
+  const std::streamsize bytes = FileSize(mtl_file);
+  std::vector<char> buffer(static_cast<size_t>(bytes + 1));
+
+  mtl_file.read(buffer.data(), bytes);
+  const unsigned int read = mtl_file.gcount();
+
+  const char* buffer_ptr = buffer.data();
+
+  const char* ptr = buffer_ptr;
+  const char* eof = buffer_ptr + read;
+
+  while (ptr < eof) {
+    ptr = SkipSpace(ptr);
+    switch (*ptr) {
+      case 'n':
+        ++ptr;
+        if (ptr[0] == 'e' && ptr[1] == 'w' && ptr[2] == 'm' &&
+            ptr[3] == 't' && ptr[4] == 'l' && IsSpace(ptr[5])) {
+          if (!new_mtl.name.empty()) {
+            data.mtl.push_back(std::move(new_mtl));
+            new_mtl = NewMtl();
+          }
+          ptr += 5;
+          new_mtl.name = GetName(&ptr);
+        }
+        break;
+      case 'K':
+        if (ptr[1] == 'a') {
+          ptr = ReadMtl<3>(ptr + 2, new_mtl.Ka);
+        } else if (ptr[1] == 'd') {
+          ptr = ReadMtl<3>(ptr + 2, new_mtl.Kd);
+        } else if (ptr[1] == 's') {
+          ptr = ReadMtl<3>(ptr + 2, new_mtl.Ks);
+        } else if (ptr[1] == 'e') {
+          ptr = ReadMtl<3>(ptr + 2, new_mtl.Ke);
+        }
+        break;
+      case 'N':
+        if (ptr[1] == 's') {
+          ptr = ReadMtl<1>(ptr + 2, &new_mtl.Ns);
+        }
+        break;
+      case 'T':
+        if (ptr[1] == 'r') {
+          float Tr;
+          ptr = ReadMtl<1>(ptr + 2, &Tr);
+          if (!found_d) {
+            new_mtl.d = 1.0f - Tr;
+          }
+        }
+        break;
+      case 'd':
+        if (IsSpace(ptr[1])) {
+          ptr = ReadMtl<1>(ptr + 1, &new_mtl.d);
+          found_d = true;
+        }
+        break;
+      case 'm':
+        ++ptr;
+        if (ptr[0] == 'a' && ptr[1] == 'p' && ptr[2] == '_') {
+          ptr += 3;
+          std::string* map_ptr = nullptr;
+          if (*ptr == 'K') {
+            ++ptr;
+            if (ptr[0] == 'a' && IsSpace(ptr[1])) {
+              ++ptr;
+              new_mtl.map_ka = GetName(&ptr);
+              map_ptr = &new_mtl.map_ka;
+            } else if (ptr[0] == 'd' && IsSpace(ptr[1])) {
+              ++ptr;
+              new_mtl.map_kd = GetName(&ptr);
+              map_ptr = &new_mtl.map_kd;
+            } else if (ptr[0] == 's' && IsSpace(ptr[1])) {
+              ++ptr;
+              new_mtl.map_ks = GetName(&ptr);
+              map_ptr = &new_mtl.map_ks;
+            }
+          }
+          if (map_ptr && std::filesystem::path(*map_ptr).is_relative()) {
+            *map_ptr = data.dir_path + *map_ptr;
+          }
+        }
+        break;
+      case '#':
+      default:
+        break;
+    }
+    ptr = SkipLine(ptr);
+  }
+  if (!new_mtl.name.empty()) {
+    data.mtl.push_back(new_mtl);
+  }
+}
+
+inline const char* ParseMtl(const char* ptr, Data& data) {
+  const std::string path_mtl = GetName(&ptr);
   std::ifstream mtl_file(data.dir_path + path_mtl, std::ifstream::binary);
   if (mtl_file.is_open()) {
-    NewMtl new_mtl;
-    bool found_d = false;
-
-    long int bytes = FileSize(mtl_file);
-    std::vector<char> buffer(bytes + 1);
-
-    mtl_file.read(buffer.data(), bytes);
-    unsigned int read = mtl_file.gcount();
-    buffer[read] = '\0';
-
-    char* buffer_ptr = buffer.data();
-
-    const char* ptr = buffer_ptr;
-    const char* eof = buffer_ptr + read;
-
-    while (ptr < eof) {
-      ptr = SkipSpace(ptr);
-      switch (*ptr) {
-        case 'n':
-          ++ptr;
-          if (ptr[0] == 'e' && ptr[1] == 'w' && ptr[2] == 'm' &&
-              ptr[3] == 't' && ptr[4] == 'l' && IsSpace(ptr[5])) {
-            if (!new_mtl.name.empty()) {
-              data.mtl.push_back(std::move(new_mtl));
-              new_mtl = NewMtl();
-            }
-            ptr += 5;
-            new_mtl.name = GetName(&ptr);
-          }
-          break;
-        case 'K':
-          if (ptr[1] == 'a') {
-            ptr = ReadMtlTriple(ptr + 2, new_mtl.Ka);
-          } else if (ptr[1] == 'd') {
-            ptr = ReadMtlTriple(ptr + 2, new_mtl.Kd);
-          } else if (ptr[1] == 's') {
-            ptr = ReadMtlTriple(ptr + 2, new_mtl.Ks);
-          } else if (ptr[1] == 'e') {
-            ptr = ReadMtlTriple(ptr + 2, new_mtl.Ke);
-          }
-          break;
-        case 'N':
-          if (ptr[1] == 's') {
-            ptr = ReadMtlSingle(ptr + 2, new_mtl.Ns);
-          }
-          break;
-        case 'T':
-          if (ptr[1] == 'r') {
-            float Tr;
-            ptr = ReadMtlSingle(ptr + 2, Tr);
-            if (!found_d) {
-              new_mtl.d = 1.0f - Tr;
-            }
-          }
-          break;
-        case 'd':
-          if (IsSpace(ptr[1])) {
-            ptr = ReadMtlSingle(ptr + 1, new_mtl.d);
-            found_d = true;
-          }
-          break;
-        case 'm':
-          ++ptr;
-          if (ptr[0] == 'a' && ptr[1] == 'p' && ptr[2] == '_') {
-            ptr += 3;
-            std::string* map_ptr = nullptr;
-            if (*ptr == 'K') {
-              ++ptr;
-              if (ptr[0] == 'a' && IsSpace(ptr[1])) {
-                ++ptr;
-                new_mtl.map_ka = GetName(&ptr);
-                map_ptr = &new_mtl.map_ka;
-              } else if (ptr[0] == 'd' && IsSpace(ptr[1])) {
-                ++ptr;
-                new_mtl.map_kd = GetName(&ptr);
-                map_ptr = &new_mtl.map_kd;
-              } else if (ptr[0] == 's' && IsSpace(ptr[1])) {
-                ++ptr;
-                new_mtl.map_ks = GetName(&ptr);
-                map_ptr = &new_mtl.map_ks;
-              }
-            }
-            if (map_ptr && std::filesystem::path(*map_ptr).is_relative()) {
-              *map_ptr = data.dir_path + *map_ptr;
-            }
-          }
-          break;
-        case '#':
-        default:
-          break;
-      }
-      ptr = SkipLine(ptr);
-    }
-    if (!new_mtl.name.empty()) {
-      data.mtl.push_back(new_mtl);
-    }
+    ParseMtlFile(mtl_file, data);
   }
-  return p;
+  return ptr;
 }
 
 const char* ParseUsemtl(const char* ptr, Data& data) {
@@ -392,26 +391,23 @@ Data ParseFromFile(const std::string& path) {
   }
   data.dir_path = GetDirPath(path);
 
-  unsigned int read, bytes;
-  char *start, *end, *last;
-
   std::vector<char> buffer(2 * kBufferSize);
   char* buffer_ptr = buffer.data();
-  start = buffer_ptr;
+  char* start = buffer_ptr;
   for (;;) {
     file.read(start, kBufferSize);
-    read = file.gcount();
+    unsigned int read = file.gcount();
     if (!read && start == buffer_ptr) {
       break;
     }
     if (!read || (read < kBufferSize && start[read - 1] != '\n')) {
       start[read++] = '\n';
     }
-    end = start + read;
+    char *end = start + read;
     if (end == buffer_ptr) {
       break;
     }
-    last = end;
+    char *last = end;
     while (last > buffer_ptr) {
       --last;
       if (*last == '\n') {
@@ -423,7 +419,7 @@ Data ParseFromFile(const std::string& path) {
     }
     ++last;
     ParseBuffer(buffer_ptr, last, data);
-    bytes = static_cast<unsigned int>(end - last);
+    const auto bytes = static_cast<unsigned int>(end - last);
     std::memmove(buffer_ptr, last, bytes);
     start = buffer_ptr + bytes;
   }

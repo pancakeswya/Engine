@@ -819,14 +819,14 @@ HandleWrapper<VkDeviceMemory> CreateImageMemory(VkDevice logical_device, VkPhysi
   return CreateMemory(logical_device, physical_device, properties, mem_requirements);
 }
 
-HandleWrapper<VkImage> CreateImage(VkDevice logical_device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage) {
+HandleWrapper<VkImage> CreateImage(VkDevice logical_device, VkExtent2D extent, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, uint32_t mip_levels) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkImageCreateInfo image_info = {};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = VK_IMAGE_TYPE_2D;
   image_info.extent = { extent.width, extent.height, 1 };
-  image_info.mipLevels = 1;
+  image_info.mipLevels = mip_levels;
   image_info.arrayLayers = 1;
   image_info.format = format;
   image_info.tiling = tiling;
@@ -847,7 +847,7 @@ HandleWrapper<VkImage> CreateImage(VkDevice logical_device, VkExtent2D extent, V
   };
 }
 
-HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format, VkImageAspectFlags aspect_flags) {
+HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkImageViewCreateInfo view_info = {};
@@ -857,7 +857,7 @@ HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage imag
   view_info.format = format;
   view_info.subresourceRange.aspectMask = aspect_flags;
   view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
+  view_info.subresourceRange.levelCount = mip_levels;
   view_info.subresourceRange.baseArrayLayer = 0;
   view_info.subresourceRange.layerCount = 1;
 
@@ -874,7 +874,7 @@ HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage imag
   };
 }
 
-HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device) {
+HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device, const uint32_t mip_levels) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkPhysicalDeviceProperties properties = {};
@@ -894,6 +894,9 @@ HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysica
   sampler_info.compareEnable = VK_FALSE;
   sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
   sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  sampler_info.minLod = 0.0f;
+  sampler_info.maxLod = static_cast<float>(mip_levels);
+  sampler_info.mipLodBias = 0.0f;
 
   VkSampler sampler = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateSampler(logical_device, &sampler_info, alloc_cb, &sampler); result != VK_SUCCESS) {

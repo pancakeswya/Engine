@@ -40,7 +40,6 @@ private:
 
   VkDevice logical_device_;
   VkPhysicalDevice physical_device_;
-  VkSampler texture_sampler_;
   VkCommandPool cmd_pool_;
   VkQueue graphics_queue_;
 };
@@ -52,7 +51,7 @@ public:
   ObjectFactory(VkDevice logical_device, VkPhysicalDevice physical_device);
 
   [[nodiscard]] Object CreateObject(size_t ubo_count) const;
-  [[nodiscard]] ObjectLoader CreateObjectLoader(VkSampler texture_sampler, VkCommandPool cmd_pool, VkQueue graphics_queue) const noexcept;
+  [[nodiscard]] ObjectLoader CreateObjectLoader(VkCommandPool cmd_pool, VkQueue graphics_queue) const noexcept;
 private:
   VkDevice logical_device_;
   VkPhysicalDevice physical_device_;

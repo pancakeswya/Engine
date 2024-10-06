@@ -29,6 +29,8 @@ add_executable(vk_engine
         ${SRC_DIR}/obj/parser.cc
         ${SRC_DIR}/backend/render/vk_config.cc
         ${SRC_DIR}/backend/render/vk_config.h
+        ${SRC_DIR}/backend/render/vk_commander.cc
+        ${SRC_DIR}/backend/render/vk_commander.h
         ${SRC_DIR}/backend/render/vk_backend.cc
         ${SRC_DIR}/backend/render/vk_backend.h
         ${SRC_DIR}/backend/render/vk_factory.cc

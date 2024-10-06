@@ -103,8 +103,6 @@ class BackendImpl {
   std::vector<HandleWrapper<VkSemaphore>> render_semaphores_wrapped_;
   std::vector<HandleWrapper<VkFence>> fences_wrapped_;
 
-  HandleWrapper<VkSampler> texture_sampler_;
-
   Image depth_image_;
 
   Object object_;
@@ -178,11 +176,10 @@ BackendImpl::BackendImpl(GLFWwindow* window)
     render_semaphores_wrapped_.emplace_back(factory::CreateSemaphore(logical_device));
     fences_wrapped_.emplace_back(factory::CreateFence(logical_device));
   }
-  texture_sampler_ = factory::CreateTextureSampler(logical_device, physical_device_);
 }
 
 void BackendImpl::LoadModel(const std::string& path) {
-  ObjectLoader object_loader = object_factory_.CreateObjectLoader(texture_sampler_.get(), cmd_pool_wrapper_.get(), graphics_queue_);
+  ObjectLoader object_loader = object_factory_.CreateObjectLoader(cmd_pool_wrapper_.get(), graphics_queue_);
   object_loader.Load(path, object_);
 }
 
@@ -325,7 +322,7 @@ void BackendImpl::Render() {
   }
   RecordCommandBuffer(cmd_buffer, image_idx);
 
-  std::vector<VkPipelineStageFlags> pipeline_stage_flags = config::GetPipelineStageFlags();
+  const std::vector<VkPipelineStageFlags> pipeline_stage_flags = config::GetPipelineStageFlags();
 
   VkSubmitInfo submit_info = {};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

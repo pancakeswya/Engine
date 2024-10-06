@@ -32,12 +32,12 @@ void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, Vk
   vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
 }
 
-void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Image>& images, VkSampler texture_sampler, VkDescriptorSet descriptor_set) {
+void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Image>& images, VkDescriptorSet descriptor_set) {
   std::vector<VkDescriptorImageInfo> image_infos(images.size());
   for(size_t i = 0; i < images.size(); ++i) {
     image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     image_infos[i].imageView = images[i].GetView();
-    image_infos[i].sampler = texture_sampler;
+    image_infos[i].sampler = images[i].GetSampler();
   }
   VkWriteDescriptorSet descriptor_write = {};
 
@@ -139,6 +139,7 @@ Image ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkE
   image.TransitImageLayout(cmd_pool_, graphics_queue_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
+  image.GenerateMipmaps(physical_device_, cmd_pool_, graphics_queue_);
 
   return image;
 }
@@ -169,7 +170,7 @@ std::optional<Image> ObjectLoader::CreateStagingImage(const std::string& path, V
     stbi_image_free(pixels);
   });
 
-  VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
+  const VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
 
   return CreateStaginImageFromPixels(pixels, image_extent, usage, properties, image_settings);
 }
@@ -195,7 +196,7 @@ void ObjectLoader::Load(const std::string& path, Object& object) const {
   object.usemtl = std::move(data.usemtl);
 
   for(VkDescriptorSet descriptor_set : object.descriptor_sets) {
-    UpdateTextureDescriptorSets(logical_device_, object.textures, texture_sampler_, descriptor_set);
+    UpdateTextureDescriptorSets(logical_device_, object.textures, descriptor_set);
   }
 }
 
@@ -225,12 +226,11 @@ Object ObjectFactory::CreateObject(size_t ubo_count) const {
   return object;
 }
 
-ObjectLoader ObjectFactory::CreateObjectLoader(VkSampler texture_sampler, VkCommandPool cmd_pool, VkQueue graphics_queue) const noexcept {
+ObjectLoader ObjectFactory::CreateObjectLoader(VkCommandPool cmd_pool, VkQueue graphics_queue) const noexcept {
   ObjectLoader loader = {};
 
   loader.logical_device_ = logical_device_;
   loader.physical_device_ = physical_device_;
-  loader.texture_sampler_ = texture_sampler;
   loader.cmd_pool_ = cmd_pool;
   loader.graphics_queue_ = graphics_queue;
 

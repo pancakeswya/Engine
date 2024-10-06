@@ -64,16 +64,21 @@ public:
 
   void CreateView(VkImageAspectFlags aspect_flags);
 
+  void GenerateMipmaps(VkPhysicalDevice physical_device, VkCommandPool cmd_pool, VkQueue graphics_queue);
   void TransitImageLayout(VkCommandPool cmd_pool, VkQueue graphics_queue, VkImageLayout old_layout, VkImageLayout new_layout);
   void CopyBuffer(const Buffer& src, VkCommandPool cmd_pool, VkQueue graphics_queue);
 
   [[nodiscard]] VkImageView GetView() const noexcept;
+  [[nodiscard]] VkSampler GetSampler() const noexcept;
   [[nodiscard]] VkFormat GetFormat() const noexcept;
 private:
+  uint32_t mip_levels_;
+
   VkExtent2D extent_;
   VkFormat format_;
 
   HandleWrapper<VkImageView> view_;
+  HandleWrapper<VkSampler> sampler_;
 };
 
 template<typename Tp>
@@ -116,19 +121,8 @@ inline void Buffer::Unmap() noexcept {
   vkUnmapMemory(logical_device_, memory_wrapper_.get());
 }
 
-inline Image::Image(VkDevice logical_device,
-        VkExtent2D extent,
-        uint32_t channels,
-        VkFormat format,
-        VkImageTiling tiling,
-        VkImageUsageFlags usage) : extent_(extent), format_(format) {
-  object_wrapper_ = factory::CreateImage(logical_device, extent, format, tiling, usage);
-  logical_device_ = logical_device;
-  size_ = extent.width * extent.height * channels;
-}
-
 inline void Image::CreateView(VkImageAspectFlags aspect_flags) {
-  view_ = factory::CreateImageView(logical_device_, object_wrapper_.get(), format_, aspect_flags);
+  view_ = factory::CreateImageView(logical_device_, object_wrapper_.get(), format_, aspect_flags, mip_levels_);
 }
 
 inline VkImageView Image::GetView() const noexcept {
@@ -137,6 +131,10 @@ inline VkImageView Image::GetView() const noexcept {
 
 inline VkFormat Image::GetFormat() const noexcept {
   return format_;
+}
+
+inline VkSampler Image::GetSampler() const noexcept {
+  return sampler_.get();
 }
 
 } // namespace vk
