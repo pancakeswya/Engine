@@ -1,5 +1,7 @@
 #include "backend/render/vk_object.h"
 #include "backend/render/vk_config.h"
+#include "backend/render/vk_commander.h"
+#include "backend/render/vk_factory.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -75,12 +77,12 @@ void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Ind
 }
 
 std::pair<Buffer, Buffer> CreateTransferBuffers(const obj::Data& data, VkDevice logical_device, VkPhysicalDevice physical_device) {
-  Buffer transfer_vertices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
-  transfer_vertices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  Buffer transfer_vertices(logical_device, physical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
+  transfer_vertices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_vertices.Bind();
 
-  Buffer transfer_indices(logical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index::type) * data.indices.size());
-  transfer_indices.Allocate(physical_device, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  Buffer transfer_indices(logical_device, physical_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index::type) * data.indices.size());
+  transfer_indices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_indices.Bind();
 
   auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
@@ -122,24 +124,29 @@ std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) cons
 Image ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const {
   VkDeviceSize image_size = extent.width * extent.height * image_settings.channels;
 
-  Buffer transfer_buffer(logical_device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
-  transfer_buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  Buffer transfer_buffer(logical_device_, physical_device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
+  transfer_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_buffer.Bind();
 
   void* mapped_buffer = transfer_buffer.Map();
   std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
   transfer_buffer.Unmap();
 
-  Image image(logical_device_, extent, image_settings.channels, image_settings.format, VK_IMAGE_TILING_OPTIMAL, usage);
-  image.Allocate(physical_device_, properties);
+  Image image(logical_device_, physical_device_, extent, image_settings.channels, image_settings.format, VK_IMAGE_TILING_OPTIMAL, usage);
+  image.Allocate(properties);
   image.Bind();
-
-  image.TransitImageLayout(cmd_pool_, graphics_queue_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  image.CopyBuffer(transfer_buffer, cmd_pool_, graphics_queue_);
-  image.TransitImageLayout(cmd_pool_, graphics_queue_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
   image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
-  image.GenerateMipmaps(physical_device_, cmd_pool_, graphics_queue_);
+  if (!image.FormatFeatureSupported(VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+    throw Error("image format does not support linear blitting");
+  }
+  image.CreateSampler(VK_SAMPLER_MIPMAP_MODE_LINEAR);
+
+  ImageCommander commander(image, cmd_pool_, graphics_queue_);
+  CommandGuard command_guard(commander);
+
+  commander.TransitImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  commander.CopyBuffer(transfer_buffer);
+  commander.GenerateMipmaps();\
 
   return image;
 }
@@ -176,10 +183,14 @@ std::optional<Image> ObjectLoader::CreateStagingImage(const std::string& path, V
 }
 
 inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage) const {
-  Buffer buffer(logical_device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
-  buffer.Allocate(physical_device_, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  Buffer buffer(logical_device_, physical_device_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
+  buffer.Allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   buffer.Bind();
-  buffer.CopyBuffer(transfer_buffer, cmd_pool_, graphics_queue_);
+
+  BufferCommander commander(buffer, cmd_pool_, graphics_queue_);
+  CommandGuard command_guard(commander);
+
+  commander.CopyBuffer(transfer_buffer);
 
   return buffer;
 }
@@ -200,6 +211,9 @@ void ObjectLoader::Load(const std::string& path, Object& object) const {
   }
 }
 
+ObjectFactory::ObjectFactory(VkDevice logical_device, VkPhysicalDevice physical_device)
+    : logical_device_(logical_device), physical_device_(physical_device) {}
+
 Object ObjectFactory::CreateObject(size_t ubo_count) const {
   Object object;
 
@@ -215,8 +229,8 @@ Object ObjectFactory::CreateObject(size_t ubo_count) const {
   object.ubo_mapped.resize(ubo_count);
 
   for(size_t i = 0; i < object.ubo_buffers.size(); ++i) {
-    object.ubo_buffers[i] = Buffer(logical_device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
-    object.ubo_buffers[i].Allocate(physical_device_, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    object.ubo_buffers[i] = Buffer(logical_device_, physical_device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
+    object.ubo_buffers[i].Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     object.ubo_buffers[i].Bind();
 
     object.ubo_mapped[i] = static_cast<UniformBufferObject*>(object.ubo_buffers[i].Map());

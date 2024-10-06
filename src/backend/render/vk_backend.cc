@@ -2,7 +2,8 @@
 #include "backend/render/vk_factory.h"
 #include "backend/render/vk_config.h"
 #include "backend/render/vk_types.h"
-#include "backend/render/vk_wrappers.h"
+#include "backend/render/vk_buffer.h"
+#include "backend/render/vk_image.h"
 #include "backend/render/vk_object.h"
 #include "obj/parser.h"
 
@@ -47,8 +48,8 @@ inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
 inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical_device, VkExtent2D extent) {
   VkFormat depth_format = FindDepthFormat(physical_device);
 
-  Image depth_image(logical_device, extent, config::GetImageSettings().channels, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-  depth_image.Allocate(physical_device, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  Image depth_image(logical_device, physical_device, extent, config::GetImageSettings().channels, depth_format,  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  depth_image.Allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   depth_image.Bind();
   depth_image.CreateView(VK_IMAGE_ASPECT_DEPTH_BIT);
 

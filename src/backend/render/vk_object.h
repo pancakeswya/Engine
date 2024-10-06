@@ -2,7 +2,8 @@
 #define BACKEND_RENDER_VK_OBJECT_H_
 
 #include "backend/render/vk_types.h"
-#include "backend/render/vk_wrappers.h"
+#include "backend/render/vk_buffer.h"
+#include "backend/render/vk_image.h"
 #include "obj/parser.h"
 
 #include <vulkan/vulkan.h>
@@ -56,9 +57,6 @@ private:
   VkDevice logical_device_;
   VkPhysicalDevice physical_device_;
 };
-
-inline ObjectFactory::ObjectFactory(VkDevice logical_device, VkPhysicalDevice physical_device)
-    : logical_device_(logical_device), physical_device_(physical_device) {}
 
 } // namespace vk
 

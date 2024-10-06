@@ -874,7 +874,7 @@ HandleWrapper<VkImageView> CreateImageView(VkDevice logical_device, VkImage imag
   };
 }
 
-HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device, const uint32_t mip_levels) {
+HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysicalDevice physical_device, VkSamplerMipmapMode mipmap_mode, const uint32_t mip_levels) {
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   VkPhysicalDeviceProperties properties = {};
@@ -893,7 +893,7 @@ HandleWrapper<VkSampler> CreateTextureSampler(VkDevice logical_device, VkPhysica
   sampler_info.unnormalizedCoordinates = VK_FALSE;
   sampler_info.compareEnable = VK_FALSE;
   sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-  sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  sampler_info.mipmapMode = mipmap_mode;
   sampler_info.minLod = 0.0f;
   sampler_info.maxLod = static_cast<float>(mip_levels);
   sampler_info.mipLodBias = 0.0f;
