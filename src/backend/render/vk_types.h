@@ -16,7 +16,6 @@ namespace vk {
   NAME() = default;                        \
   NAME(const NAME&) = delete;              \
   NAME(NAME&&) = default;                  \
-  ~NAME() = default;                       \
   NAME& operator=(const NAME&) = delete;   \
   NAME& operator=(NAME&&) = default
 

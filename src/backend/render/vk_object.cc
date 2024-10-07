@@ -15,45 +15,6 @@ namespace vk {
 
 namespace {
 
-void UpdateBufferDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, VkDescriptorSet descriptor_set) {
-  VkDescriptorBufferInfo buffer_info = {};
-  buffer_info.buffer = ubo_buffer;
-  buffer_info.offset = 0;
-  buffer_info.range = sizeof(UniformBufferObject);
-
-  VkWriteDescriptorSet descriptor_write = {};
-
-  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.dstSet = descriptor_set;
-  descriptor_write.dstBinding = 0;
-  descriptor_write.dstArrayElement = 0;
-  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptor_write.descriptorCount = 1;
-  descriptor_write.pBufferInfo = &buffer_info;
-
-  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
-}
-
-void UpdateTextureDescriptorSets(VkDevice logical_device, const std::vector<Image>& images, VkDescriptorSet descriptor_set) {
-  std::vector<VkDescriptorImageInfo> image_infos(images.size());
-  for(size_t i = 0; i < images.size(); ++i) {
-    image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_infos[i].imageView = images[i].GetView();
-    image_infos[i].sampler = images[i].GetSampler();
-  }
-  VkWriteDescriptorSet descriptor_write = {};
-
-  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.dstSet = descriptor_set;
-  descriptor_write.dstBinding = 1;
-  descriptor_write.dstArrayElement = 0;
-  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_write.descriptorCount = image_infos.size();
-  descriptor_write.pImageInfo = image_infos.data();
-
-  vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
-}
-
 void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Index::type* mapped_indices) {
   std::unordered_map<obj::Indices, unsigned int, obj::Indices::Hash> index_map;
 
@@ -154,15 +115,10 @@ Image ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkE
 Image ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
   ImageSettings image_settings = config::GetImageSettings();
 
-  constexpr uint32_t image_width = 16;
-  constexpr uint32_t image_height = 16;
-
-  std::array<unsigned char, image_width * image_height> dummy_colors;
+  std::array<unsigned char, config::kDummyImageExtent.width * config::kDummyImageExtent.height> dummy_colors;
   std::fill(dummy_colors.begin(), dummy_colors.end(), 0xff);
 
-  constexpr VkExtent2D extent = { image_width, image_height };
-
-  return CreateStaginImageFromPixels(dummy_colors.data(), extent, usage, properties, image_settings);
+  return CreateStaginImageFromPixels(dummy_colors.data(), config::kDummyImageExtent, usage, properties, image_settings);
 }
 
 std::optional<Image> ObjectLoader::CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
@@ -195,10 +151,18 @@ inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, V
   return buffer;
 }
 
-void ObjectLoader::Load(const std::string& path, Object& object) const {
+ObjectLoader::ObjectLoader(VkDevice logical_device, VkPhysicalDevice physical_device, VkCommandPool cmd_pool, VkQueue graphics_queue)
+  : logical_device_(logical_device),
+    physical_device_(physical_device),
+    cmd_pool_(cmd_pool),
+    graphics_queue_(graphics_queue) {}
+
+Object ObjectLoader::Load(const std::string& path) const {
   obj::Data data = obj::ParseFromFile(path);
 
   auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data, logical_device_, physical_device_);
+
+  Object object = {};
 
   object.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   object.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -206,49 +170,14 @@ void ObjectLoader::Load(const std::string& path, Object& object) const {
   object.textures = CreateStagingImages(data);
   object.usemtl = std::move(data.usemtl);
 
-  for(VkDescriptorSet descriptor_set : object.descriptor_sets) {
-    UpdateTextureDescriptorSets(logical_device_, object.textures, descriptor_set);
+  object.ubo_buffers.resize(config::kFrameCount);
+  for(Buffer& ubo_buffer : object.ubo_buffers) {
+    ubo_buffer = Buffer(logical_device_, physical_device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
+    ubo_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    ubo_buffer.Bind();
   }
-}
 
-ObjectFactory::ObjectFactory(VkDevice logical_device, VkPhysicalDevice physical_device)
-    : logical_device_(logical_device), physical_device_(physical_device) {}
-
-Object ObjectFactory::CreateObject(size_t ubo_count) const {
-  Object object;
-
-  object.descriptor_set_layout_wrapper = factory::CreateDescriptorSetLayout(logical_device_);
-  VkDescriptorSetLayout descriptor_set_layout = object.descriptor_set_layout_wrapper.get();
-
-  object.descriptor_pool_wrapper = factory::CreateDescriptorPool(logical_device_, ubo_count);
-  VkDescriptorPool descriptor_pool = object.descriptor_pool_wrapper.get();
-
-  object.descriptor_sets = factory::CreateDescriptorSets(logical_device_, descriptor_set_layout, descriptor_pool, ubo_count);
-
-  object.ubo_buffers.resize(ubo_count);
-  object.ubo_mapped.resize(ubo_count);
-
-  for(size_t i = 0; i < object.ubo_buffers.size(); ++i) {
-    object.ubo_buffers[i] = Buffer(logical_device_, physical_device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
-    object.ubo_buffers[i].Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    object.ubo_buffers[i].Bind();
-
-    object.ubo_mapped[i] = static_cast<UniformBufferObject*>(object.ubo_buffers[i].Map());
-
-    UpdateBufferDescriptorSets(logical_device_, object.ubo_buffers[i].Get(), object.descriptor_sets[i]);
-  }
   return object;
-}
-
-ObjectLoader ObjectFactory::CreateObjectLoader(VkCommandPool cmd_pool, VkQueue graphics_queue) const noexcept {
-  ObjectLoader loader = {};
-
-  loader.logical_device_ = logical_device_;
-  loader.physical_device_ = physical_device_;
-  loader.cmd_pool_ = cmd_pool;
-  loader.graphics_queue_ = graphics_queue;
-
-  return loader;
 }
 
 } // namespace vk

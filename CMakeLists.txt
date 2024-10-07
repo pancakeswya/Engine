@@ -37,10 +37,7 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk_types.h
         ${SRC_DIR}/backend/render/vk_object.h
         ${SRC_DIR}/backend/render/vk_object.cc
-        ${SRC_DIR}/backend/render/vk_image.h
-        ${SRC_DIR}/backend/render/vk_image.cc
-        ${SRC_DIR}/backend/render/vk_buffer.h
-        ${SRC_DIR}/backend/render/vk_buffer.cc
+        ${SRC_DIR}/backend/render/vk_wrappers.h
         ${SRC_DIR}/backend/render/vk_commander.h
         ${SRC_DIR}/backend/render/vk_commander.cc
         ${SRC_DIR}/backend/window/glfw.h

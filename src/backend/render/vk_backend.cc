@@ -2,9 +2,9 @@
 #include "backend/render/vk_factory.h"
 #include "backend/render/vk_config.h"
 #include "backend/render/vk_types.h"
-#include "backend/render/vk_buffer.h"
-#include "backend/render/vk_image.h"
+#include "backend/render/vk_wrappers.h"
 #include "backend/render/vk_object.h"
+#include "backend/render/vk_commander.h"
 #include "obj/parser.h"
 
 #define GLM_FORCE_RADIANS
@@ -56,6 +56,40 @@ inline Image CreateDepthImage(VkDevice logical_device, VkPhysicalDevice physical
   return depth_image;
 }
 
+void UpdateDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, const std::vector<Image>& images, VkDescriptorSet descriptor_set) {
+  VkDescriptorBufferInfo buffer_info = {};
+  buffer_info.buffer = ubo_buffer;
+  buffer_info.offset = 0;
+  buffer_info.range = sizeof(UniformBufferObject);
+
+  std::vector<VkDescriptorImageInfo> image_infos(images.size());
+  for(size_t i = 0; i < images.size(); ++i) {
+    image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_infos[i].imageView = images[i].GetView();
+    image_infos[i].sampler = images[i].GetSampler();
+  }
+
+  std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
+
+  descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_writes[0].dstSet = descriptor_set;
+  descriptor_writes[0].dstBinding = 0;
+  descriptor_writes[0].dstArrayElement = 0;
+  descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_writes[0].descriptorCount = 1;
+  descriptor_writes[0].pBufferInfo = &buffer_info;
+
+  descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_writes[1].dstSet = descriptor_set;
+  descriptor_writes[1].dstBinding = 1;
+  descriptor_writes[1].dstArrayElement = 0;
+  descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  descriptor_writes[1].descriptorCount = image_infos.size();
+  descriptor_writes[1].pImageInfo = image_infos.data();
+
+  vkUpdateDescriptorSets(logical_device, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
+}
+
 } // namespace
 
 class BackendImpl {
@@ -67,7 +101,7 @@ class BackendImpl {
   void LoadModel(const std::string& path);
  private:
   void RecreateSwapchain();
-  void UpdateUniforms();
+  void UpdateUniforms() const;
 
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
@@ -104,10 +138,16 @@ class BackendImpl {
   std::vector<HandleWrapper<VkSemaphore>> render_semaphores_wrapped_;
   std::vector<HandleWrapper<VkFence>> fences_wrapped_;
 
+  HandleWrapper<VkDescriptorSetLayout> descriptor_set_layout_wrapper_;
+  std::vector<VkDescriptorSet> descriptor_sets_;
+  HandleWrapper<VkDescriptorPool> descriptor_pool_wrapper_;
+
   Image depth_image_;
 
   Object object_;
-  ObjectFactory object_factory_;
+  ObjectLoader object_loader_;
+
+  std::vector<UniformBufferObject*> ubo_buffers_mapped_;
 };
 
 BackendImpl::BackendImpl(GLFWwindow* window)
@@ -143,10 +183,15 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   render_pass_wrapper_ = factory::CreateRenderPass(logical_device, swapchain_details_.format, depth_image_.GetFormat());
   VkRenderPass render_pass = render_pass_wrapper_.get();
 
-  object_factory_ = ObjectFactory(logical_device, physical_device_);
-  object_ = object_factory_.CreateObject(config::kFrameCount);
+  descriptor_set_layout_wrapper_ = factory::CreateDescriptorSetLayout(logical_device);
+  VkDescriptorSetLayout descriptor_set_layout = descriptor_set_layout_wrapper_.get();
 
-  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, object_.descriptor_set_layout_wrapper.get());
+  descriptor_pool_wrapper_ = factory::CreateDescriptorPool(logical_device, config::kFrameCount);
+  VkDescriptorPool descriptor_pool = descriptor_pool_wrapper_.get();
+
+  descriptor_sets_ = factory::CreateDescriptorSets(logical_device, descriptor_set_layout, descriptor_pool, config::kFrameCount);
+
+  pipeline_layout_wrapper_ = factory::CreatePipelineLayout(logical_device, descriptor_set_layout);
 
   VkPipelineLayout pipeline_layout = pipeline_layout_wrapper_.get();
   pipeline_wrapper_ = factory::CreatePipeline(logical_device, pipeline_layout, render_pass,
@@ -167,33 +212,48 @@ BackendImpl::BackendImpl(GLFWwindow* window)
   framebuffers_wrapped_ = factory::CreateFramebuffers(logical_device, image_views_wrapped_, depth_image_.GetView(), render_pass, swapchain_details_.extent);
 
   cmd_pool_wrapper_ = factory::CreateCommandPool(logical_device, family_indices_);
+  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
+
   cmd_buffers_ = factory::CreateCommandBuffers(logical_device, cmd_pool_wrapper_.get(), config::kFrameCount);
 
   image_semaphores_wrapped_.reserve(config::kFrameCount);
   render_semaphores_wrapped_.reserve(config::kFrameCount);
   fences_wrapped_.reserve(config::kFrameCount);
+
   for(size_t i = 0; i < config::kFrameCount; ++i) {
     image_semaphores_wrapped_.emplace_back(factory::CreateSemaphore(logical_device));
     render_semaphores_wrapped_.emplace_back(factory::CreateSemaphore(logical_device));
     fences_wrapped_.emplace_back(factory::CreateFence(logical_device));
   }
+
+  object_loader_ = ObjectLoader(logical_device, physical_device_, cmd_pool, graphics_queue_);
 }
 
 void BackendImpl::LoadModel(const std::string& path) {
-  ObjectLoader object_loader = object_factory_.CreateObjectLoader(cmd_pool_wrapper_.get(), graphics_queue_);
-  object_loader.Load(path, object_);
+  VkDevice logical_device = logical_device_wrapper_.get();
+  VkCommandPool cmd_pool = cmd_pool_wrapper_.get();
+
+  object_ = object_loader_.Load(path);
+
+  ubo_buffers_mapped_.reserve(object_.ubo_buffers.size());
+  for(size_t i = 0; i < object_.ubo_buffers.size(); ++i) {
+    UpdateDescriptorSets(logical_device, object_.ubo_buffers[i].Get(), object_.textures, descriptor_sets_[i]);
+
+    auto ubo_buffer_mapped = static_cast<UniformBufferObject*>(object_.ubo_buffers[i].Map());
+    ubo_buffers_mapped_.emplace_back(ubo_buffer_mapped);
+  }
 }
 
-void BackendImpl::UpdateUniforms() {
+void BackendImpl::UpdateUniforms() const {
   static const std::chrono::time_point start_time = std::chrono::high_resolution_clock::now();
 
   const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
   const float time = std::chrono::duration<float>(curr_time - start_time).count();
 
-  UniformBufferObject* ubo = object_.ubo_mapped[curr_frame_];
+  UniformBufferObject* ubo = ubo_buffers_mapped_[curr_frame_];
   ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo->proj = glm::perspective(glm::radians(45.0f), swapchain_details_.extent.width / static_cast<float>(swapchain_details_.extent.height), 0.1f, 10.0f);
+  ubo->proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapchain_details_.extent.width) / swapchain_details_.extent.height, 0.1f, 10.0f);
   ubo->proj[1][1] *= -1;
 }
 
@@ -267,16 +327,16 @@ void BackendImpl::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_i
 
   VkBuffer vertices_buffer = object_.vertices.Get();
   VkBuffer indices_buffer = object_.indices.Get();
-  VkDescriptorSet descriptor_set = object_.descriptor_sets[curr_frame_];
+  VkDescriptorSet descriptor_set = descriptor_sets_[curr_frame_];
 
   VkDeviceSize prev_offset = 0;
-  VkDeviceSize vertex_offsets[] = {0};
+  std::array<VkDeviceSize, 1> vertex_offsets = {};
 
   for(const auto[index, offset] : object_.usemtl) {
     const VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
     vkCmdPushConstants(cmd_buffer, pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned int), &index);
-    vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &vertices_buffer, vertex_offsets);
+    vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
