@@ -30,8 +30,6 @@ public:
 
   [[nodiscard]] Object Load(const std::string& path) const;
 private:
-  friend class ObjectFactory;
-
   [[nodiscard]] Buffer CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage) const;
   [[nodiscard]] Image CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] Image CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const;
