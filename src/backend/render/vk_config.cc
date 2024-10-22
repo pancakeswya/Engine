@@ -11,6 +11,8 @@
 
 namespace vk::config {
 
+#ifdef DEBUG
+
 namespace {
 
 VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback(
@@ -25,7 +27,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback(
 
 } // namespace
 
-#ifdef DEBUG
 bool InstanceLayersIsSupported() {
   uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -53,6 +54,17 @@ std::vector<const char*> GetInstanceLayers() {
     "VK_LAYER_KHRONOS_validation"
   };
 }
+
+VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept {
+  VkDebugUtilsMessengerCreateInfoEXT create_info = {};
+
+  create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  create_info.pfnUserCallback = MessageCallback;
+
+  return create_info;
+}
 #endif // DEBUG
 
 VkApplicationInfo GetApplicationInfo() noexcept {
@@ -73,17 +85,6 @@ ImageSettings GetImageSettings() noexcept {
     STBI_rgb_alpha,
     VK_FORMAT_R8G8B8A8_SRGB
   };
-}
-
-VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept {
-  VkDebugUtilsMessengerCreateInfoEXT create_info = {};
-
-  create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  create_info.pfnUserCallback = MessageCallback;
-
-  return create_info;
 }
 
 const VkAllocationCallbacks* GetAllocationCallbacks() noexcept {

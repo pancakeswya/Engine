@@ -170,9 +170,9 @@ HandleWrapper<VkInstance> CreateInstance() {
     throw Error("Instance layers are not supported");
   }
   const std::vector<const char*> layers = config::GetInstanceLayers();
-#endif // DEBUG
-  const VkApplicationInfo app_info = config::GetApplicationInfo();
   const VkDebugUtilsMessengerCreateInfoEXT messenger_info = config::GetMessengerCreateInfo();
+#endif  // DEBUG
+  const VkApplicationInfo app_info = config::GetApplicationInfo();
   const VkAllocationCallbacks* alloc_cb = config::GetAllocationCallbacks();
 
   const std::vector<const char*> extensions = config::GetInstanceExtensions();
