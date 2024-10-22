@@ -182,6 +182,9 @@ HandleWrapper<VkInstance> CreateInstance() {
   create_info.pApplicationInfo = &app_info;
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
+#ifdef __APPLE__
+  create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 #ifdef DEBUG
   create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
   create_info.ppEnabledLayerNames = layers.data();

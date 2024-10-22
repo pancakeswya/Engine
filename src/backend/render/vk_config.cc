@@ -95,8 +95,12 @@ std::vector<const char*> GetInstanceExtensions() {
   const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&ext_count);
   std::vector extensions(glfw_extensions, glfw_extensions + ext_count);
 
+#ifdef DEBUG
   extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
+#endif
+#ifdef __APPLE__
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
   return extensions;
 }
 
