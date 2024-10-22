@@ -47,29 +47,6 @@ private:
   Image& image_;
 };
 
-class RenderCommander {
-public:
-  DECL_UNIQUE_OBJECT(RenderCommander);
-
-  RenderCommander(VkDevice logical_device, VkCommandPool cmd_pool);
-  ~RenderCommander() = default;
-
-  void Next() noexcept;
-
-  void Begin() const;
-  void End() const;
-
-  void BeginRender(VkRenderPass render_pass, VkFramebuffer framebuffer, VkPipeline pipeline, VkExtent2D extent) const;
-  void EndRender() const;
-
-  void Submit(VkQueue graphics_queue, VkFence fence, VkSemaphore wait_semaphore, VkSemaphore signal_semaphore) const;
-
-  void DrawObject(Object& object, VkPipelineLayout pipeline_layout, VkDescriptorSet descriptor_set) const;
-private:
-  size_t curr_buffer_;
-  std::vector<VkCommandBuffer> cmd_buffers_;
-};
-
 template<typename CommanderType>
 class CommandGuard {
 public:
