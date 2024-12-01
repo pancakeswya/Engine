@@ -57,7 +57,7 @@ public:
   virtual ~Dispatchable() { Destroy(); }
 
   HandleType Handle() const noexcept { return handle_; }
-  HandleType* HandlePtr() noexcept { return &handle_; }
+  const HandleType* HandlePtr() const noexcept { return &handle_; }
   ParentType Parent() const noexcept { return parent_; }
 protected:
   HandleType handle_;
