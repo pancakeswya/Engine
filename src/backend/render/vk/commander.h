@@ -1,15 +1,11 @@
 #ifndef BACKEND_RENDER_VK_COMMANDER_H_
 #define BACKEND_RENDER_VK_COMMANDER_H_
 
+#include "backend/render/vk/device.h"
+
 #include <vulkan/vulkan.h>
 
-#include "vk_types.h"
-
 namespace vk {
-
-class Buffer;
-class Image;
-class Object;
 
 class SingleTimeCommander {
 public:
@@ -27,24 +23,24 @@ protected:
 
 class BufferCommander : public SingleTimeCommander {
 public:
-  BufferCommander(Buffer& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue);
+  BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~BufferCommander() = default;
 
-  void CopyBuffer(const Buffer& src) const;
+  void CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const;
 private:
-  Buffer& buffer_;
+  Device::Dispatchable<VkBuffer>& buffer_;
 };
 
 class ImageCommander : public SingleTimeCommander {
 public:
-  ImageCommander(Image& image, VkCommandPool cmd_pool, VkQueue graphics_queue);
+  ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~ImageCommander() = default;
 
   void GenerateMipmaps() const;
   void TransitImageLayout(VkImageLayout old_layout, VkImageLayout new_layout) const;
-  void CopyBuffer(const Buffer& src) const;
+  void CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const;
 private:
-  Image& image_;
+  Device::Dispatchable<VkImage>& image_;
 };
 
 template<typename CommanderType>

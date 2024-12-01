@@ -1,4 +1,4 @@
-#include "backend/render/vk_config.h"
+#include "backend/render/vk/config.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -85,10 +85,6 @@ ImageSettings GetImageSettings() noexcept {
     STBI_rgb_alpha,
     VK_FORMAT_R8G8B8A8_SRGB
   };
-}
-
-const VkAllocationCallbacks* GetAllocationCallbacks() noexcept {
-  return VK_NULL_HANDLE;
 }
 
 std::vector<const char*> GetInstanceExtensions() {

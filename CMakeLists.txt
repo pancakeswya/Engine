@@ -27,19 +27,23 @@ add_executable(vk_engine
         ${SRC_DIR}/base/io.h
         ${SRC_DIR}/obj/parser.h
         ${SRC_DIR}/obj/parser.cc
-        ${SRC_DIR}/backend/render/vk_config.cc
-        ${SRC_DIR}/backend/render/vk_config.h
-        ${SRC_DIR}/backend/render/vk_backend.cc
-        ${SRC_DIR}/backend/render/vk_backend.h
-        ${SRC_DIR}/backend/render/vk_factory.cc
-        ${SRC_DIR}/backend/render/vk_factory.h
-        ${SRC_DIR}/backend/render/vk_types.cc
-        ${SRC_DIR}/backend/render/vk_types.h
-        ${SRC_DIR}/backend/render/vk_object.h
-        ${SRC_DIR}/backend/render/vk_object.cc
-        ${SRC_DIR}/backend/render/vk_wrappers.h
-        ${SRC_DIR}/backend/render/vk_commander.h
-        ${SRC_DIR}/backend/render/vk_commander.cc
+        ${SRC_DIR}/backend/render/vk/config.cc
+        ${SRC_DIR}/backend/render/vk/config.h
+        ${SRC_DIR}/backend/render/vk/render.cc
+        ${SRC_DIR}/backend/render/vk/render.h
+        ${SRC_DIR}/backend/render/vk/error.h
+        ${SRC_DIR}/backend/render/vk/dispatchable.h
+        ${SRC_DIR}/backend/render/vk/object.h
+        ${SRC_DIR}/backend/render/vk/object.cc
+        ${SRC_DIR}/backend/render/vk/commander.h
+        ${SRC_DIR}/backend/render/vk/commander.cc
+        ${SRC_DIR}/backend/render/vk/instance.h
+        ${SRC_DIR}/backend/render/vk/instance.cc
+        ${SRC_DIR}/backend/render/vk/device.h
+        ${SRC_DIR}/backend/render/vk/device.cc
+        ${SRC_DIR}/backend/render/vk/commander.h
+        ${SRC_DIR}/backend/render/vk/commander.cc
+
         ${SRC_DIR}/backend/window/glfw.h
         ${SRC_DIR}/backend/window/glfw.cc
 )

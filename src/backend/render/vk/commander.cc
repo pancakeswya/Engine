@@ -1,7 +1,8 @@
-#include "backend/render/vk_commander.h"
-#include "backend/render/vk_wrappers.h"
-#include "backend/render/vk_config.h"
-#include "backend/render/vk_object.h"
+#include "backend/render/vk/commander.h"
+
+#include "backend/render/vk/error.h"
+#include "backend/render/vk/config.h"
+#include "backend/render/vk/object.h"
 
 namespace vk {
 
@@ -53,21 +54,21 @@ void SingleTimeCommander::End() const {
   }
 }
 
-BufferCommander::BufferCommander(Buffer& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
-  : SingleTimeCommander(buffer.logical_device_, cmd_pool, graphics_queue), buffer_(buffer) {}
+BufferCommander::BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
+  : SingleTimeCommander(buffer.Parent(), cmd_pool, graphics_queue), buffer_(buffer) {}
 
 
-void BufferCommander::CopyBuffer(const Buffer& src) const {
+void BufferCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const {
   VkBufferCopy copy_region = {};
   copy_region.size = src.Size();
-  vkCmdCopyBuffer(cmd_buffer_, src.Get(), buffer_.Get(), 1, &copy_region);
+  vkCmdCopyBuffer(cmd_buffer_, src.Handle(), buffer_.Handle(), 1, &copy_region);
 }
 
-ImageCommander::ImageCommander(Image& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
-    : SingleTimeCommander(image.logical_device_, cmd_pool, graphics_queue), image_(image) {}
+ImageCommander::ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
+    : SingleTimeCommander(image.Parent(), cmd_pool, graphics_queue), image_(image) {}
 
 void ImageCommander::GenerateMipmaps() const {
-  VkImage image = image_.image_wrapper_.get();
+  VkImage image = image_.Handle();
 
   VkImageMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -79,10 +80,10 @@ void ImageCommander::GenerateMipmaps() const {
   barrier.subresourceRange.layerCount = 1;
   barrier.subresourceRange.levelCount = 1;
 
-  auto mip_width = static_cast<int32_t>(image_.extent_.width);
-  auto mip_height = static_cast<int32_t>(image_.extent_.height);
+  auto mip_width = static_cast<int32_t>(image_.Extent().width);
+  auto mip_height = static_cast<int32_t>(image_.Extent().height);
 
-  for (uint32_t i = 1; i < image_.mip_levels_; i++) {
+  for (uint32_t i = 1; i < image_.MipLevels(); i++) {
       barrier.subresourceRange.baseMipLevel = i - 1;
       barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
       barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -130,7 +131,7 @@ void ImageCommander::GenerateMipmaps() const {
       if (mip_height > 1) mip_height /= 2;
   }
 
-  barrier.subresourceRange.baseMipLevel = image_.mip_levels_ - 1;
+  barrier.subresourceRange.baseMipLevel = image_.MipLevels() - 1;
   barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
   barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -150,9 +151,9 @@ void ImageCommander::TransitImageLayout(VkImageLayout old_layout, VkImageLayout 
   barrier.newLayout = new_layout;
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = image_.image_wrapper_.get();
+  barrier.image = image_.Handle();
   barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = image_.mip_levels_;
+  barrier.subresourceRange.baseMipLevel = image_.MipLevels();
   barrier.subresourceRange.levelCount = 1;
   barrier.subresourceRange.baseArrayLayer = 0;
 
@@ -184,7 +185,7 @@ void ImageCommander::TransitImageLayout(VkImageLayout old_layout, VkImageLayout 
   );
 }
 
-void ImageCommander::CopyBuffer(const Buffer& src) const {
+void ImageCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const {
   VkBufferImageCopy region = {};
   region.bufferOffset = 0;
   region.bufferRowLength = 0;
@@ -194,9 +195,9 @@ void ImageCommander::CopyBuffer(const Buffer& src) const {
   region.imageSubresource.baseArrayLayer = 0;
   region.imageSubresource.layerCount = 1;
   region.imageOffset = {0, 0, 0};
-  region.imageExtent = { image_.extent_.width, image_.extent_.height, 1 };
+  region.imageExtent = { image_.Extent().width, image_.Extent().height, 1 };
 
-  vkCmdCopyBufferToImage(cmd_buffer_, src.Get(), image_.image_wrapper_.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+  vkCmdCopyBufferToImage(cmd_buffer_, src.Handle(), image_.Handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
 } // namespace vk
