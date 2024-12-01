@@ -178,6 +178,74 @@ inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const De
   return buffer;
 }
 
+std::vector<VkDescriptorSet> ObjectLoader::CreateImagesDescriptorSets(const std::vector<Device::Dispatchable<VkImage>>& images, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
+  const size_t count = images.size();
+
+  std::vector layouts(count, descriptor_set_layout);
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(count);
+  alloc_info.pSetLayouts = layouts.data();
+
+  std::vector<VkDescriptorSet> descriptor_sets(count);
+  if (const VkResult result = vkAllocateDescriptorSets(device_->Logical(), &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
+    throw Error("failed to allocate descriptor sets").WithCode(result);
+  }
+  for (size_t i = 0; i < count; i++) {
+    VkDescriptorImageInfo image_info = {};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView = images[i].View().Handle();
+    image_info.sampler = images[i].Sampler().Handle();
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = descriptor_sets[i];
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pImageInfo = &image_info;
+
+    vkUpdateDescriptorSets(device_->Logical(), 1, &descriptorWrite, 0, nullptr);
+  }
+  return descriptor_sets;
+}
+
+std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std::vector<Device::Dispatchable<VkBuffer>>& buffers, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
+  const size_t count = buffers.size();
+
+  std::vector layouts(count, descriptor_set_layout);
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(count);
+  alloc_info.pSetLayouts = layouts.data();
+
+  std::vector<VkDescriptorSet> descriptor_sets(count);
+  if (const VkResult result = vkAllocateDescriptorSets(device_->Logical(), &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
+    throw Error("failed to allocate descriptor sets").WithCode(result);
+  }
+  for (size_t i = 0; i < count; i++) {
+    VkDescriptorBufferInfo buffer_info = {};
+    buffer_info.buffer = buffers[i].Handle();
+    buffer_info.offset = 0;
+    buffer_info.range = sizeof(UniformBufferObject);
+
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = descriptor_sets[i];
+    descriptor_write.dstBinding = 0;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pBufferInfo = &buffer_info;
+
+    vkUpdateDescriptorSets(device_->Logical(), 1, &descriptor_write, 0, nullptr);
+  }
+  return descriptor_sets;
+}
+
 ObjectLoader::ObjectLoader() noexcept
   : device_(nullptr), cmd_pool_(VK_NULL_HANDLE), graphics_queue_(VK_NULL_HANDLE) {}
 
@@ -215,15 +283,26 @@ Object ObjectLoader::Load(const std::string& path) const {
   object.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   object.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-  object.textures = CreateStagingImages(data);
   object.usemtl = std::move(data.usemtl);
 
-  object.ubo_buffers.resize(config::kFrameCount);
-  for(Device::Dispatchable<VkBuffer>& ubo_buffer : object.ubo_buffers) {
+  std::vector<Device::Dispatchable<VkImage>> texture_images = CreateStagingImages(data);
+  std::vector<Device::Dispatchable<VkBuffer>> ubo_buffers;
+
+  ubo_buffers.resize(config::kFrameCount);
+  for(Device::Dispatchable<VkBuffer>& ubo_buffer : ubo_buffers) {
     ubo_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
     ubo_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     ubo_buffer.Bind();
   }
+  object.descriptor_pool = device_->CreateDescriptorPool(ubo_buffers.size(), texture_images.size());
+
+  object.uniforms.buffers = std::move(ubo_buffers);
+  object.uniforms.descriptor_set_layout = device_->CreateUboDescriptorSetLayout();
+  object.uniforms.descriptor_sets = CreateBuffersDescriptorSets(object.uniforms.buffers, object.uniforms.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
+
+  object.textures.images = std::move(texture_images);
+  object.textures.descriptor_set_layout = device_->CreateSamplerDescriptorSetLayout();
+  object.textures.descriptor_sets = CreateImagesDescriptorSets(object.textures.images, object.textures.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
 
   return object;
 }

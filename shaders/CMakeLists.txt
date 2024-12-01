@@ -1,10 +1,5 @@
 set(SHADER_SOURCE_DIR .)
 set(SHADER_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(SHADER_DEFAULT_MAX_TEXTURE 10)
-
-if (NOT DEFINED SHADER_MAX_TEXTURE)
-    set(SHADER_MAX_TEXTURE ${SHADER_DEFAULT_MAX_TEXTURE})
-endif()
 
 find_package(Vulkan REQUIRED COMPONENTS glslc)
 find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)

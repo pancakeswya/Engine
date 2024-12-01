@@ -17,7 +17,6 @@ struct ImageSettings {
 namespace config {
 
 inline constexpr size_t kFrameCount = 2;
-inline constexpr size_t kMaxTextureCount = MAX_TEXTURE_COUNT;
 inline constexpr VkExtent2D kDummyImageExtent = {16, 16};
 
 #undef MAX_TEXTURE_COUNT

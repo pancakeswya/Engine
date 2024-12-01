@@ -103,7 +103,7 @@ int32_t FindMemoryType(const uint32_t type_filter, VkPhysicalDevice physical_dev
   VkPhysicalDeviceMemoryProperties mem_properties;
   vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
 
-  for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
+  for (int32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
     if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
       return i;
     }
@@ -407,18 +407,11 @@ Device::Dispatchable<VkRenderPass> Device::CreateRenderPass(const VkFormat image
   };
 }
 
-Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(VkDescriptorSetLayout descriptor_set_layout) const {
-  VkPushConstantRange pushConstantRange = {};
-  pushConstantRange.offset = 0;
-  pushConstantRange.size = sizeof(unsigned int);
-  pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
+Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const {
   VkPipelineLayoutCreateInfo pipeline_layout_info = {};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipeline_layout_info.setLayoutCount = 1;
-  pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
-  pipeline_layout_info.pPushConstantRanges = &pushConstantRange;
-  pipeline_layout_info.pushConstantRangeCount = 1;
+  pipeline_layout_info.setLayoutCount = descriptor_set_layouts.size();
+  pipeline_layout_info.pSetLayouts = descriptor_set_layouts.data();
 
   VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
   if (const VkResult result = vkCreatePipelineLayout(logical_device_, &pipeline_layout_info, allocator_, &pipeline_layout); result != VK_SUCCESS) {
@@ -605,7 +598,7 @@ Device::Dispatchable<VkBuffer> Device::CreateBuffer(const VkBufferUsageFlags usa
   };
 }
 
-Device::Dispatchable<VkDescriptorSetLayout> Device::CreateDescriptorSetLayout() const {
+Device::Dispatchable<VkDescriptorSetLayout> Device::CreateUboDescriptorSetLayout() const {
   VkDescriptorSetLayoutBinding ubo_layout_binding = {};
   ubo_layout_binding.binding = 0;
   ubo_layout_binding.descriptorCount = 1;
@@ -613,22 +606,14 @@ Device::Dispatchable<VkDescriptorSetLayout> Device::CreateDescriptorSetLayout() 
   ubo_layout_binding.pImmutableSamplers = nullptr;
   ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-  VkDescriptorSetLayoutBinding sampler_layout_binding = {};
-  sampler_layout_binding.binding = 1;
-  sampler_layout_binding.descriptorCount = config::kMaxTextureCount;
-  sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  sampler_layout_binding.pImmutableSamplers = nullptr;
-  sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-  std::array bindings = {ubo_layout_binding, sampler_layout_binding};
   VkDescriptorSetLayoutCreateInfo layout_info = {};
   layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
-  layout_info.pBindings = bindings.data();
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &ubo_layout_binding;
 
   VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateDescriptorSetLayout(logical_device_, &layout_info, allocator_, &descriptor_set_layout); result != VK_SUCCESS) {
-    throw Error("failed to create descriptor set layout").WithCode(result);
+    throw Error("failed to create uniform descriptor set layout").WithCode(result);
   }
   return {
     descriptor_set_layout,
@@ -638,18 +623,43 @@ Device::Dispatchable<VkDescriptorSetLayout> Device::CreateDescriptorSetLayout() 
   };
 }
 
-Device::Dispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t count) const {
+Device::Dispatchable<VkDescriptorSetLayout> Device::CreateSamplerDescriptorSetLayout() const {
+  VkDescriptorSetLayoutBinding sampler_layout_binding = {};
+  sampler_layout_binding.binding = 0;
+  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  sampler_layout_binding.pImmutableSamplers = nullptr;
+  sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  VkDescriptorSetLayoutCreateInfo layout_info = {};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &sampler_layout_binding;
+
+  VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateDescriptorSetLayout(logical_device_, &layout_info, allocator_, &descriptor_set_layout); result != VK_SUCCESS) {
+    throw Error("failed to create texture descriptor set layout").WithCode(result);
+  }
+  return {
+    descriptor_set_layout,
+    logical_device_,
+    vkDestroyDescriptorSetLayout,
+    allocator_
+  };
+}
+
+Device::Dispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t ubo_count, const size_t texture_count) const {
   std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[0].descriptorCount = static_cast<uint32_t>(count);
+  pool_sizes[0].descriptorCount = static_cast<uint32_t>(ubo_count);
   pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_sizes[1].descriptorCount = static_cast<uint32_t>(count * config::kMaxTextureCount);
+  pool_sizes[1].descriptorCount = static_cast<uint32_t>(texture_count);
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
   pool_info.pPoolSizes = pool_sizes.data();
-  pool_info.maxSets = static_cast<uint32_t>(count);
+  pool_info.maxSets = static_cast<uint32_t>(ubo_count + texture_count);
 
   VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateDescriptorPool(logical_device_, &pool_info, allocator_, &descriptor_pool); result != VK_SUCCESS) {
@@ -732,21 +742,6 @@ std::vector<VkCommandBuffer> Device::CreateCommandBuffers(VkCommandPool cmd_pool
     throw Error("failed to allocate command buffers").WithCode(result);
   }
   return cmd_buffers;
-}
-
-std::vector<VkDescriptorSet> Device::CreateDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count) const {
-  std::vector layouts(count, descriptor_set_layout);
-  VkDescriptorSetAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.descriptorPool = descriptor_pool;
-  alloc_info.descriptorSetCount = static_cast<uint32_t>(count);
-  alloc_info.pSetLayouts = layouts.data();
-
-  std::vector<VkDescriptorSet> descriptor_sets(count);
-  if (const VkResult result = vkAllocateDescriptorSets(logical_device_, &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
-    throw Error("failed to allocate descriptor sets").WithCode(result);
-  }
-  return descriptor_sets;
 }
 
 Device::Dispatchable<VkBuffer>::Dispatchable() noexcept : physical_device_(VK_NULL_HANDLE), size_(0) {}
@@ -906,13 +901,13 @@ bool Device::Dispatchable<VkImage_T*>::FormatFeatureSupported(const VkFormatFeat
   return (format_properties.optimalTilingFeatures & feature) != 0;
 }
 
-Device::Dispatchable<VkSwapchainKHR>::Dispatchable() noexcept : physical_device_(VK_NULL_HANDLE), extent_(), format_(VK_FORMAT_UNDEFINED)  {}
+Device::Dispatchable<VkSwapchainKHR>::Dispatchable() noexcept : extent_(), format_(VK_FORMAT_UNDEFINED), physical_device_(VK_NULL_HANDLE)  {}
 
 Device::Dispatchable<VkSwapchainKHR>::Dispatchable(Dispatchable&& other) noexcept
   : Base(std::move(other)),
-    physical_device_(other.physical_device_),
     extent_(other.extent_),
     format_(other.format_),
+    physical_device_(other.physical_device_),
     depth_image_(std::move(other.depth_image_)),
     image_views_(std::move(other.image_views_)) {
   other.physical_device_ = VK_NULL_HANDLE;
@@ -939,9 +934,9 @@ Device::Dispatchable<VkSwapchainKHR>::Dispatchable(VkSwapchainKHR swapchain,
                                                    const VkExtent2D extent,
                                                    const VkFormat format) noexcept :
       Base(swapchain, logical_device, vkDestroySwapchainKHR, allocator),
-      physical_device_(physical_device),
       extent_(extent),
       format_(format),
+      physical_device_(physical_device),
       depth_image_(CreateDepthImage()),
       image_views_(CreateImageViews()) {}
 
@@ -969,7 +964,7 @@ std::vector<Device::Dispatchable<VkImageView>> Device::Dispatchable<VkSwapchainK
 }
 
 Device::Dispatchable<VkImage> Device::Dispatchable<VkSwapchainKHR>::CreateDepthImage() const {
-  VkFormat depth_format = FindDepthFormat(physical_device_);
+  const VkFormat depth_format = FindDepthFormat(physical_device_);
 
   Dispatchable<VkImage> depth_image = CreateImageInternal(parent_, physical_device_, allocator_, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, extent_, depth_format, VK_IMAGE_TILING_OPTIMAL);
   depth_image.Allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);

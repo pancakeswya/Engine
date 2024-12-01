@@ -51,13 +51,14 @@ public:
 
   [[nodiscard]] Dispatchable<VkShaderModule> CreateShaderModule(const std::string& path) const;
   [[nodiscard]] Dispatchable<VkRenderPass> CreateRenderPass(VkFormat image_format, VkFormat depth_format) const;
-  [[nodiscard]] Dispatchable<VkPipelineLayout> CreatePipelineLayout(VkDescriptorSetLayout descriptor_set_layout) const;
+  [[nodiscard]] Dispatchable<VkPipelineLayout> CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const;
   [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::initializer_list<ShaderStage>& shader_stages) const;
   [[nodiscard]] Dispatchable<VkCommandPool> CreateCommandPool() const;
   [[nodiscard]] Dispatchable<VkSemaphore> CreateSemaphore() const;
   [[nodiscard]] Dispatchable<VkFence> CreateFence() const;
-  [[nodiscard]] Dispatchable<VkDescriptorSetLayout> CreateDescriptorSetLayout() const;
-  [[nodiscard]] Dispatchable<VkDescriptorPool> CreateDescriptorPool(size_t count) const;
+  [[nodiscard]] Dispatchable<VkDescriptorSetLayout> CreateUboDescriptorSetLayout() const;
+  [[nodiscard]] Dispatchable<VkDescriptorSetLayout> CreateSamplerDescriptorSetLayout() const;
+  [[nodiscard]] Dispatchable<VkDescriptorPool> CreateDescriptorPool(size_t ubo_count, size_t texture_count) const;
   [[nodiscard]] Dispatchable<VkBuffer> CreateBuffer(VkBufferUsageFlags usage, uint32_t data_size) const;
   [[nodiscard]] Dispatchable<VkImage> CreateImage(VkImageUsageFlags usage,
                                                   VkExtent2D extent,
@@ -65,7 +66,6 @@ public:
                                                   VkImageTiling tiling) const;
   [[nodiscard]] Dispatchable<VkSwapchainKHR> CreateSwapchain(GLFWwindow* window, VkSurfaceKHR surface) const;
   [[nodiscard]] std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool cmd_pool, uint32_t count) const;
-  [[nodiscard]] std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count) const;
 private:
   VkDevice logical_device_;
   VkPhysicalDevice physical_device_;
@@ -236,7 +236,6 @@ inline VkFormat Device::Dispatchable<VkSwapchainKHR>::ImageFormat() const noexce
 inline VkFormat Device::Dispatchable<VkSwapchainKHR>::DepthImageFormat() const noexcept {
   return depth_image_.Format();
 }
-
 
 } // namespace vk
 

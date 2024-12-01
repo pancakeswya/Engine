@@ -59,7 +59,6 @@ public:
   HandleType Handle() const noexcept { return handle_; }
   HandleType* HandlePtr() noexcept { return &handle_; }
   ParentType Parent() const noexcept { return parent_; }
-
 protected:
   HandleType handle_;
   ParentType parent_;

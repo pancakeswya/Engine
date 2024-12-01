@@ -15,44 +15,6 @@
 
 namespace vk {
 
-namespace {
-
-void UpdateDescriptorSets(VkDevice logical_device, VkBuffer ubo_buffer, const std::vector<Device::Dispatchable<VkImage>>& images, VkDescriptorSet descriptor_set) {
-  VkDescriptorBufferInfo buffer_info = {};
-  buffer_info.buffer = ubo_buffer;
-  buffer_info.offset = 0;
-  buffer_info.range = sizeof(UniformBufferObject);
-
-  std::vector<VkDescriptorImageInfo> image_infos(images.size());
-  for(size_t i = 0; i < images.size(); ++i) {
-    image_infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_infos[i].imageView = images[i].View().Handle();
-    image_infos[i].sampler = images[i].Sampler().Handle();
-  }
-
-  std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
-
-  descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_writes[0].dstSet = descriptor_set;
-  descriptor_writes[0].dstBinding = 0;
-  descriptor_writes[0].dstArrayElement = 0;
-  descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptor_writes[0].descriptorCount = 1;
-  descriptor_writes[0].pBufferInfo = &buffer_info;
-
-  descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_writes[1].dstSet = descriptor_set;
-  descriptor_writes[1].dstBinding = 1;
-  descriptor_writes[1].dstArrayElement = 0;
-  descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_writes[1].descriptorCount = image_infos.size();
-  descriptor_writes[1].pImageInfo = image_infos.data();
-
-  vkUpdateDescriptorSets(logical_device, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
-}
-
-} // namespace
-
 Render::Render(GLFWwindow* window)
   : framebuffer_resized_(false), curr_frame_(), window_(window) {
   glfwSetWindowUserPointer(window, this);
@@ -79,24 +41,6 @@ Render::Render(GLFWwindow* window)
 
   framebuffers_ = swapchain_.CreateFramebuffers(render_pass_.Handle());
 
-  descriptor_set_layout_ = device_.CreateDescriptorSetLayout();
-  descriptor_pool_ = device_.CreateDescriptorPool(config::kFrameCount);
-
-  descriptor_sets_ = device_.CreateDescriptorSets(descriptor_set_layout_.Handle(), descriptor_pool_.Handle(), config::kFrameCount);
-  pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layout_.Handle());
-  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), {
-      {
-          VK_SHADER_STAGE_VERTEX_BIT,
-           device_.CreateShaderModule("../build/shaders/vert.spv"),
-          "main"
-      },
-      {
-          VK_SHADER_STAGE_FRAGMENT_BIT,
-          device_.CreateShaderModule("../build/shaders/frag.spv"),
-          "main"
-      }
-  });
-
   cmd_pool_ = device_.CreateCommandPool();
   cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.Handle(), config::kFrameCount);
 
@@ -116,11 +60,23 @@ Render::Render(GLFWwindow* window)
 void Render::LoadModel(const std::string& path) {
   object_ = object_loader_.Load(path);
 
-  ubo_buffers_mapped_.reserve(object_.ubo_buffers.size());
-  for(size_t i = 0; i < object_.ubo_buffers.size(); ++i) {
-    UpdateDescriptorSets(device_.Logical(), object_.ubo_buffers[i].Handle(), object_.textures, descriptor_sets_[i]);
-
-    auto ubo_buffer_mapped = static_cast<UniformBufferObject*>(object_.ubo_buffers[i].Map());
+  const std::vector descriptor_set_layouts = { object_.uniforms.descriptor_set_layout.Handle(), object_.textures.descriptor_set_layout.Handle() };
+  pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layouts);
+  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), {
+      {
+          VK_SHADER_STAGE_VERTEX_BIT,
+           device_.CreateShaderModule("../build/shaders/vert.spv"),
+          "main"
+      },
+      {
+          VK_SHADER_STAGE_FRAGMENT_BIT,
+          device_.CreateShaderModule("../build/shaders/frag.spv"),
+          "main"
+      }
+  });
+  ubo_buffers_mapped_.reserve(object_.uniforms.buffers.size());
+  for(const auto& buffer : object_.uniforms.buffers) {
+    auto ubo_buffer_mapped = static_cast<UniformBufferObject*>(buffer.Map());
     ubo_buffers_mapped_.emplace_back(ubo_buffer_mapped);
   }
 }
@@ -193,7 +149,6 @@ void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
 
   VkBuffer vertices_buffer = object_.vertices.Handle();
   VkBuffer indices_buffer = object_.indices.Handle();
-  VkDescriptorSet descriptor_set = descriptor_sets_[curr_frame_];
 
   VkDeviceSize prev_offset = 0;
   std::array<VkDeviceSize, 1> vertex_offsets = {};
@@ -201,10 +156,11 @@ void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
   for(const auto[index, offset] : object_.usemtl) {
     const VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
 
-    vkCmdPushConstants(cmd_buffer, pipeline_layout_.Handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(unsigned int), &index);
     vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
-    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &object_.uniforms.descriptor_sets[curr_frame_], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.textures.descriptor_sets[index], 0, nullptr);
+
     vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
 
     prev_offset = offset;

@@ -43,8 +43,6 @@ private:
   std::vector<Device::Dispatchable<VkFramebuffer>> framebuffers_;
 
   Device::Dispatchable<VkRenderPass> render_pass_;
-  Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
-  Device::Dispatchable<VkPipeline> pipeline_;
 
   Device::Dispatchable<VkCommandPool> cmd_pool_;
   std::vector<VkCommandBuffer> cmd_buffers_;
@@ -53,12 +51,11 @@ private:
   std::vector<Device::Dispatchable<VkSemaphore>> render_semaphores_;
   std::vector<Device::Dispatchable<VkFence>> fences_;
 
-  Device::Dispatchable<VkDescriptorSetLayout> descriptor_set_layout_;
-  std::vector<VkDescriptorSet> descriptor_sets_;
-  Device::Dispatchable<VkDescriptorPool> descriptor_pool_;
-
   Object object_;
   ObjectLoader object_loader_;
+
+  Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
+  Device::Dispatchable<VkPipeline> pipeline_;
 
   std::vector<UniformBufferObject*> ubo_buffers_mapped_;
 };

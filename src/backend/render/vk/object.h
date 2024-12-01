@@ -34,13 +34,29 @@ struct UniformBufferObject {
   alignas(16) glm::mat4 proj;
 };
 
+struct DecriptorSetObject {
+  Device::Dispatchable<VkDescriptorSetLayout> descriptor_set_layout;
+  std::vector<VkDescriptorSet> descriptor_sets;
+};
+
+struct Textures : DecriptorSetObject {
+  std::vector<Device::Dispatchable<VkImage>> images;
+};
+
+struct Uniforms : DecriptorSetObject {
+  std::vector<Device::Dispatchable<VkBuffer>> buffers;
+};
+
 struct Object {
   Device::Dispatchable<VkBuffer> indices;
   Device::Dispatchable<VkBuffer> vertices;
 
-  std::vector<Device::Dispatchable<VkImage>> textures;
   std::vector<obj::UseMtl> usemtl;
-  std::vector<Device::Dispatchable<VkBuffer>> ubo_buffers;
+
+  Textures textures;
+  Uniforms uniforms;
+
+  Device::Dispatchable<VkDescriptorPool> descriptor_pool;
 };
 
 class ObjectLoader {
@@ -57,6 +73,9 @@ public:
 
   [[nodiscard]] Object Load(const std::string& path) const;
 private:
+  [[nodiscard]] std::vector<VkDescriptorSet> CreateImagesDescriptorSets(const std::vector<Device::Dispatchable<VkImage>>& images, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const;
+  [[nodiscard]] std::vector<VkDescriptorSet> CreateBuffersDescriptorSets(const std::vector<Device::Dispatchable<VkBuffer>>& buffers, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const;
+
   [[nodiscard]] Device::Dispatchable<VkBuffer> CreateStagingBuffer(const Device::Dispatchable<VkBuffer>& transfer_buffer, VkBufferUsageFlags usage) const;
   [[nodiscard]] Device::Dispatchable<VkImage> CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] Device::Dispatchable<VkImage> CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const;
