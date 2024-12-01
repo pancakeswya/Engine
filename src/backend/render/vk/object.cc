@@ -4,10 +4,10 @@
 #include <stb_image.h>
 
 #include <array>
-#include <algorithm>
 #include <cstring>
 #include <unordered_map>
 #include <memory>
+#include <utility>
 
 #include "backend/render/vk/commander.h"
 #include "backend/render/vk/error.h"
@@ -192,7 +192,7 @@ std::vector<VkDescriptorSet> ObjectLoader::CreateImagesDescriptorSets(const std:
   if (const VkResult result = vkAllocateDescriptorSets(device_->Logical(), &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
     throw Error("failed to allocate descriptor sets").WithCode(result);
   }
-  for (size_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; ++i) {
     VkDescriptorImageInfo image_info = {};
     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     image_info.imageView = images[i].View().Handle();
@@ -226,7 +226,7 @@ std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std
   if (const VkResult result = vkAllocateDescriptorSets(device_->Logical(), &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
     throw Error("failed to allocate descriptor sets").WithCode(result);
   }
-  for (size_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; ++i) {
     VkDescriptorBufferInfo buffer_info = {};
     buffer_info.buffer = buffers[i].Handle();
     buffer_info.offset = 0;

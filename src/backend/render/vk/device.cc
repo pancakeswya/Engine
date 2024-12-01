@@ -1,7 +1,10 @@
 #include "backend/render/vk/device.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
+#include <limits>
 #include <set>
 
 #include "base/io.h"
@@ -187,7 +190,7 @@ Device::Dispatchable<VkImage> CreateImageInternal(VkDevice logical_device, VkPhy
   };
 }
 
-Device::Dispatchable<VkImageView> CreateImageView(VkImage image, VkDevice logical_device, const VkAllocationCallbacks* allocator, const VkImageAspectFlags aspect_flags, const VkFormat format, const uint32_t mip_levels = 1) {
+Device::Dispatchable<VkImageView> CreateImageViewInternal(VkImage image, VkDevice logical_device, const VkAllocationCallbacks* allocator, const VkImageAspectFlags aspect_flags, const VkFormat format, const uint32_t mip_levels = 1) {
   VkImageViewCreateInfo view_info = {};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   view_info.image = image;
@@ -863,7 +866,7 @@ void Device::Dispatchable<VkImage>::Bind() const {
 }
 
 void Device::Dispatchable<VkImage>::CreateView(const VkImageAspectFlags aspect_flags) {
-  view_ = CreateImageView(handle_, parent_, allocator_, aspect_flags, format_, mip_levels_);
+  view_ = CreateImageViewInternal(handle_, parent_, allocator_, aspect_flags, format_, mip_levels_);
 }
 
 void Device::Dispatchable<VkImage>::CreateSampler(const VkSamplerMipmapMode mipmap_mode) {
@@ -957,7 +960,8 @@ std::vector<Device::Dispatchable<VkImageView>> Device::Dispatchable<VkSwapchainK
   std::vector<Dispatchable<VkImageView>> image_views;
   image_views.reserve(images.size());
   for(VkImage image : images) {
-    Dispatchable<VkImageView> image_view = CreateImageView(image, parent_, allocator_, VK_IMAGE_ASPECT_COLOR_BIT, format_);
+    Dispatchable<VkImageView> image_view = CreateImageViewInternal(image, parent_, allocator_,
+                                                                   VK_IMAGE_ASPECT_COLOR_BIT, format_);
     image_views.emplace_back(std::move(image_view));
   }
   return image_views;
