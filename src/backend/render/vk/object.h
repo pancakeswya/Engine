@@ -62,13 +62,13 @@ struct Object {
 class ObjectLoader {
 public:
   ObjectLoader() noexcept;
-  ObjectLoader(ObjectLoader& other) = delete;
+  ObjectLoader(const ObjectLoader& other) = delete;
   ObjectLoader(ObjectLoader&& other) noexcept;
 
   ObjectLoader(const Device* device, VkCommandPool cmd_pool);
   ~ObjectLoader() = default;
 
-  ObjectLoader& operator=(ObjectLoader& other) = delete;
+  ObjectLoader& operator=(const ObjectLoader& other) = delete;
   ObjectLoader& operator=(ObjectLoader&& other) noexcept;
 
   [[nodiscard]] Object Load(const std::string& path) const;

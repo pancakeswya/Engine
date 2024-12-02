@@ -34,7 +34,24 @@ public:
     uint32_t graphic, present;
   };
 
-  static std::pair<bool, QueueFamilyIndices> PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+  class Finder {
+  public:
+    struct Result {
+      VkPhysicalDevice device;
+      QueueFamilyIndices indices;
+    };
+
+    explicit Finder(const std::vector<VkPhysicalDevice>& devices) noexcept;
+    ~Finder() = default;
+
+    [[nodiscard]] bool FindSuitableDeviceForSurface(VkSurfaceKHR surface);
+    [[nodiscard]] Result GetResult() const noexcept;
+  private:
+    static std::pair<bool, QueueFamilyIndices> PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+    const std::vector<VkPhysicalDevice> devices_;
+    Result result_;
+  };
 
   Device() noexcept;
   Device(const Device& other) = delete;
@@ -185,6 +202,13 @@ private:
   [[nodiscard]] std::vector<Dispatchable<VkImageView>> CreateImageViews() const;
   [[nodiscard]] Dispatchable<VkFramebuffer> CreateFramebuffer(const std::vector<VkImageView>& views, VkRenderPass render_pass) const;
 };
+
+inline Device::Finder::Finder(const std::vector<VkPhysicalDevice>& devices) noexcept
+  : devices_(devices), result_() {}
+
+inline Device::Finder::Result Device::Finder::GetResult() const noexcept {
+  return result_;
+}
 
 inline VkDevice Device::Logical() const noexcept {
   return logical_device_;

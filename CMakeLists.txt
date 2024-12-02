@@ -6,9 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR src)
 set(EXTERNAL third_party)
 
-set(SHADER_MAX_TEXTURE 14)
 add_subdirectory(shaders)
-add_compile_definitions(MAX_TEXTURE_COUNT=${SHADER_MAX_TEXTURE})
 # add_compile_definitions(DEBUG)
 
 find_package(Vulkan REQUIRED)

@@ -216,7 +216,7 @@ Device::Dispatchable<VkImageView> CreateImageViewInternal(VkImage image, VkDevic
 
 } // namespace
 
-std::pair<bool, Device::QueueFamilyIndices> Device::PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
+std::pair<bool, Device::QueueFamilyIndices> Device::Finder::PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   std::optional<uint32_t> graphic, present;
   uint32_t families_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, nullptr);
@@ -245,10 +245,22 @@ std::pair<bool, Device::QueueFamilyIndices> Device::PhysicalDeviceIsSuitable(VkP
       if (!details.formats.empty() && !details.present_modes.empty()) {
         return {true, {graphic.value(), present.value()}};
       }
-    }
+        }
   }
   return {};
 }
+
+bool Device::Finder::FindSuitableDeviceForSurface(VkSurfaceKHR surface) {
+  for(VkPhysicalDevice device : devices_) {
+    if (auto[suitable, indices] = PhysicalDeviceIsSuitable(device, surface); suitable) {
+      result_.device = device;
+      result_.indices = indices;
+      return true;
+    }
+  }
+  return false;
+}
+
 
 Device::Device() noexcept
   : logical_device_(VK_NULL_HANDLE), physical_device_(VK_NULL_HANDLE), allocator_(nullptr), indices_() {}

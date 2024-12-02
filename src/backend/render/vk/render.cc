@@ -29,12 +29,15 @@ Render::Render(GLFWwindow* window)
 
   surface_ = instance_.CreateSurface(window);
 
-  for(VkPhysicalDevice physical_device : instance_.EnumeratePhysicalDevices()) {
-    if (auto[suitable, indices] = Device::PhysicalDeviceIsSuitable(physical_device, surface_.Handle()); suitable) {
-      device_ = Device(physical_device, indices);
-      break;
-    }
+  const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
+  Device::Finder device_finder(devices);
+  if (!device_finder.FindSuitableDeviceForSurface(surface_.Handle())) {
+    throw Error("failed to find suitable device");
   }
+  auto[physical_device, indices] = device_finder.GetResult();
+
+  device_ = Device(physical_device, indices);
+
   swapchain_ = device_.CreateSwapchain(window, surface_.Handle());
 
   render_pass_ = device_.CreateRenderPass(swapchain_.ImageFormat(), swapchain_.DepthImageFormat());
