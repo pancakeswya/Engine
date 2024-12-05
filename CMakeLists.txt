@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR src)
 set(EXTERNAL third_party)
 
-add_subdirectory(shaders)
 # add_compile_definitions(DEBUG)
 
+find_package(PkgConfig REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
@@ -16,6 +16,19 @@ include_directories("${SRC_DIR}")
 include_directories("${EXTERNAL}/glm")
 include_directories("${EXTERNAL}/stb")
 include_directories("${EXTERNAL}/earcut.hpp/include")
+
+set(SHADERS shaders/simple.vert shaders/simple.frag)
+
+foreach (SHADER ${SHADERS})
+    get_filename_component(SHADERNAME ${SHADER} LAST_EXT)
+    string(SUBSTRING "${SHADERNAME}" 1 -1 SHADERNAME)
+    string(TOUPPER ${SHADERNAME} SHADERNAME)
+    file(READ ${SHADER} ${SHADERNAME})
+endforeach ()
+
+pkg_check_modules(SHADERC REQUIRED shaderc)
+
+configure_file(${SRC_DIR}/backend/render/vk/shaders.cc.in ${SRC_DIR}/backend/render/vk/shaders.cc @ONLY)
 
 add_executable(vk_engine
         ${SRC_DIR}/main.cc
@@ -41,9 +54,19 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk/device.cc
         ${SRC_DIR}/backend/render/vk/commander.h
         ${SRC_DIR}/backend/render/vk/commander.cc
+        ${SRC_DIR}/backend/render/vk/shaders.h
+        ${SRC_DIR}/backend/render/vk/shaders.cc
 
         ${SRC_DIR}/backend/window/glfw.h
         ${SRC_DIR}/backend/window/glfw.cc
 )
 
-target_link_libraries(vk_engine Vulkan::Vulkan glfw)
+target_link_directories(vk_engine PUBLIC
+        ${SHADERC_LIBRARY_DIRS}
+)
+
+target_link_libraries(vk_engine
+        Vulkan::Vulkan
+        glfw
+        ${SHADERC_LIBRARIES}
+)

@@ -261,7 +261,6 @@ bool Device::Finder::FindSuitableDeviceForSurface(VkSurfaceKHR surface) {
   return false;
 }
 
-
 Device::Device() noexcept
   : logical_device_(VK_NULL_HANDLE), physical_device_(VK_NULL_HANDLE), allocator_(nullptr), indices_() {}
 
@@ -335,13 +334,11 @@ Device& Device::operator=(Device&& other) noexcept {
   return *this;
 }
 
-Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const std::string& path) const {
-  const std::vector<char> shader_bytes = io::ReadFile(path);
-
+Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const Shader& shader) const {
   VkShaderModuleCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  create_info.codeSize = shader_bytes.size();
-  create_info.pCode = reinterpret_cast<const uint32_t*>(shader_bytes.data());
+  create_info.codeSize = shader.spirv.size() * sizeof(uint32_t);
+  create_info.pCode = shader.spirv.data();
 
   VkShaderModule module = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateShaderModule(logical_device_, &create_info, allocator_, &module); result != VK_SUCCESS) {
@@ -350,8 +347,9 @@ Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const std::strin
   return {
     module,
     logical_device_,
-    vkDestroyShaderModule,
-    allocator_
+    allocator_,
+    shader.stage,
+    shader.entry_point,
   };
 }
 
@@ -440,15 +438,15 @@ Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::v
   };
 }
 
-Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::initializer_list<ShaderStage>& shader_stages) const {
+Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
-  shader_stages_infos.reserve(shader_stages.size());
-  for(const ShaderStage& shader_stage : shader_stages) {
+  shader_stages_infos.reserve(shaders.size());
+  for(const Dispatchable<VkShaderModule>& shader : shaders) {
     VkPipelineShaderStageCreateInfo shader_stage_info = {};
     shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stage_info.stage = shader_stage.bits;
-    shader_stage_info.module = shader_stage.module.Handle();
-    shader_stage_info.pName = shader_stage.name.data();
+    shader_stage_info.stage = shader.Stage();
+    shader_stage_info.module = shader.Handle();
+    shader_stage_info.pName = shader.EntryPoint().data();
     shader_stages_infos.push_back(shader_stage_info);
   }
   const std::vector<VkDynamicState> dynamic_states = config::GetDynamicStates();
@@ -916,6 +914,31 @@ bool Device::Dispatchable<VkImage_T*>::FormatFeatureSupported(const VkFormatFeat
   return (format_properties.optimalTilingFeatures & feature) != 0;
 }
 
+Device::Dispatchable<VkShaderModule>::Dispatchable() noexcept : stage_(VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM) {}
+
+Device::Dispatchable<VkShaderModule>::Dispatchable(Dispatchable&& other) noexcept
+  : Base(std::move(other)), stage_(other.stage_), entry_point_(other.entry_point_) {
+  other.stage_ = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+  other.entry_point_ = {};
+}
+
+Device::Dispatchable<VkShaderModule>::Dispatchable(VkShaderModule module,
+                                                   VkDevice logical_device,
+                                                   const VkAllocationCallbacks* allocator,
+                                                   VkShaderStageFlagBits type,
+                                                   std::string_view entry_point) noexcept
+  : Base(module, logical_device, vkDestroyShaderModule, allocator), stage_(type), entry_point_(entry_point) {}
+
+
+Device::Dispatchable<VkShaderModule>& Device::Dispatchable<VkShaderModule>::operator=(Dispatchable&& other) noexcept {
+  if (this != &other) {
+    static_cast<Base&>(*this) = static_cast<Base>(std::move(other));
+    stage_ = std::exchange(other.stage_, VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM);
+    entry_point_ = std::exchange(other.entry_point_, {});
+  }
+  return *this;
+}
+
 Device::Dispatchable<VkSwapchainKHR>::Dispatchable() noexcept : extent_(), format_(VK_FORMAT_UNDEFINED), physical_device_(VK_NULL_HANDLE)  {}
 
 Device::Dispatchable<VkSwapchainKHR>::Dispatchable(Dispatchable&& other) noexcept
@@ -1010,7 +1033,6 @@ Device::Dispatchable<VkFramebuffer> Device::Dispatchable<VkSwapchainKHR>::Create
     allocator_,
   };
 }
-
 
 std::vector<Device::Dispatchable<VkFramebuffer>> Device::Dispatchable<VkSwapchainKHR>::CreateFramebuffers(VkRenderPass render_pass) const {
   std::vector<Dispatchable<VkFramebuffer>> framebuffers;

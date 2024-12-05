@@ -2,6 +2,7 @@
 #define BACKEND_RENDER_VK_DEVICE_H_
 
 #include "backend/render/vk/dispatchable.h"
+#include "backend/render/vk/shaders.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -21,13 +22,6 @@ public:
   public:
     using Base = vk::Dispatchable<Tp, Device>;
     using Base::Base;
-  };
-
-  struct ShaderStage {
-    VkShaderStageFlagBits bits;
-    Dispatchable<VkShaderModule> module;
-
-    std::string_view name;
   };
 
   struct QueueFamilyIndices {
@@ -67,10 +61,10 @@ public:
   [[nodiscard]] VkQueue GraphicsQueue() const noexcept;
   [[nodiscard]] VkQueue PresentQueue() const noexcept;
 
-  [[nodiscard]] Dispatchable<VkShaderModule> CreateShaderModule(const std::string& path) const;
+  [[nodiscard]] Dispatchable<VkShaderModule> CreateShaderModule(const Shader& shader) const;
   [[nodiscard]] Dispatchable<VkRenderPass> CreateRenderPass(VkFormat image_format, VkFormat depth_format) const;
   [[nodiscard]] Dispatchable<VkPipelineLayout> CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const;
-  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::initializer_list<ShaderStage>& shader_stages) const;
+  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const;
   [[nodiscard]] Dispatchable<VkCommandPool> CreateCommandPool() const;
   [[nodiscard]] Dispatchable<VkSemaphore> CreateSemaphore() const;
   [[nodiscard]] Dispatchable<VkFence> CreateFence() const;
@@ -162,6 +156,31 @@ private:
   Dispatchable<VkImageView> view_;
   Dispatchable<VkSampler> sampler_;
   Dispatchable<VkDeviceMemory> memory_;
+};
+
+template<>
+class Device::Dispatchable<VkShaderModule> : public vk::Dispatchable<VkShaderModule, Device> {
+public:
+  using Base = vk::Dispatchable<VkShaderModule, Device>;
+
+  Dispatchable() noexcept;
+  Dispatchable(const Dispatchable& other) = delete;
+  Dispatchable(Dispatchable&& other) noexcept;
+  Dispatchable(VkShaderModule module,
+               VkDevice logical_device,
+               const VkAllocationCallbacks* allocator,
+               VkShaderStageFlagBits type,
+               std::string_view entry_point) noexcept;
+  ~Dispatchable() override = default;
+
+  Dispatchable& operator=(const Dispatchable& other) = delete;
+  Dispatchable& operator=(Dispatchable&& other) noexcept;
+
+  [[nodiscard]] VkShaderStageFlagBits Stage() const noexcept;
+  [[nodiscard]] std::string_view EntryPoint() const noexcept;
+private:
+  VkShaderStageFlagBits stage_;
+  std::string_view entry_point_;
 };
 
 template<>
@@ -260,6 +279,14 @@ inline VkFormat Device::Dispatchable<VkSwapchainKHR>::ImageFormat() const noexce
 
 inline VkFormat Device::Dispatchable<VkSwapchainKHR>::DepthImageFormat() const noexcept {
   return depth_image_.Format();
+}
+
+inline VkShaderStageFlagBits Device::Dispatchable<VkShaderModule>::Stage() const noexcept {
+  return stage_;
+}
+
+inline std::string_view Device::Dispatchable<VkShaderModule>::EntryPoint() const noexcept {
+  return entry_point_;
 }
 
 } // namespace vk

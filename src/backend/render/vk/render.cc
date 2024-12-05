@@ -12,6 +12,7 @@
 
 #include "backend/render/vk/config.h"
 #include "backend/render/vk/error.h"
+#include "backend/render/vk/shaders.h"
 
 namespace vk {
 
@@ -65,18 +66,15 @@ void Render::LoadModel(const std::string& path) {
 
   const std::vector descriptor_set_layouts = { object_.uniforms.descriptor_set_layout.Handle(), object_.textures.descriptor_set_layout.Handle() };
   pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layouts);
-  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), {
-      {
-          VK_SHADER_STAGE_VERTEX_BIT,
-           device_.CreateShaderModule("../build/shaders/vert.spv"),
-          "main"
-      },
-      {
-          VK_SHADER_STAGE_FRAGMENT_BIT,
-          device_.CreateShaderModule("../build/shaders/frag.spv"),
-          "main"
-      }
-  });
+
+  const std::vector shaders = GetShaders();
+
+  std::vector<Device::Dispatchable<VkShaderModule>> shader_modules;
+  shader_modules.reserve(shaders.size());
+  for(const Shader& shader : shaders) {
+    shader_modules.emplace_back(device_.CreateShaderModule(shader));
+  }
+  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
   ubo_buffers_mapped_.reserve(object_.uniforms.buffers.size());
   for(const auto& buffer : object_.uniforms.buffers) {
     auto ubo_buffer_mapped = static_cast<UniformBufferObject*>(buffer.Map());
