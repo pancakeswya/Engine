@@ -1,11 +1,11 @@
 #ifndef BACKEND_RENDER_VK_OBJECT_H_
 #define BACKEND_RENDER_VK_OBJECT_H_
 
+#include "backend/render/types.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/config.h"
 #include "obj/parser.h"
 
-#include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
 #include <optional>
@@ -13,26 +13,27 @@
 
 namespace vk {
 
-struct Vertex {
-  glm::vec3 pos;
-  glm::vec3 normal;
-  glm::vec2 tex_coord;
-
+struct Vertex : render::Vertex {
   static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
   static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 };
 
-struct Index {
-  using type = uint32_t;
+using Index = render::Index;
 
-  static constexpr VkIndexType type_enum = VK_INDEX_TYPE_UINT32;
+template<typename Tp>
+struct IndexType;
+
+template<>
+struct IndexType<uint16_t> {
+  static constexpr VkIndexType value = VK_INDEX_TYPE_UINT16;
 };
 
-struct UniformBufferObject {
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
+template<>
+struct IndexType<uint32_t> {
+  static constexpr VkIndexType value = VK_INDEX_TYPE_UINT32;
 };
+
+struct UniformBufferObject : render::UniformBufferObject {};
 
 struct DecriptorSetObject {
   Device::Dispatchable<VkDescriptorSetLayout> descriptor_set_layout;

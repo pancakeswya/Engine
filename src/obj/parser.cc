@@ -1,5 +1,4 @@
 #include "obj/parser.h"
-#include "mapbox/earcut.hpp"
 
 #include <cstring>
 #include <filesystem>
@@ -7,6 +6,9 @@
 #include <cmath>
 
 #include <glm/glm.hpp>
+
+#include "obj/error.h"
+#include "mapbox/earcut.hpp"
 
 namespace obj {
 

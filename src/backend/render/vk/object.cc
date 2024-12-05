@@ -5,10 +5,10 @@
 
 #include <array>
 #include <cstring>
-#include <unordered_map>
 #include <memory>
 #include <utility>
 
+#include "backend/render/data.h"
 #include "backend/render/vk/commander.h"
 #include "backend/render/vk/error.h"
 
@@ -16,41 +16,19 @@ namespace vk {
 
 namespace {
 
-void RemoveDuplicatesAndCopy(const obj::Data& data, Vertex* mapped_vertices, Index::type* mapped_indices) {
-  std::unordered_map<obj::Indices, unsigned int, obj::Indices::Hash> index_map;
-
-  unsigned int next_combined_idx = 0, combined_idx = 0;
-  for (const obj::Indices& index : data.indices) {
-    if (index_map.count(index)) {
-      combined_idx = index_map.at(index);
-    } else {
-      combined_idx = next_combined_idx;
-      index_map.emplace(index, combined_idx);
-      unsigned int i_v = index.fv * 3, i_n = index.fn * 3, i_t = index.ft * 2;
-      *mapped_vertices++ = Vertex{
-          {data.v[i_v], data.v[i_v + 1], data.v[i_v + 2]},
-          {data.vn[i_n], data.vn[i_n + 1], data.vn[i_n + 2]},
-          {data.vt[i_t], data.vt[i_t + 1]}
-      };
-      ++next_combined_idx;
-    }
-    *mapped_indices++ = combined_idx;
-  }
-}
-
 std::pair<Device::Dispatchable<VkBuffer>, Device::Dispatchable<VkBuffer>> CreateTransferBuffers(const obj::Data& data, const Device* device) {
   Device::Dispatchable<VkBuffer> transfer_vertices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
   transfer_vertices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_vertices.Bind();
 
-  Device::Dispatchable<VkBuffer> transfer_indices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index::type) * data.indices.size());
+  Device::Dispatchable<VkBuffer> transfer_indices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index) * data.indices.size());
   transfer_indices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_indices.Bind();
 
   auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
-  auto mapped_indices = static_cast<Index::type*>(transfer_indices.Map());
+  auto mapped_indices = static_cast<Index*>(transfer_indices.Map());
 
-  RemoveDuplicatesAndCopy(data, mapped_vertices, mapped_indices);
+  render::RemoveDuplicatesFromData(data, mapped_vertices, mapped_indices);
 
   transfer_vertices.Unmap();
   transfer_indices.Unmap();

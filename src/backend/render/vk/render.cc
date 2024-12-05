@@ -82,19 +82,6 @@ void Render::LoadModel(const std::string& path) {
   }
 }
 
-void Render::UpdateUniforms() const {
-  static const std::chrono::time_point start_time = std::chrono::high_resolution_clock::now();
-
-  const std::chrono::time_point curr_time = std::chrono::high_resolution_clock::now();
-  const float time = std::chrono::duration<float>(curr_time - start_time).count();
-
-  UniformBufferObject* ubo = ubo_buffers_mapped_[curr_frame_];
-  ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo->proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapchain_.ImageExtent().width) / swapchain_.ImageExtent().height, 0.1f, 10.0f);
-  ubo->proj[1][1] *= -1;
-}
-
 void Render::RecreateSwapchain() {
   int width = 0, height = 0;
   glfwGetFramebufferSize(window_, &width, &height);
@@ -155,10 +142,10 @@ void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
   std::array<VkDeviceSize, 1> vertex_offsets = {};
 
   for(const auto[index, offset] : object_.usemtl) {
-    const VkDeviceSize curr_offset = prev_offset * sizeof(Index::type);
+    const VkDeviceSize curr_offset = prev_offset * sizeof(Index);
 
     vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
-    vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, Index::type_enum);
+    vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, IndexType<Index>::value);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &object_.uniforms.descriptor_sets[curr_frame_], 0, nullptr);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.textures.descriptor_sets[index], 0, nullptr);
 
@@ -196,7 +183,6 @@ void Render::RenderFrame() {
       throw Error("failed to acquire next image").WithCode(result);
     }
   }
-  UpdateUniforms();
   if (const VkResult result = vkResetFences(device_.Logical(), 1, &fence); result != VK_SUCCESS) {
     throw Error("failed to reset fences").WithCode(result);
   }

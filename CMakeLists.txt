@@ -34,8 +34,13 @@ add_executable(vk_engine
         ${SRC_DIR}/main.cc
         ${SRC_DIR}/app/app.cc
         ${SRC_DIR}/app/app.h
+        ${SRC_DIR}/obj/types.h
+        ${SRC_DIR}/obj/error.h
         ${SRC_DIR}/obj/parser.h
         ${SRC_DIR}/obj/parser.cc
+        ${SRC_DIR}/backend/render/types.h
+        ${SRC_DIR}/backend/render/data.cc
+        ${SRC_DIR}/backend/render/data.h
         ${SRC_DIR}/backend/render/vk/config.cc
         ${SRC_DIR}/backend/render/vk/config.h
         ${SRC_DIR}/backend/render/vk/render.cc

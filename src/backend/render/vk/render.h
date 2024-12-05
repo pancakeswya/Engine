@@ -1,6 +1,7 @@
 #ifndef BACKEND_RENDER_VK_RENDER_H_
 #define BACKEND_RENDER_VK_RENDER_H_
 
+#include "backend/render/types.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
@@ -20,10 +21,9 @@ public:
 
   void RenderFrame();
   void LoadModel(const std::string& path);
+  [[nodiscard]] render::UniformBufferObject* GetUBO() const noexcept;
 private:
   void RecreateSwapchain();
-  void UpdateUniforms() const;
-
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
   bool framebuffer_resized_;
@@ -59,6 +59,10 @@ private:
 
   std::vector<UniformBufferObject*> ubo_buffers_mapped_;
 };
+
+inline render::UniformBufferObject* Render::GetUBO() const noexcept {
+  return ubo_buffers_mapped_[curr_frame_];
+}
 
 } // namespace vk::backend
 
