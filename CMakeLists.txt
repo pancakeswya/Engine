@@ -17,7 +17,7 @@ include_directories("${EXTERNAL}/glm")
 include_directories("${EXTERNAL}/stb")
 include_directories("${EXTERNAL}/earcut.hpp/include")
 
-set(SHADERS shaders/simple.vert shaders/simple.frag)
+set(SHADERS ${SRC_DIR}/backend/render/vk/shaders/simple.vert  ${SRC_DIR}/backend/render/vk/shaders/simple.frag)
 
 foreach (SHADER ${SHADERS})
     get_filename_component(SHADERNAME ${SHADER} LAST_EXT)
@@ -34,8 +34,6 @@ add_executable(vk_engine
         ${SRC_DIR}/main.cc
         ${SRC_DIR}/app/app.cc
         ${SRC_DIR}/app/app.h
-        ${SRC_DIR}/base/io.cc
-        ${SRC_DIR}/base/io.h
         ${SRC_DIR}/obj/parser.h
         ${SRC_DIR}/obj/parser.cc
         ${SRC_DIR}/backend/render/vk/config.cc

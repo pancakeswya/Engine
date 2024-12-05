@@ -7,7 +7,6 @@
 #include <limits>
 #include <set>
 
-#include "base/io.h"
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/config.h"
 

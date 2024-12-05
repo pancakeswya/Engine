@@ -4,7 +4,6 @@
 #include <shaderc/shaderc.hpp>
 
 #include "backend/render/vk/error.h"
-#include "base/io.h"
 
 namespace vk {
 
