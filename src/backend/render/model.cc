@@ -1,5 +1,7 @@
 #include "backend/render/model.h"
 
+#include <chrono>
+
 namespace render {
 
 void Model::SetView(const int width, const int height) const noexcept {
