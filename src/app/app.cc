@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "backend/render/types.h"
 #include "backend/render/vk/render.h"
 #include "backend/window/glfw/instance.h"
 #include "backend/window/glfw/window.h"

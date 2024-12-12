@@ -1,7 +1,7 @@
 #ifndef BACKEND_RENDER_VK_RENDER_H_
 #define BACKEND_RENDER_VK_RENDER_H_
 
-#include "backend/render/types.h"
+#include "backend/render/model.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
