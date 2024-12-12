@@ -1,7 +1,5 @@
 #include "backend/render/vk/config.h"
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 #include <stb_image.h>
 
 #ifdef DEBUG
@@ -9,7 +7,7 @@
 #endif
 #include <iostream>
 
-namespace vk::config {
+namespace render::vk::config {
 
 #ifdef DEBUG
 
@@ -88,10 +86,7 @@ ImageSettings GetImageSettings() noexcept {
 }
 
 std::vector<const char*> GetInstanceExtensions() {
-  uint32_t ext_count = 0;
-  const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&ext_count);
-  std::vector extensions(glfw_extensions, glfw_extensions + ext_count);
-
+  std::vector<const char*> extensions;
 #ifdef DEBUG
   extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif

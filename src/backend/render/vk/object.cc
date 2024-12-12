@@ -12,7 +12,7 @@
 #include "backend/render/vk/commander.h"
 #include "backend/render/vk/error.h"
 
-namespace vk {
+namespace render::vk {
 
 namespace {
 
@@ -274,13 +274,13 @@ Object ObjectLoader::Load(const std::string& path) const {
   }
   object.descriptor_pool = device_->CreateDescriptorPool(ubo_buffers.size(), texture_images.size());
 
-  object.uniforms.buffers = std::move(ubo_buffers);
-  object.uniforms.descriptor_set_layout = device_->CreateUboDescriptorSetLayout();
-  object.uniforms.descriptor_sets = CreateBuffersDescriptorSets(object.uniforms.buffers, object.uniforms.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
+  object.ubo.buffers = std::move(ubo_buffers);
+  object.ubo.descriptor_set_layout = device_->CreateUboDescriptorSetLayout();
+  object.ubo.descriptor_sets = CreateBuffersDescriptorSets(object.ubo.buffers, object.ubo.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
 
-  object.textures.images = std::move(texture_images);
-  object.textures.descriptor_set_layout = device_->CreateSamplerDescriptorSetLayout();
-  object.textures.descriptor_sets = CreateImagesDescriptorSets(object.textures.images, object.textures.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
+  object.tbo.images = std::move(texture_images);
+  object.tbo.descriptor_set_layout = device_->CreateSamplerDescriptorSetLayout();
+  object.tbo.descriptor_sets = CreateImagesDescriptorSets(object.tbo.images, object.tbo.descriptor_set_layout.Handle(), object.descriptor_pool.Handle());
 
   return object;
 }

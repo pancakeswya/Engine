@@ -6,22 +6,25 @@
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #include <string>
 #include <vector>
 
-namespace vk {
+namespace window {
 
-class Render final {
+class IWindow;
+
+} // namespace window
+
+namespace render::vk {
+
+class Renderer final {
 public:
-  explicit Render(GLFWwindow* window);
-  ~Render();
+  explicit Renderer(window::IWindow& window);
+  ~Renderer();
 
   void RenderFrame();
   void LoadModel(const std::string& path);
-  [[nodiscard]] render::UniformBufferObject* GetUBO() const noexcept;
+  [[nodiscard]] const render::Model& GetModel() const noexcept;
 private:
   void RecreateSwapchain();
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
@@ -29,7 +32,7 @@ private:
   bool framebuffer_resized_;
   size_t curr_frame_;
 
-  GLFWwindow* window_;
+  window::IWindow& window_;
 
   Instance instance_;
 #ifdef DEBUG
@@ -57,11 +60,11 @@ private:
   Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
   Device::Dispatchable<VkPipeline> pipeline_;
 
-  std::vector<UniformBufferObject*> ubo_buffers_mapped_;
+  std::vector<Model> models_;
 };
 
-inline render::UniformBufferObject* Render::GetUBO() const noexcept {
-  return ubo_buffers_mapped_[curr_frame_];
+inline const render::Model& Renderer::GetModel() const noexcept {
+  return models_[curr_frame_];
 }
 
 } // namespace vk::backend

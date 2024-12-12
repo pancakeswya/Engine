@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace vk {
+namespace render::vk {
 
 struct Error final : std::runtime_error {
   using runtime_error::runtime_error;

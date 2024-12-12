@@ -39,6 +39,7 @@ add_executable(vk_engine
         ${SRC_DIR}/obj/parser.h
         ${SRC_DIR}/obj/parser.cc
         ${SRC_DIR}/backend/render/types.h
+        ${SRC_DIR}/backend/render/types.cc
         ${SRC_DIR}/backend/render/data.cc
         ${SRC_DIR}/backend/render/data.h
         ${SRC_DIR}/backend/render/vk/config.cc
@@ -60,8 +61,12 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk/shaders.h
         ${SRC_DIR}/backend/render/vk/shaders.cc
 
-        ${SRC_DIR}/backend/window/glfw.h
-        ${SRC_DIR}/backend/window/glfw.cc
+        ${SRC_DIR}/backend/window/window.h
+        ${SRC_DIR}/backend/window/glfw/error.h
+        ${SRC_DIR}/backend/window/glfw/instance.h
+        ${SRC_DIR}/backend/window/glfw/instance.cc
+        ${SRC_DIR}/backend/window/glfw/window.h
+        ${SRC_DIR}/backend/window/glfw/window.cc
 )
 
 target_link_directories(vk_engine PUBLIC

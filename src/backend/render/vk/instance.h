@@ -3,12 +3,16 @@
 
 #include "backend/render/vk/dispatchable.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
+#include <vulkan/vulkan.h>
 #include <vector>
 
-namespace vk {
+namespace window {
+
+class ISurfaceFactory;
+
+} // namespace window
+
+namespace render::vk {
 
 class Instance {
 public:
@@ -24,9 +28,9 @@ public:
 #ifdef DEBUG
   Dispatchable<VkDebugUtilsMessengerEXT> CreateMessenger() const;
 #endif
-  Dispatchable<VkSurfaceKHR> CreateSurface(GLFWwindow* window) const;
+  [[nodiscard]] Dispatchable<VkSurfaceKHR> CreateSurface(const window::ISurfaceFactory& surface_factory) const;
 
-  explicit Instance(const VkAllocationCallbacks* allocator = nullptr);
+  explicit Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
   ~Instance();
 
   [[nodiscard]] std::vector<VkPhysicalDevice> EnumeratePhysicalDevices() const;

@@ -5,7 +5,7 @@
 
 #include <utility>
 
-namespace vk {
+namespace render::vk {
 
 template<typename HandleType, typename ParentWrapper>
 class Dispatchable {

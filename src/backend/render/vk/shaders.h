@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <string_view>
 
-namespace vk {
+namespace render::vk {
 
 struct Shader {
   VkShaderStageFlagBits stage;

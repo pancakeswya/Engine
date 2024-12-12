@@ -14,23 +14,38 @@
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/shaders.h"
 
-namespace vk {
+#include "backend/window/window.h"
 
-Render::Render(GLFWwindow* window)
-  : framebuffer_resized_(false), curr_frame_(), window_(window) {
-  glfwSetWindowUserPointer(window, this);
-  glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width[[maybe_unused]], int height[[maybe_unused]]) {
-    auto render = static_cast<Render*>(glfwGetWindowUserPointer(window));
+namespace render::vk {
+
+namespace {
+
+std::vector<const char*> MergeInstanceExtensions(const std::vector<const char*>& window_extensions) {
+  std::vector<const char*> instance_extensions = config::GetInstanceExtensions();
+  instance_extensions.insert(instance_extensions.end(), window_extensions.begin(), window_extensions.end());
+  return instance_extensions;
+}
+
+} // namespace
+
+Renderer::Renderer(window::IWindow& window)
+  : framebuffer_resized_(false),
+    curr_frame_(0),
+    window_(window),
+    instance_(MergeInstanceExtensions(window.GetExtensions())) {
+  window_.SetWindowUserPointer(this);
+  window_.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
+    auto render = static_cast<Renderer*>(user_ptr);
     render->framebuffer_resized_ = true;
   });
-
 #ifdef DEBUG
   messenger_ = instance_.CreateMessenger();
 #endif // DEBUG
 
-  surface_ = instance_.CreateSurface(window);
+  surface_ = instance_.CreateSurface(window_.GetSurfaceFactory());
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
+
   Device::Finder device_finder(devices);
   if (!device_finder.FindSuitableDeviceForSurface(surface_.Handle())) {
     throw Error("failed to find suitable device");
@@ -39,7 +54,7 @@ Render::Render(GLFWwindow* window)
 
   device_ = Device(physical_device, indices);
 
-  swapchain_ = device_.CreateSwapchain(window, surface_.Handle());
+  swapchain_ = device_.CreateSwapchain(window_.GetSize(), surface_.Handle());
 
   render_pass_ = device_.CreateRenderPass(swapchain_.ImageFormat(), swapchain_.DepthImageFormat());
 
@@ -61,10 +76,10 @@ Render::Render(GLFWwindow* window)
   object_loader_ = ObjectLoader(&device_, cmd_pool_.Handle());
 }
 
-void Render::LoadModel(const std::string& path) {
+void Renderer::LoadModel(const std::string& path) {
   object_ = object_loader_.Load(path);
 
-  const std::vector descriptor_set_layouts = { object_.uniforms.descriptor_set_layout.Handle(), object_.textures.descriptor_set_layout.Handle() };
+  const std::vector descriptor_set_layouts = { object_.ubo.descriptor_set_layout.Handle(), object_.tbo.descriptor_set_layout.Handle() };
   pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layouts);
 
   const std::vector shaders = GetShaders();
@@ -75,20 +90,15 @@ void Render::LoadModel(const std::string& path) {
     shader_modules.emplace_back(device_.CreateShaderModule(shader));
   }
   pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
-  ubo_buffers_mapped_.reserve(object_.uniforms.buffers.size());
-  for(const auto& buffer : object_.uniforms.buffers) {
-    auto ubo_buffer_mapped = static_cast<UniformBufferObject*>(buffer.Map());
-    ubo_buffers_mapped_.emplace_back(ubo_buffer_mapped);
+  models_.reserve(object_.ubo.buffers.size());
+  for(const auto& buffer : object_.ubo.buffers) {
+    auto uniforms = static_cast<Uniforms*>(buffer.Map());
+    models_.emplace_back(uniforms);
   }
 }
 
-void Render::RecreateSwapchain() {
-  int width = 0, height = 0;
-  glfwGetFramebufferSize(window_, &width, &height);
-  while (width == 0 || height == 0) {
-    glfwGetFramebufferSize(window_, &width, &height);
-    glfwWaitEvents();
-  }
+void Renderer::RecreateSwapchain() {
+  window_.WaitUntilResized();
 
   if (const VkResult result = vkDeviceWaitIdle(device_.Logical()); result != VK_SUCCESS) {
     throw Error("failed to idle device");
@@ -96,11 +106,11 @@ void Render::RecreateSwapchain() {
   framebuffers_.clear();
   swapchain_ = Device::Dispatchable<VkSwapchainKHR>();
 
-  swapchain_ = device_.CreateSwapchain(window_, surface_.Handle());
+  swapchain_ = device_.CreateSwapchain(window_.GetSize(), surface_.Handle());
   framebuffers_ = swapchain_.CreateFramebuffers(render_pass_.Handle());
 }
 
-void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
+void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
   VkCommandBufferBeginInfo cmd_buffer_begin_info = {};
   cmd_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   if (const VkResult result = vkBeginCommandBuffer(cmd_buffer, &cmd_buffer_begin_info); result != VK_SUCCESS) {
@@ -146,8 +156,8 @@ void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
 
     vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, IndexType<Index>::value);
-    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &object_.uniforms.descriptor_sets[curr_frame_], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.textures.descriptor_sets[index], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &object_.ubo.descriptor_sets[curr_frame_], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.tbo.descriptor_sets[index], 0, nullptr);
 
     vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
 
@@ -159,7 +169,7 @@ void Render::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx) {
   }
 }
 
-void Render::RenderFrame() {
+void Renderer::RenderFrame() {
   uint32_t image_idx;
 
   VkQueue graphics_queue = device_.GraphicsQueue();
@@ -225,7 +235,7 @@ void Render::RenderFrame() {
   curr_frame_ = (curr_frame_ + 1) % config::kFrameCount;
 }
 
-Render::~Render() {
+Renderer::~Renderer() {
   vkDeviceWaitIdle(device_.Logical());
 }
 

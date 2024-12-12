@@ -11,7 +11,7 @@
 #include <optional>
 #include <vector>
 
-namespace vk {
+namespace render::vk {
 
 struct Vertex : render::Vertex {
   static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
@@ -33,18 +33,18 @@ struct IndexType<uint32_t> {
   static constexpr VkIndexType value = VK_INDEX_TYPE_UINT32;
 };
 
-struct UniformBufferObject : render::UniformBufferObject {};
+struct Uniforms : render::Uniforms {};
 
-struct DecriptorSetObject {
+struct DescriptorSetObject {
   Device::Dispatchable<VkDescriptorSetLayout> descriptor_set_layout;
   std::vector<VkDescriptorSet> descriptor_sets;
 };
 
-struct Textures : DecriptorSetObject {
+struct TextureBufferObject : DescriptorSetObject {
   std::vector<Device::Dispatchable<VkImage>> images;
 };
 
-struct Uniforms : DecriptorSetObject {
+struct UniformBufferObject : DescriptorSetObject {
   std::vector<Device::Dispatchable<VkBuffer>> buffers;
 };
 
@@ -54,8 +54,8 @@ struct Object {
 
   std::vector<obj::UseMtl> usemtl;
 
-  Textures textures;
-  Uniforms uniforms;
+  TextureBufferObject tbo;
+  UniformBufferObject ubo;
 
   Device::Dispatchable<VkDescriptorPool> descriptor_pool;
 };

@@ -5,7 +5,9 @@
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/config.h"
 
-namespace vk {
+#include "backend/window/window.h"
+
+namespace render::vk {
 
 namespace {
 
@@ -37,7 +39,7 @@ bool InstanceLayersAreSupported(const std::vector<const char*>& layers) {
 
 } // namespace
 
-Instance::Instance(const VkAllocationCallbacks* allocator)
+Instance::Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
   : handle_(VK_NULL_HANDLE), allocator_(allocator) {
 #ifdef DEBUG
   const std::vector<const char*> layers = config::GetInstanceLayers();
@@ -47,8 +49,6 @@ Instance::Instance(const VkAllocationCallbacks* allocator)
   const VkDebugUtilsMessengerCreateInfoEXT messenger_info = config::GetMessengerCreateInfo();
 #endif  // DEBUG
   const VkApplicationInfo app_info = config::GetApplicationInfo();
-
-  const std::vector<const char*> extensions = config::GetInstanceExtensions();
 
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -97,11 +97,8 @@ Instance::Dispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() con
 }
 #endif
 
-Instance::Dispatchable<VkSurfaceKHR> Instance::CreateSurface(GLFWwindow* window) const {
-  VkSurfaceKHR surface = VK_NULL_HANDLE;
-  if (const VkResult result = glfwCreateWindowSurface(handle_, window, allocator_, &surface); result != VK_SUCCESS) {
-    throw Error("failed to create window surface!").WithCode(result);
-  }
+Instance::Dispatchable<VkSurfaceKHR> Instance::CreateSurface(const window::ISurfaceFactory& surface_factory) const {
+  VkSurfaceKHR surface = surface_factory.CreateSurface(handle_, allocator_);
   return {
     surface,
     handle_,

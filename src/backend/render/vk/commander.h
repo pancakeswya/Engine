@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace vk {
+namespace render::vk {
 
 class SingleTimeCommander {
 public:

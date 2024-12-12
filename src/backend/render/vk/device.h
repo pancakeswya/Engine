@@ -3,15 +3,15 @@
 
 #include "backend/render/vk/dispatchable.h"
 #include "backend/render/vk/shaders.h"
+#include "backend/window/window.h"
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include <string_view>
 #include <vector>
 #include <utility>
 
-namespace vk {
+namespace render::vk {
 
 class Device {
 public:
@@ -76,7 +76,7 @@ public:
                                                   VkExtent2D extent,
                                                   VkFormat format,
                                                   VkImageTiling tiling) const;
-  [[nodiscard]] Dispatchable<VkSwapchainKHR> CreateSwapchain(GLFWwindow* window, VkSurfaceKHR surface) const;
+  [[nodiscard]] Dispatchable<VkSwapchainKHR> CreateSwapchain(window::Size, VkSurfaceKHR surface) const;
   [[nodiscard]] std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool cmd_pool, uint32_t count) const;
 private:
   VkDevice logical_device_;

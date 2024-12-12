@@ -5,7 +5,7 @@
 
 #include "backend/render/vk/error.h"
 
-namespace vk {
+namespace render::vk {
 
 namespace {
 

@@ -10,7 +10,7 @@
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/config.h"
 
-namespace vk {
+namespace render::vk {
 
 namespace {
 
@@ -88,16 +88,14 @@ inline VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-inline VkExtent2D ChooseSwapExtent(GLFWwindow* window, const VkSurfaceCapabilitiesKHR& capabilities) {
+inline VkExtent2D ChooseSwapExtent(window::Size size, const VkSurfaceCapabilitiesKHR& capabilities) {
   if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
   }
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
 
   return {
-    std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-    std::clamp(static_cast<uint32_t>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
+    std::clamp(static_cast<uint32_t>(size.width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+    std::clamp(static_cast<uint32_t>(size.height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
   };
 }
 
@@ -689,13 +687,13 @@ Device::Dispatchable<VkImage> Device::CreateImage(const VkImageUsageFlags usage,
   return CreateImageInternal(logical_device_, physical_device_, allocator_, usage, extent, format, tiling);
 }
 
-Device::Dispatchable<VkSwapchainKHR> Device::CreateSwapchain(GLFWwindow* window, VkSurfaceKHR surface) const {
+Device::Dispatchable<VkSwapchainKHR> Device::CreateSwapchain(const window::Size size, VkSurfaceKHR surface) const {
   const PhysicalDeviceSurfaceDetails device_support_details = GetPhysicalDeviceSurfaceDetails(physical_device_, surface);
 
   VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(device_support_details.formats);
   VkPresentModeKHR present_mode = ChooseSwapPresentMode(device_support_details.present_modes);
 
-  VkExtent2D extent = ChooseSwapExtent(window, device_support_details.capabilities);
+  VkExtent2D extent = ChooseSwapExtent(size, device_support_details.capabilities);
   VkFormat format = surface_format.format;
 
   uint32_t image_count = device_support_details.capabilities.minImageCount + 1;

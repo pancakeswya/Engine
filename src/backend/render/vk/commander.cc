@@ -4,7 +4,7 @@
 #include "backend/render/vk/config.h"
 #include "backend/render/vk/object.h"
 
-namespace vk {
+namespace render::vk {
 
 SingleTimeCommander::SingleTimeCommander(VkDevice logical_device, VkCommandPool cmd_pool, VkQueue graphics_queue)
   : logical_device_(logical_device),

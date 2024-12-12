@@ -7,7 +7,7 @@
 
 #define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
-namespace vk {
+namespace render::vk {
 
 struct ImageSettings {
   int channels;
