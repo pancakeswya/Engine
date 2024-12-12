@@ -20,9 +20,10 @@ namespace render::vk {
 
 namespace {
 
-std::vector<const char*> MergeInstanceExtensions(const std::vector<const char*>& window_extensions) {
-  std::vector<const char*> instance_extensions = config::GetInstanceExtensions();
-  instance_extensions.insert(instance_extensions.end(), window_extensions.begin(), window_extensions.end());
+template<typename ...Args>
+std::vector<const char*> MergeInstanceExtensions(const Args&... args) {
+  std::vector<const char*> instance_extensions;
+  (instance_extensions.insert(instance_extensions.end(), args.begin(), args.end()), ...);
   return instance_extensions;
 }
 
@@ -32,7 +33,7 @@ Renderer::Renderer(window::IWindow& window)
   : framebuffer_resized_(false),
     curr_frame_(0),
     window_(window),
-    instance_(MergeInstanceExtensions(window.GetExtensions())) {
+    instance_(MergeInstanceExtensions(window.GetExtensions(), config::GetInstanceExtensions())) {
   window_.SetWindowUserPointer(this);
   window_.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
     auto render = static_cast<Renderer*>(user_ptr);
@@ -157,7 +158,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx)
     vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
     vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, IndexType<Index>::value);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 0, 1, &object_.ubo.descriptor_sets[curr_frame_], 0, nullptr);
-    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.tbo.descriptor_sets[index], 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.Handle(), 1, 1, &object_.tvo.descriptor_sets[index], 0, nullptr);
 
     vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
 
