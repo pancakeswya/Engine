@@ -111,7 +111,7 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const un
   image.CreateSampler(VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
   ImageCommander commander(image, cmd_pool_, graphics_queue_);
-  CommandGuard command_guard(commander);
+  CommanderGuard commander_guard(commander);
 
   commander.TransitImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   commander.CopyBuffer(transfer_buffer);
@@ -149,7 +149,7 @@ inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const De
   buffer.Bind();
 
   BufferCommander commander(buffer, cmd_pool_, graphics_queue_);
-  CommandGuard command_guard(commander);
+  CommanderGuard commander_guard(commander);
 
   commander.CopyBuffer(transfer_buffer);
 

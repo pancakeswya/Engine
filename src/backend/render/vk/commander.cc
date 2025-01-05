@@ -6,7 +6,7 @@
 
 namespace render::vk {
 
-SingleTimeCommander::SingleTimeCommander(VkDevice logical_device, VkCommandPool cmd_pool, VkQueue graphics_queue)
+Commander::Commander(VkDevice logical_device, VkCommandPool cmd_pool, VkQueue graphics_queue)
   : logical_device_(logical_device),
     cmd_pool_(cmd_pool),
     cmd_buffer_(VK_NULL_HANDLE),
@@ -22,11 +22,11 @@ SingleTimeCommander::SingleTimeCommander(VkDevice logical_device, VkCommandPool 
   }
 }
 
-SingleTimeCommander::~SingleTimeCommander() {
+Commander::~Commander() {
   vkFreeCommandBuffers(logical_device_, cmd_pool_, 1, &cmd_buffer_);
 }
 
-void SingleTimeCommander::Begin() const {
+void Commander::Begin() const {
   VkCommandBufferBeginInfo begin_info = {};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -36,7 +36,7 @@ void SingleTimeCommander::Begin() const {
   }
 }
 
-void SingleTimeCommander::End() const {
+void Commander::End() const {
   if (const VkResult result = vkEndCommandBuffer(cmd_buffer_); result != VK_SUCCESS) {
     throw Error("failed to end cmd buffer").WithCode(result);
   }
@@ -55,7 +55,7 @@ void SingleTimeCommander::End() const {
 }
 
 BufferCommander::BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
-  : SingleTimeCommander(buffer.Parent(), cmd_pool, graphics_queue), buffer_(buffer) {}
+  : Commander(buffer.Parent(), cmd_pool, graphics_queue), buffer_(buffer) {}
 
 
 void BufferCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const {
@@ -65,7 +65,7 @@ void BufferCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) cons
 }
 
 ImageCommander::ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
-    : SingleTimeCommander(image.Parent(), cmd_pool, graphics_queue), image_(image) {}
+    : Commander(image.Parent(), cmd_pool, graphics_queue), image_(image) {}
 
 void ImageCommander::GenerateMipmaps() const {
   VkImage image = image_.Handle();

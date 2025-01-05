@@ -7,10 +7,10 @@
 
 namespace render::vk {
 
-class SingleTimeCommander {
+class Commander {
 public:
-  SingleTimeCommander(VkDevice logical_device, VkCommandPool cmd_pool, VkQueue graphics_queue);
-  ~SingleTimeCommander();
+  Commander(VkDevice logical_device, VkCommandPool cmd_pool, VkQueue graphics_queue);
+  ~Commander();
 
   void Begin() const;
   void End() const;
@@ -21,7 +21,7 @@ protected:
   VkQueue graphics_queue_;
 };
 
-class BufferCommander : public SingleTimeCommander {
+class BufferCommander : public Commander {
 public:
   BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~BufferCommander() = default;
@@ -31,7 +31,7 @@ private:
   Device::Dispatchable<VkBuffer>& buffer_;
 };
 
-class ImageCommander : public SingleTimeCommander {
+class ImageCommander : public Commander {
 public:
   ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~ImageCommander() = default;
@@ -43,18 +43,17 @@ private:
   Device::Dispatchable<VkImage>& image_;
 };
 
-template<typename CommanderType>
-class CommandGuard {
+class CommanderGuard {
 public:
-  explicit CommandGuard(CommanderType& commander) : commander_(commander) {
+  explicit CommanderGuard(Commander& commander) : commander_(commander) {
     commander_.Begin();
   }
 
-  ~CommandGuard() {
+  ~CommanderGuard() {
     commander_.End();
   }
 private:
-  CommanderType& commander_;
+  Commander& commander_;
 };
 
 } // namespace vk
