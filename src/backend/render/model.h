@@ -7,7 +7,7 @@ namespace render {
 
 class Model {
 public:
-  Model() = default;
+  Model();
 
   void SetView(int width, int height) noexcept;
   void Rotate(float degrees) noexcept;
@@ -15,7 +15,11 @@ public:
   [[nodiscard]] const Uniforms& GetUniforms() const noexcept;
 private:
   Uniforms uniforms_;
+
+  float degrees_;
 };
+
+inline Model::Model() : uniforms_(), degrees_(0.0f) {}
 
 inline const Uniforms& Model::GetUniforms() const noexcept {
   return uniforms_;

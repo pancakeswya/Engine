@@ -24,7 +24,7 @@ int run() noexcept try {
   while (!window.ShouldClose()) {
     window.HandleEvents();
 
-    model.Rotate(90.0);
+    model.Rotate(1.0);
     renderer.RenderFrame();
   }
   return 0;
