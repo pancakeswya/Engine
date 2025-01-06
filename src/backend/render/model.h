@@ -3,31 +3,23 @@
 
 #include "backend/render/types.h"
 
-#include <functional>
-
 namespace render {
 
 class Model {
 public:
-  class Action {
-  public:
-    template<typename T, typename... Args>
-    explicit Action(T&& fn, Args&&... args)
-      : fn_(std::bind(fn, std::placeholders::_1, std::forward<Args>(args)...)) {}
+  Model() = default;
 
-    void invoke(Model& model) const { fn_(model); }
-  private:
-    std::function<void(Model&)> fn_;
-  };
+  void SetView(int width, int height) noexcept;
+  void Rotate(float degrees) noexcept;
 
-  explicit Model(Uniforms* uniforms);
-  void SetView(int width, int height) const noexcept;
-  void Rotate(float degrees) const noexcept;
+  [[nodiscard]] const Uniforms& GetUniforms() const noexcept;
 private:
-  Uniforms* uniforms_;
+  Uniforms uniforms_;
 };
 
-inline Model::Model(Uniforms* uniforms) : uniforms_(uniforms) {}
+inline const Uniforms& Model::GetUniforms() const noexcept {
+  return uniforms_;
+}
 
 } // namespace render
 

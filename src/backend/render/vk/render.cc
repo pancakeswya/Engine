@@ -4,6 +4,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <array>
 #include <chrono>
+#include <cstring>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <limits>
@@ -101,13 +102,11 @@ void Renderer::LoadModel(const std::string& path) {
   }
   pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
 
-  std::vector<Model> models;
-  models.reserve(object_.ubo.buffers.size());
+  uniforms_buff_.reserve(object_.ubo.buffers.size());
   for(const auto& buffer : object_.ubo.buffers) {
     auto uniforms = static_cast<Uniforms*>(buffer.Map());
-    models.emplace_back(uniforms);
+    uniforms_buff_.emplace_back(uniforms);
   }
-  model_controller_ = BufferedModelController(models, &curr_frame_);
 }
 
 void Renderer::RecreateSwapchain() {
@@ -182,6 +181,11 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx)
   }
 }
 
+void Renderer::UpdateUniforms() const {
+  const render::Uniforms& uniforms = model_.GetUniforms();
+  std::memcpy(uniforms_buff_[curr_frame_], &uniforms, sizeof(Uniforms));
+}
+
 void Renderer::RenderFrame() {
   uint32_t image_idx;
 
@@ -206,6 +210,7 @@ void Renderer::RenderFrame() {
       throw Error("failed to acquire next image").WithCode(result);
     }
   }
+  UpdateUniforms();
   if (const VkResult result = vkResetFences(device_.Logical(), 1, &fence); result != VK_SUCCESS) {
     throw Error("failed to reset fences").WithCode(result);
   }
