@@ -1,8 +1,6 @@
 #ifndef BACKEND_WINDOW_GLFW_INSTANCE_H_
 #define BACKEND_WINDOW_GLFW_INSTANCE_H_
 
-#include <GLFW/glfw3.h>
-
 #include <memory>
 
 namespace window::glfw {

@@ -3,14 +3,14 @@
 #include <iostream>
 
 #include "backend/render/vk/render.h"
-#include "backend/window/glfw/instance.h"
-#include "backend/window/glfw/window.h"
+#include "backend/window/sdl/instance.h"
+#include "backend/window/sdl/window.h"
 
 namespace app {
 
 int run() noexcept try {
-  window::glfw::Instance::Handle window_backend = window::glfw::Instance::Init();
-  window::glfw::Window window({1280, 720}, "VulkanFun");
+  window::sdl::Instance::Handle window_backend = window::sdl::Instance::Init();
+  window::sdl::Window window({1280, 720}, "VulkanFun");
 
   const render::vk::Config config = render::vk::DefaultConfig();
 

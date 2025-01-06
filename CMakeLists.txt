@@ -11,6 +11,7 @@ set(EXTERNAL third_party)
 find_package(PkgConfig REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(SDL2 REQUIRED)
 
 include_directories("${SRC_DIR}")
 include_directories("${EXTERNAL}/glm")
@@ -71,6 +72,11 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/window/glfw/instance.cc
         ${SRC_DIR}/backend/window/glfw/window.h
         ${SRC_DIR}/backend/window/glfw/window.cc
+        ${SRC_DIR}/backend/window/sdl/error.h
+        ${SRC_DIR}/backend/window/sdl/instance.h
+        ${SRC_DIR}/backend/window/sdl/instance.cc
+        ${SRC_DIR}/backend/window/sdl/window.h
+        ${SRC_DIR}/backend/window/sdl/window.cc
 )
 
 target_link_directories(vk_engine PUBLIC
@@ -79,6 +85,8 @@ target_link_directories(vk_engine PUBLIC
 
 target_link_libraries(vk_engine
         Vulkan::Vulkan
+        SDL2::SDL2
+        SDL2::SDL2main
         glfw
         ${SHADERC_LIBRARIES}
 )

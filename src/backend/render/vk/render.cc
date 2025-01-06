@@ -202,13 +202,11 @@ void Renderer::RenderFrame() {
     throw Error("failed to wait for fences").WithCode(result);
   }
   if (const VkResult result = vkAcquireNextImageKHR(device_.Logical(), swapchain_.Handle(), std::numeric_limits<uint64_t>::max(), image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
       RecreateSwapchain();
       return;
     }
-    if (result != VK_SUBOPTIMAL_KHR) {
-      throw Error("failed to acquire next image").WithCode(result);
-    }
+    throw Error("failed to acquire next image").WithCode(result);
   }
   UpdateUniforms();
   if (const VkResult result = vkResetFences(device_.Logical(), 1, &fence); result != VK_SUCCESS) {

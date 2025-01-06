@@ -1,5 +1,7 @@
 #include "backend/window/glfw/instance.h"
 
+#include <GLFW/glfw3.h>
+
 #include "backend/window/glfw/error.h"
 
 namespace window::glfw {
