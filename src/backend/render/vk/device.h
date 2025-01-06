@@ -73,6 +73,26 @@ private:
   QueueFamilyIndices indices_;
 };
 
+inline VkDevice Device::Logical() const noexcept {
+  return logical_device_;
+}
+
+inline VkPhysicalDevice Device::Physical() const noexcept {
+  return physical_device_;
+}
+
+inline VkQueue Device::GraphicsQueue() const noexcept {
+  VkQueue graphics_queue = VK_NULL_HANDLE;
+  vkGetDeviceQueue(logical_device_, indices_.graphic, 0, &graphics_queue);
+  return graphics_queue;
+}
+
+inline VkQueue Device::PresentQueue() const noexcept {
+  VkQueue present_queue = VK_NULL_HANDLE;
+  vkGetDeviceQueue(logical_device_, indices_.present, 0, &present_queue);
+  return present_queue;
+}
+
 template<>
 class Device::Dispatchable<VkBuffer> : public vk::Dispatchable<VkBuffer, Device> {
 public:
@@ -146,6 +166,26 @@ private:
   Dispatchable<VkDeviceMemory> memory_;
 };
 
+inline const Device::Dispatchable<VkImageView>& Device::Dispatchable<VkImage>::View() const noexcept {
+  return view_;
+}
+
+inline const Device::Dispatchable<VkSampler>& Device::Dispatchable<VkImage>::Sampler() const noexcept {
+  return sampler_;
+}
+
+inline VkFormat Device::Dispatchable<VkImage>::Format() const noexcept {
+  return format_;
+}
+
+inline VkExtent2D Device::Dispatchable<VkImage>::Extent() const noexcept {
+  return extent_;
+}
+
+inline uint32_t Device::Dispatchable<VkImage>::MipLevels() const noexcept {
+  return mip_levels_;
+}
+
 template<>
 class Device::Dispatchable<VkShaderModule> : public vk::Dispatchable<VkShaderModule, Device> {
 public:
@@ -170,6 +210,14 @@ private:
   VkShaderStageFlagBits stage_;
   std::string_view entry_point_;
 };
+
+inline VkShaderStageFlagBits Device::Dispatchable<VkShaderModule>::Stage() const noexcept {
+  return stage_;
+}
+
+inline std::string_view Device::Dispatchable<VkShaderModule>::EntryPoint() const noexcept {
+  return entry_point_;
+}
 
 template<>
 class Device::Dispatchable<VkSwapchainKHR> : public vk::Dispatchable<VkSwapchainKHR, Device> {
@@ -210,46 +258,6 @@ private:
   [[nodiscard]] Dispatchable<VkFramebuffer> CreateFramebuffer(const std::vector<VkImageView>& views, VkRenderPass render_pass) const;
 };
 
-inline VkDevice Device::Logical() const noexcept {
-  return logical_device_;
-}
-
-inline VkPhysicalDevice Device::Physical() const noexcept {
-  return physical_device_;
-}
-
-inline VkQueue Device::GraphicsQueue() const noexcept {
-  VkQueue graphics_queue = VK_NULL_HANDLE;
-  vkGetDeviceQueue(logical_device_, indices_.graphic, 0, &graphics_queue);
-  return graphics_queue;
-}
-
-inline VkQueue Device::PresentQueue() const noexcept {
-  VkQueue present_queue = VK_NULL_HANDLE;
-  vkGetDeviceQueue(logical_device_, indices_.present, 0, &present_queue);
-  return present_queue;
-}
-
-inline const Device::Dispatchable<VkImageView>& Device::Dispatchable<VkImage>::View() const noexcept {
-  return view_;
-}
-
-inline const Device::Dispatchable<VkSampler>& Device::Dispatchable<VkImage>::Sampler() const noexcept {
-  return sampler_;
-}
-
-inline VkFormat Device::Dispatchable<VkImage>::Format() const noexcept {
-  return format_;
-}
-
-inline VkExtent2D Device::Dispatchable<VkImage>::Extent() const noexcept {
-  return extent_;
-}
-
-inline uint32_t Device::Dispatchable<VkImage>::MipLevels() const noexcept {
-  return mip_levels_;
-}
-
 inline VkExtent2D Device::Dispatchable<VkSwapchainKHR>::ImageExtent() const noexcept {
   return extent_;
 }
@@ -260,14 +268,6 @@ inline VkFormat Device::Dispatchable<VkSwapchainKHR>::ImageFormat() const noexce
 
 inline VkFormat Device::Dispatchable<VkSwapchainKHR>::DepthImageFormat() const noexcept {
   return depth_image_.Format();
-}
-
-inline VkShaderStageFlagBits Device::Dispatchable<VkShaderModule>::Stage() const noexcept {
-  return stage_;
-}
-
-inline std::string_view Device::Dispatchable<VkShaderModule>::EntryPoint() const noexcept {
-  return entry_point_;
 }
 
 } // namespace vk
