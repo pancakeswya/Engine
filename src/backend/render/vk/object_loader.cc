@@ -89,7 +89,7 @@ std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(con
   return textures;
 }
 
-Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
+Device::Dispatchable<VkImage> ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
   VkDeviceSize image_size = extent.width * extent.height * image_settings_.stbi_format;
 
   Device::Dispatchable<VkBuffer> transfer_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
@@ -122,7 +122,7 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const un
 Device::Dispatchable<VkImage> ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
   std::vector<unsigned char> dummy_colors(image_settings_.dummy_image_extent.width * image_settings_.dummy_image_extent.height, 0xff);
 
-  return CreateStaginImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
+  return CreateStagingImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
 }
 
 std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(const std::string& path, const VkBufferUsageFlags usage,
@@ -135,7 +135,7 @@ std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(co
 
   const VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
 
-  return CreateStaginImageFromPixels(pixels.get(), image_extent, usage, properties);
+  return CreateStagingImageFromPixels(pixels.get(), image_extent, usage, properties);
 }
 
 inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const Device::Dispatchable<VkBuffer>& transfer_buffer, VkBufferUsageFlags usage) const {
