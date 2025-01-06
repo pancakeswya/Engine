@@ -2,11 +2,11 @@
 #define BACKEND_RENDER_VK_RENDER_H_
 
 #include "backend/render/model.h"
+#include "backend/render/vk/config.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
 
-#include <string>
 #include <vector>
 
 namespace window {
@@ -19,7 +19,7 @@ namespace render::vk {
 
 class Renderer final {
 public:
-  explicit Renderer(window::IWindow& window);
+  explicit Renderer(const Config& config, window::IWindow& window);
   ~Renderer();
 
   void RenderFrame();
@@ -29,10 +29,12 @@ private:
   void RecreateSwapchain();
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
-  bool framebuffer_resized_;
-  size_t curr_frame_;
+  Config config_;
 
   window::IWindow& window_;
+
+  bool framebuffer_resized_;
+  size_t curr_frame_;
 
   Instance instance_;
 #ifdef DEBUG

@@ -13,6 +13,16 @@
 
 namespace render::vk {
 
+struct QueueFamilyIndices {
+  uint32_t graphic, present;
+};
+
+struct SurfaceSupportDetails {
+  VkSurfaceCapabilitiesKHR capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR> present_modes;
+};
+
 class Device {
 public:
   using HandleType = VkDevice;
@@ -24,47 +34,21 @@ public:
     using Base::Base;
   };
 
-  struct QueueFamilyIndices {
-    uint32_t graphic, present;
-  };
+  static SurfaceSupportDetails GetSurfaceSupport(VkPhysicalDevice physical_device, VkSurfaceKHR surface);
 
-  class Finder {
-  public:
-    struct Result {
-      VkPhysicalDevice device;
-      QueueFamilyIndices indices;
-    };
-
-    explicit Finder(const std::vector<VkPhysicalDevice>& devices) noexcept;
-    ~Finder() = default;
-
-    [[nodiscard]] bool FindSuitableDeviceForSurface(VkSurfaceKHR surface);
-    [[nodiscard]] Result GetResult() const noexcept;
-  private:
-    static std::pair<bool, QueueFamilyIndices> PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
-
-    const std::vector<VkPhysicalDevice> devices_;
-    Result result_;
-  };
-
-  Device() noexcept;
-  Device(const Device& other) = delete;
-  Device(Device&& other) noexcept;
-  Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const VkAllocationCallbacks* allocator = nullptr);
-  ~Device();
-
-  Device& operator=(const Device& other) = delete;
-  Device& operator=(Device&& other) noexcept;
+  Device() = default;
+  ~Device() = default;
 
   [[nodiscard]] VkDevice Logical() const noexcept;
   [[nodiscard]] VkPhysicalDevice Physical() const noexcept;
+
   [[nodiscard]] VkQueue GraphicsQueue() const noexcept;
   [[nodiscard]] VkQueue PresentQueue() const noexcept;
 
   [[nodiscard]] Dispatchable<VkShaderModule> CreateShaderModule(const Shader& shader) const;
   [[nodiscard]] Dispatchable<VkRenderPass> CreateRenderPass(VkFormat image_format, VkFormat depth_format) const;
   [[nodiscard]] Dispatchable<VkPipelineLayout> CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const;
-  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const;
+  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkDynamicState>& dynamic_states, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const;
   [[nodiscard]] Dispatchable<VkCommandPool> CreateCommandPool() const;
   [[nodiscard]] Dispatchable<VkSemaphore> CreateSemaphore() const;
   [[nodiscard]] Dispatchable<VkFence> CreateFence() const;
@@ -79,6 +63,10 @@ public:
   [[nodiscard]] Dispatchable<VkSwapchainKHR> CreateSwapchain(window::Size, VkSurfaceKHR surface) const;
   [[nodiscard]] std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool cmd_pool, uint32_t count) const;
 private:
+  friend class DeviceSelector;
+
+  Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
+
   VkDevice logical_device_;
   VkPhysicalDevice physical_device_;
   const VkAllocationCallbacks* allocator_;
@@ -221,13 +209,6 @@ private:
   [[nodiscard]] std::vector<Dispatchable<VkImageView>> CreateImageViews() const;
   [[nodiscard]] Dispatchable<VkFramebuffer> CreateFramebuffer(const std::vector<VkImageView>& views, VkRenderPass render_pass) const;
 };
-
-inline Device::Finder::Finder(const std::vector<VkPhysicalDevice>& devices) noexcept
-  : devices_(devices), result_() {}
-
-inline Device::Finder::Result Device::Finder::GetResult() const noexcept {
-  return result_;
-}
 
 inline VkDevice Device::Logical() const noexcept {
   return logical_device_;

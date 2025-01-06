@@ -3,71 +3,15 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <optional>
 #include <limits>
 #include <set>
 
 #include "backend/render/vk/error.h"
-#include "backend/render/vk/config.h"
+#include "backend/render/vk/instance.h"
 
 namespace render::vk {
 
 namespace {
-
-struct PhysicalDeviceSurfaceDetails {
-  VkSurfaceCapabilitiesKHR capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR> present_modes;
-};
-
-PhysicalDeviceSurfaceDetails GetPhysicalDeviceSurfaceDetails(VkPhysicalDevice device, VkSurfaceKHR surface) {
-  PhysicalDeviceSurfaceDetails details;
-  if (const VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface capabilities").WithCode(result);
-  }
-  uint32_t format_count;
-  if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface formats count").WithCode(result);
-  }
-
-  if (format_count != 0) {
-    details.formats.resize(format_count);
-    if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats.data()); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface formats").WithCode(result);
-    }
-  }
-  uint32_t present_mode_count;
-  if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface present modes count").WithCode(result);
-  }
-
-  if (present_mode_count != 0) {
-    details.present_modes.resize(present_mode_count);
-    if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes.data()); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface present modes").WithCode(result);
-    }
-  }
-  return details;
-}
-
-bool PhysicalDeviceExtensionSupport(VkPhysicalDevice device) {
-  uint32_t extension_count;
-  if (const VkResult result = vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get device extension properties count").WithCode(result);
-  }
-  std::vector<VkExtensionProperties> available_extensions(extension_count);
-  if (const VkResult result = vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data()); result != VK_SUCCESS) {
-    throw Error("failed to get device extension properties").WithCode(result);
-  }
-  const std::vector<const char*> extensions = config::GetDeviceExtensions();
-  std::set<std::string> required_extensions(extensions.begin(), extensions.end());
-
-  for (const VkExtensionProperties& extension : available_extensions) {
-    required_extensions.erase(extension.extensionName);
-  }
-
-  return required_extensions.empty();
-}
 
 inline VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats) {
   for (const VkSurfaceFormatKHR& available_format : available_formats) {
@@ -213,55 +157,37 @@ Device::Dispatchable<VkImageView> CreateImageViewInternal(VkImage image, VkDevic
 
 } // namespace
 
-std::pair<bool, Device::QueueFamilyIndices> Device::Finder::PhysicalDeviceIsSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
-  std::optional<uint32_t> graphic, present;
-  uint32_t families_count = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, nullptr);
-
-  std::vector<VkQueueFamilyProperties> families(families_count);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, families.data());
-
-  for (size_t i = 0; i < families_count; ++i) {
-    if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      graphic = static_cast<uint32_t>(i);
-    }
-    VkBool32 present_support = false;
-    if (const VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface support").WithCode(result);
-    }
-    if (present_support) {
-      present = static_cast<uint32_t>(i);
-    }
-    VkPhysicalDeviceFeatures supported_features;
-    vkGetPhysicalDeviceFeatures(device, &supported_features);
-    if (graphic.has_value() &&
-        present.has_value() &&
-        supported_features.samplerAnisotropy &&
-        PhysicalDeviceExtensionSupport(device)) {
-      const PhysicalDeviceSurfaceDetails details = GetPhysicalDeviceSurfaceDetails(device, surface);
-      if (!details.formats.empty() && !details.present_modes.empty()) {
-        return {true, {graphic.value(), present.value()}};
-      }
-        }
+SurfaceSupportDetails Device::GetSurfaceSupport(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
+  SurfaceSupportDetails details;
+  if (const VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &details.capabilities); result != VK_SUCCESS) {
+    throw Error("failed to get physical device surface capabilities").WithCode(result);
   }
-  return {};
-}
+  uint32_t format_count;
+  if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, nullptr); result != VK_SUCCESS) {
+    throw Error("failed to get physical device surface formats count").WithCode(result);
+  }
 
-bool Device::Finder::FindSuitableDeviceForSurface(VkSurfaceKHR surface) {
-  for(VkPhysicalDevice device : devices_) {
-    if (auto[suitable, indices] = PhysicalDeviceIsSuitable(device, surface); suitable) {
-      result_.device = device;
-      result_.indices = indices;
-      return true;
+  if (format_count != 0) {
+    details.formats.resize(format_count);
+    if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, details.formats.data()); result != VK_SUCCESS) {
+      throw Error("failed to get physical device surface formats").WithCode(result);
     }
   }
-  return false;
+  uint32_t present_mode_count;
+  if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, nullptr); result != VK_SUCCESS) {
+    throw Error("failed to get physical device surface present modes count").WithCode(result);
+  }
+
+  if (present_mode_count != 0) {
+    details.present_modes.resize(present_mode_count);
+    if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, details.present_modes.data()); result != VK_SUCCESS) {
+      throw Error("failed to get physical device surface present modes").WithCode(result);
+    }
+  }
+  return details;
 }
 
-Device::Device() noexcept
-  : logical_device_(VK_NULL_HANDLE), physical_device_(VK_NULL_HANDLE), allocator_(nullptr), indices_() {}
-
-Device::Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const VkAllocationCallbacks* allocator)
+Device::Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
   : logical_device_(VK_NULL_HANDLE), physical_device_(physical_device), allocator_(allocator), indices_(indices) {
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
   std::set unique_family_ids = {
@@ -278,10 +204,8 @@ Device::Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indic
     queue_create_infos.push_back(queue_create_info);
   }
 #ifdef DEBUG
-  const std::vector<const char*> layers = config::GetInstanceLayers();
+  const std::vector<const char*> layers = Instance::GetLayers();
 #endif // DEBUG
-  const std::vector<const char*> extensions = config::GetDeviceExtensions();
-
   VkPhysicalDeviceFeatures device_features = {};
   device_features.samplerAnisotropy = VK_TRUE;
 
@@ -301,34 +225,6 @@ Device::Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indic
   if (const VkResult result = vkCreateDevice(physical_device, &create_info, allocator, &logical_device_); result != VK_SUCCESS) {
     throw Error("failed to create logical device").WithCode(result);
   }
-}
-
-Device::Device(Device&& other) noexcept
-  : logical_device_(other.logical_device_),
-    physical_device_(other.physical_device_),
-    allocator_(other.allocator_),
-    indices_(other.indices_) {
-  other.logical_device_ = VK_NULL_HANDLE;
-  other.physical_device_ = VK_NULL_HANDLE;
-  other.allocator_ = nullptr;
-  other.indices_ = {};
-}
-
-Device::~Device() {
-  if (logical_device_ != VK_NULL_HANDLE) {
-    vkDestroyDevice(logical_device_, allocator_);
-  }
-  logical_device_ = VK_NULL_HANDLE;
-}
-
-Device& Device::operator=(Device&& other) noexcept {
-  if (this != &other) {
-    logical_device_ = std::exchange(other.logical_device_, VK_NULL_HANDLE);
-    physical_device_ = other.physical_device_;
-    allocator_ = other.allocator_;
-    indices_ = other.indices_;
-  }
-  return *this;
 }
 
 Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const Shader& shader) const {
@@ -435,7 +331,7 @@ Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::v
   };
 }
 
-Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
+Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkDynamicState>& dynamic_states, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
   shader_stages_infos.reserve(shaders.size());
   for(const Dispatchable<VkShaderModule>& shader : shaders) {
@@ -446,8 +342,6 @@ Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipelin
     shader_stage_info.pName = shader.EntryPoint().data();
     shader_stages_infos.push_back(shader_stage_info);
   }
-  const std::vector<VkDynamicState> dynamic_states = config::GetDynamicStates();
-
   VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
   vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertex_input_info.vertexBindingDescriptionCount = binding_descriptions.size();
@@ -688,7 +582,7 @@ Device::Dispatchable<VkImage> Device::CreateImage(const VkImageUsageFlags usage,
 }
 
 Device::Dispatchable<VkSwapchainKHR> Device::CreateSwapchain(const window::Size size, VkSurfaceKHR surface) const {
-  const PhysicalDeviceSurfaceDetails device_support_details = GetPhysicalDeviceSurfaceDetails(physical_device_, surface);
+  const SurfaceSupportDetails device_support_details = GetSurfaceSupport(physical_device_, surface);
 
   VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(device_support_details.formats);
   VkPresentModeKHR present_mode = ChooseSwapPresentMode(device_support_details.present_modes);

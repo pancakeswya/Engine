@@ -43,7 +43,6 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/model.cc
         ${SRC_DIR}/backend/render/data.cc
         ${SRC_DIR}/backend/render/data.h
-        ${SRC_DIR}/backend/render/vk/config.cc
         ${SRC_DIR}/backend/render/vk/config.h
         ${SRC_DIR}/backend/render/vk/render.cc
         ${SRC_DIR}/backend/render/vk/render.h
@@ -57,6 +56,8 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk/instance.cc
         ${SRC_DIR}/backend/render/vk/device.h
         ${SRC_DIR}/backend/render/vk/device.cc
+        ${SRC_DIR}/backend/render/vk/device_selector.h
+        ${SRC_DIR}/backend/render/vk/device_selector.cc
         ${SRC_DIR}/backend/render/vk/commander.h
         ${SRC_DIR}/backend/render/vk/commander.cc
         ${SRC_DIR}/backend/render/vk/shaders.h

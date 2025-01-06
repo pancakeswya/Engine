@@ -25,12 +25,14 @@ public:
     using Base::Base;
   };
 
+  static std::vector<const char*> GetLayers();
+
 #ifdef DEBUG
   Dispatchable<VkDebugUtilsMessengerEXT> CreateMessenger() const;
 #endif
   [[nodiscard]] Dispatchable<VkSurfaceKHR> CreateSurface(const window::ISurfaceFactory& surface_factory) const;
 
-  explicit Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
+  explicit Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
   ~Instance();
 
   [[nodiscard]] std::vector<VkPhysicalDevice> EnumeratePhysicalDevices() const;

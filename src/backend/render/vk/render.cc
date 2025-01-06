@@ -10,9 +10,9 @@
 #include <limits>
 #include <string>
 
-#include "backend/render/vk/config.h"
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/shaders.h"
+#include "backend/render/vk/device_selector.h"
 
 #include "backend/window/window.h"
 
@@ -29,13 +29,16 @@ std::vector<const char*> MergeInstanceExtensions(const Args&... args) {
 
 } // namespace
 
-Renderer::Renderer(window::IWindow& window)
-  : framebuffer_resized_(false),
-    curr_frame_(0),
+Renderer::Renderer(const Config& config, window::IWindow& window)
+  : config_(config),
     window_(window),
-    instance_(MergeInstanceExtensions(window.GetExtensions(), config::GetInstanceExtensions())) {
-  window_.SetWindowUserPointer(this);
-  window_.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
+    framebuffer_resized_(false),
+    curr_frame_(0),
+    instance_(config.app_info, MergeInstanceExtensions(window.GetExtensions(),
+                                                       config.instance_extensions)),
+    device_() {
+  window.SetWindowUserPointer(this);
+  window.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
     auto render = static_cast<Renderer*>(user_ptr);
     render->framebuffer_resized_ = true;
   });
@@ -43,42 +46,47 @@ Renderer::Renderer(window::IWindow& window)
   messenger_ = instance_.CreateMessenger();
 #endif // DEBUG
 
-  surface_ = instance_.CreateSurface(window_.GetSurfaceFactory());
+  surface_ = instance_.CreateSurface(window.GetSurfaceFactory());
+
+  DeviceSelector::Requirements requirements = {};
+  requirements.present = true;
+  requirements.graphic = true;
+  requirements.anisotropy = true;
+  requirements.surface = surface_.Handle();
+  requirements.extensions = config.device_extensions;
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
 
-  Device::Finder device_finder(devices);
-  if (!device_finder.FindSuitableDeviceForSurface(surface_.Handle())) {
+  if (const std::optional<Device> result = DeviceSelector(devices).Select(requirements); !result) {
     throw Error("failed to find suitable device");
+  } else {
+    device_ = result.value();
   }
-  auto[physical_device, indices] = device_finder.GetResult();
 
-  device_ = Device(physical_device, indices);
-
-  swapchain_ = device_.CreateSwapchain(window_.GetSize(), surface_.Handle());
+  swapchain_ = device_.CreateSwapchain(window.GetSize(), surface_.Handle());
 
   render_pass_ = device_.CreateRenderPass(swapchain_.ImageFormat(), swapchain_.DepthImageFormat());
 
   framebuffers_ = swapchain_.CreateFramebuffers(render_pass_.Handle());
 
   cmd_pool_ = device_.CreateCommandPool();
-  cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.Handle(), config::kFrameCount);
+  cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.Handle(), config.frame_count);
 
-  image_semaphores_.reserve(config::kFrameCount);
-  render_semaphores_.reserve(config::kFrameCount);
-  fences_.reserve(config::kFrameCount);
+  image_semaphores_.reserve(config.frame_count);
+  render_semaphores_.reserve(config.frame_count);
+  fences_.reserve(config.frame_count);
 
-  for(size_t i = 0; i < config::kFrameCount; ++i) {
+  for(size_t i = 0; i < config.frame_count; ++i) {
     image_semaphores_.emplace_back(device_.CreateSemaphore());
     render_semaphores_.emplace_back(device_.CreateSemaphore());
     fences_.emplace_back(device_.CreateFence());
   }
 
-  object_loader_ = ObjectLoader(&device_, cmd_pool_.Handle());
+  object_loader_ = ObjectLoader(&device_, config.image_settings, cmd_pool_.Handle());
 }
 
 void Renderer::LoadModel(const std::string& path) {
-  object_ = object_loader_.Load(path);
+  object_ = object_loader_.Load(path, config_.frame_count);
 
   const std::vector descriptor_set_layouts = { object_.ubo.descriptor_set_layout.Handle(), object_.tbo.descriptor_set_layout.Handle() };
   pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layouts);
@@ -90,7 +98,7 @@ void Renderer::LoadModel(const std::string& path) {
   for(const Shader& shader : shaders) {
     shader_modules.emplace_back(device_.CreateShaderModule(shader));
   }
-  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
+  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), config_.dynamic_states, Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
   models_.reserve(object_.ubo.buffers.size());
   for(const auto& buffer : object_.ubo.buffers) {
     auto uniforms = static_cast<Uniforms*>(buffer.Map());
@@ -202,13 +210,11 @@ void Renderer::RenderFrame() {
   }
   RecordCommandBuffer(cmd_buffer, image_idx);
 
-  const std::vector<VkPipelineStageFlags> pipeline_stage_flags = config::GetPipelineStageFlags();
-
   VkSubmitInfo submit_info = {};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit_info.waitSemaphoreCount = 1;
   submit_info.pWaitSemaphores = &image_semaphore;
-  submit_info.pWaitDstStageMask = pipeline_stage_flags.data();
+  submit_info.pWaitDstStageMask = config_.pipeline_stages.data();
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmd_buffer;
   submit_info.signalSemaphoreCount = 1;
@@ -233,7 +239,7 @@ void Renderer::RenderFrame() {
   } else if (result != VK_SUCCESS) {
     throw Error("failed to queue present").WithCode(result);
   }
-  curr_frame_ = (curr_frame_ + 1) % config::kFrameCount;
+  curr_frame_ = (curr_frame_ + 1) % config_.frame_count;
 }
 
 Renderer::~Renderer() {

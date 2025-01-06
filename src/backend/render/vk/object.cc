@@ -3,7 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include <array>
 #include <cstring>
 #include <memory>
 #include <utility>
@@ -90,8 +89,8 @@ std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(con
   return textures;
 }
 
-Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, const ImageSettings& image_settings) const {
-  VkDeviceSize image_size = extent.width * extent.height * image_settings.channels;
+Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
+  VkDeviceSize image_size = extent.width * extent.height * image_settings_.stbi_format;
 
   Device::Dispatchable<VkBuffer> transfer_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
   transfer_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -101,7 +100,7 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const un
   std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
   transfer_buffer.Unmap();
 
-  Device::Dispatchable<VkImage> image = device_->CreateImage(usage, extent, image_settings.format, VK_IMAGE_TILING_OPTIMAL);
+  Device::Dispatchable<VkImage> image = device_->CreateImage(usage, extent, image_settings_.vk_format, VK_IMAGE_TILING_OPTIMAL);
   image.Allocate(properties);
   image.Bind();
   image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -121,26 +120,22 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStaginImageFromPixels(const un
 }
 
 Device::Dispatchable<VkImage> ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
-  ImageSettings image_settings = config::GetImageSettings();
+  std::vector<unsigned char> dummy_colors(image_settings_.dummy_image_extent.width * image_settings_.dummy_image_extent.height, 0xff);
 
-  std::array<unsigned char, config::kDummyImageExtent.width * config::kDummyImageExtent.height> dummy_colors;
-  std::fill(dummy_colors.begin(), dummy_colors.end(), 0xff);
-
-  return CreateStaginImageFromPixels(dummy_colors.data(), config::kDummyImageExtent, usage, properties, image_settings);
+  return CreateStaginImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
 }
 
-std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
-  ImageSettings image_settings = config::GetImageSettings();
-
+std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(const std::string& path, const VkBufferUsageFlags usage,
+    const VkMemoryPropertyFlags properties) const {
   int image_width, image_height, image_channels;
-  std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings.channels), stbi_image_free);
+  std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings_.stbi_format), stbi_image_free);
   if (pixels == nullptr) {
     return std::nullopt;
   }
 
   const VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
 
-  return CreateStaginImageFromPixels(pixels.get(), image_extent, usage, properties, image_settings);
+  return CreateStaginImageFromPixels(pixels.get(), image_extent, usage, properties);
 }
 
 inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const Device::Dispatchable<VkBuffer>& transfer_buffer, VkBufferUsageFlags usage) const {
@@ -224,34 +219,14 @@ std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std
   return descriptor_sets;
 }
 
-ObjectLoader::ObjectLoader() noexcept
-  : device_(nullptr), cmd_pool_(VK_NULL_HANDLE), graphics_queue_(VK_NULL_HANDLE) {}
-
-ObjectLoader::ObjectLoader(ObjectLoader&& other) noexcept
-  : device_(other.device_),
-    cmd_pool_(other.cmd_pool_),
-    graphics_queue_(other.graphics_queue_) {
-  other.device_ = nullptr;
-  other.cmd_pool_ = VK_NULL_HANDLE;
-  other.graphics_queue_ = VK_NULL_HANDLE;
-}
-
-ObjectLoader::ObjectLoader(const Device* device, VkCommandPool cmd_pool)
+ObjectLoader::ObjectLoader(const Device* device, ImageSettings image_settings, VkCommandPool cmd_pool)
   : device_(device),
+    image_settings_(image_settings),
     cmd_pool_(cmd_pool),
     graphics_queue_(device_->GraphicsQueue()) {}
 
 
-ObjectLoader& ObjectLoader::operator=(ObjectLoader&& other) noexcept  {
-  if (this != &other) {
-    device_ = std::exchange(other.device_, nullptr);
-    cmd_pool_ = std::exchange(other.cmd_pool_, VK_NULL_HANDLE);
-    graphics_queue_ = std::exchange(other.graphics_queue_, VK_NULL_HANDLE);
-  }
-  return *this;
-}
-
-Object ObjectLoader::Load(const std::string& path) const {
+Object ObjectLoader::Load(const std::string& path, const size_t frame_count) const {
   obj::Data data = obj::ParseFromFile(path);
 
   auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data, device_);
@@ -266,7 +241,7 @@ Object ObjectLoader::Load(const std::string& path) const {
   std::vector<Device::Dispatchable<VkImage>> texture_images = CreateStagingImages(data);
   std::vector<Device::Dispatchable<VkBuffer>> ubo_buffers;
 
-  ubo_buffers.resize(config::kFrameCount);
+  ubo_buffers.resize(frame_count);
   for(Device::Dispatchable<VkBuffer>& ubo_buffer : ubo_buffers) {
     ubo_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
     ubo_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);

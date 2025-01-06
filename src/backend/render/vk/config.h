@@ -2,40 +2,32 @@
 #define BACKEND_RENDER_VK_CONFIG_H_
 
 #include <vulkan/vulkan.h>
+#include <stb_image.h>
 
 #include <vector>
-
-#define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
 namespace render::vk {
 
 struct ImageSettings {
-  int channels;
-  VkFormat format;
+  int stbi_format;
+  VkFormat vk_format;
+
+  VkExtent2D dummy_image_extent;
 };
 
-namespace config {
+struct Config {
+  VkApplicationInfo app_info;
 
-inline constexpr size_t kFrameCount = 2;
-inline constexpr VkExtent2D kDummyImageExtent = {16, 16};
+  ImageSettings image_settings;
 
-#undef MAX_TEXTURE_COUNT
+  size_t frame_count;
 
-#ifdef DEBUG
-extern bool InstanceLayersIsSupported();
-extern std::vector<const char*> GetInstanceLayers();
-extern VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept;
-#endif  // DEBUG
+  std::vector<const char*> instance_extensions;
+  std::vector<const char*> device_extensions;
 
-extern ImageSettings GetImageSettings() noexcept;
-extern VkApplicationInfo GetApplicationInfo() noexcept;
-
-extern std::vector<const char*> GetInstanceExtensions();
-extern std::vector<const char*> GetDeviceExtensions();
-extern std::vector<VkDynamicState> GetDynamicStates();
-extern std::vector<VkPipelineStageFlags> GetPipelineStageFlags();
-
-}  // namespace config
+  std::vector<VkDynamicState> dynamic_states;
+  std::vector<VkPipelineStageFlags> pipeline_stages;
+};
 
 } // namespace vk
 
