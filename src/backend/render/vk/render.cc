@@ -1,12 +1,8 @@
 #include "backend/render/vk/render.h"
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <array>
 #include <chrono>
 #include <cstring>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <limits>
 
 #include "backend/render/vk/error.h"
