@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 
 #include <functional>
+#include <memory>
 
 namespace window {
 
@@ -23,6 +24,8 @@ public:
 
 class IWindow {
 public:
+  using Handle = std::unique_ptr<IWindow>;
+
   virtual ~IWindow() = default;
 
   virtual void WaitUntilResized() const = 0;

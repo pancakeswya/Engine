@@ -67,6 +67,9 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk/shaders.cc
 
         ${SRC_DIR}/backend/window/window.h
+        ${SRC_DIR}/backend/window/instance.h
+        ${SRC_DIR}/backend/window/provider.h
+        ${SRC_DIR}/backend/window/provider.cc
         ${SRC_DIR}/backend/window/glfw/error.h
         ${SRC_DIR}/backend/window/glfw/instance.h
         ${SRC_DIR}/backend/window/glfw/instance.cc

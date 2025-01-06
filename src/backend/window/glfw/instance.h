@@ -1,17 +1,15 @@
 #ifndef BACKEND_WINDOW_GLFW_INSTANCE_H_
 #define BACKEND_WINDOW_GLFW_INSTANCE_H_
 
-#include <memory>
+#include "backend/window/instance.h"
 
 namespace window::glfw {
 
-class Instance {
+class Instance final : public IInstance {
  public:
-  using Handle = std::unique_ptr<Instance>;
-
   static Handle Init();
 
-  ~Instance();
+  ~Instance() override;
  private:
   Instance();
 };

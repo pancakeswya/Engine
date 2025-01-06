@@ -3,14 +3,13 @@
 #include <iostream>
 
 #include "backend/render/vk/render.h"
-#include "backend/window/sdl/instance.h"
-#include "backend/window/sdl/window.h"
+#include "backend/window/provider.h"
 
 namespace app {
 
 int run() noexcept try {
-  window::sdl::Instance::Handle window_backend = window::sdl::Instance::Init();
-  window::sdl::Window window({1280, 720}, "VulkanFun");
+  const window::Provider window_provider(window::BackendType::kSdl, {1280, 720}, "VulkanFun");
+  window::IWindow& window = window_provider.Provide();
 
   const render::vk::Config config = render::vk::DefaultConfig();
 

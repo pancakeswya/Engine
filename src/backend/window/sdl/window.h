@@ -22,7 +22,7 @@ private:
   SDL_Window* window_;
 };
 
-class Window : public IWindow {
+class Window final : public IWindow {
 public:
   Window(Size size, const std::string& title);
   ~Window() noexcept override = default;
