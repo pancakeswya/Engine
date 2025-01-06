@@ -46,14 +46,18 @@ int run() noexcept try {
   render::vk::Renderer renderer(config, window);
   renderer.LoadModel("../obj/Madara Uchiha/obj/Madara_Uchiha.obj");
   const auto [width, height] = window.GetSize();
+
+  render::ModelController& model_controller = renderer.GetModelController();
+  model_controller.SetAction(render::Model::Action(&render::Model::SetView, width, height));
+
   while (!window.ShouldClose()) {
     window.HandleEvents();
-    render::Model model = renderer.GetModel();
-    if (!model.ViewIsSet()) {
-      model.SetView(width, height);
-    }
-    model.Rotate(90.0);
+
+    if (model_controller.ActionsDone())
+      model_controller.SetAction(render::Model::Action(&render::Model::Rotate, 90.0));
+
     renderer.RenderFrame();
+    model_controller.ExecuteAction();
   }
   return 0;
 } catch (const std::exception& error) {

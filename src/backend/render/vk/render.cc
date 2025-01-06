@@ -101,11 +101,13 @@ void Renderer::LoadModel(const std::string& path) {
   }
   pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
 
-  models_.reserve(object_.ubo.buffers.size());
+  std::vector<Model> models;
+  models.reserve(object_.ubo.buffers.size());
   for(const auto& buffer : object_.ubo.buffers) {
     auto uniforms = static_cast<Uniforms*>(buffer.Map());
-    models_.emplace_back(uniforms);
+    models.emplace_back(uniforms);
   }
+  model_controller_ = BufferedModelController(models, &curr_frame_);
 }
 
 void Renderer::RecreateSwapchain() {

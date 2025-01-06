@@ -8,8 +8,6 @@ void Model::SetView(const int width, const int height) const noexcept {
   uniforms_->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniforms_->proj = glm::perspective(glm::radians(45.0f), static_cast<float>(width) / height, 0.1f, 10.0f);
   uniforms_->proj[1][1] *= -1;
-
-  view_is_set_ = true;
 }
 
 void Model::Rotate(const float degrees) const noexcept {

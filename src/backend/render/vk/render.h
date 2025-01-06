@@ -1,14 +1,14 @@
 #ifndef BACKEND_RENDER_VK_RENDER_H_
 #define BACKEND_RENDER_VK_RENDER_H_
 
-#include "backend/render/model.h"
+#include <string>
+#include <vector>
+
+#include "backend/render/model_controller.h"
 #include "backend/render/vk/config.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
-
-#include <vector>
-#include <string>
 
 namespace window {
 
@@ -25,7 +25,7 @@ public:
 
   void RenderFrame();
   void LoadModel(const std::string& path);
-  [[nodiscard]] const render::Model& GetModel() const noexcept;
+  [[nodiscard]] ModelController& GetModelController() noexcept;
 private:
   void RecreateSwapchain();
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
@@ -35,7 +35,7 @@ private:
   window::IWindow& window_;
 
   bool framebuffer_resized_;
-  size_t curr_frame_;
+  mutable size_t curr_frame_;
 
   Instance instance_;
 #ifdef DEBUG
@@ -62,11 +62,11 @@ private:
   Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
   Device::Dispatchable<VkPipeline> pipeline_;
 
-  std::vector<Model> models_;
+  BufferedModelController model_controller_;
 };
 
-inline const render::Model& Renderer::GetModel() const noexcept {
-  return models_[curr_frame_];
+inline ModelController& Renderer::GetModelController() noexcept {
+  return model_controller_;
 }
 
 } // namespace vk::backend

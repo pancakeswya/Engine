@@ -27,7 +27,7 @@ std::pair<Device::Dispatchable<VkBuffer>, Device::Dispatchable<VkBuffer>> Create
   auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
   auto mapped_indices = static_cast<Index*>(transfer_indices.Map());
 
-  render::RemoveDuplicatesFromData(data, mapped_vertices, mapped_indices);
+  RemoveDuplicatesFromData(data, mapped_vertices, mapped_indices);
 
   transfer_vertices.Unmap();
   transfer_indices.Unmap();
