@@ -4,11 +4,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <array>
 #include <chrono>
-#include <cstring>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <limits>
-#include <string>
 
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/shaders.h"
@@ -29,14 +27,15 @@ std::vector<const char*> MergeInstanceExtensions(const Args&... args) {
 
 } // namespace
 
-Renderer::Renderer(const Config& config, window::IWindow& window)
-  : config_(config),
+Renderer::Renderer(Config config, window::IWindow& window)
+  : config_(std::move(config)),
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config.app_info, MergeInstanceExtensions(window.GetExtensions(),
-                                                       config.instance_extensions)),
-    device_() {
+    instance_(config_.app_info, MergeInstanceExtensions(window.GetExtensions(),
+                                                        config_.instance_extensions)),
+    device_(),
+    object_loader_() {
   window.SetWindowUserPointer(this);
   window.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
     auto render = static_cast<Renderer*>(user_ptr);
@@ -48,12 +47,14 @@ Renderer::Renderer(const Config& config, window::IWindow& window)
 
   surface_ = instance_.CreateSurface(window.GetSurfaceFactory());
 
+  config_.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
   DeviceSelector::Requirements requirements = {};
   requirements.present = true;
   requirements.graphic = true;
   requirements.anisotropy = true;
   requirements.surface = surface_.Handle();
-  requirements.extensions = config.device_extensions;
+  requirements.extensions = config_.device_extensions;
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
 
@@ -70,19 +71,19 @@ Renderer::Renderer(const Config& config, window::IWindow& window)
   framebuffers_ = swapchain_.CreateFramebuffers(render_pass_.Handle());
 
   cmd_pool_ = device_.CreateCommandPool();
-  cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.Handle(), config.frame_count);
+  cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.Handle(), config_.frame_count);
 
-  image_semaphores_.reserve(config.frame_count);
-  render_semaphores_.reserve(config.frame_count);
-  fences_.reserve(config.frame_count);
+  image_semaphores_.reserve(config_.frame_count);
+  render_semaphores_.reserve(config_.frame_count);
+  fences_.reserve(config_.frame_count);
 
-  for(size_t i = 0; i < config.frame_count; ++i) {
+  for(size_t i = 0; i < config_.frame_count; ++i) {
     image_semaphores_.emplace_back(device_.CreateSemaphore());
     render_semaphores_.emplace_back(device_.CreateSemaphore());
     fences_.emplace_back(device_.CreateFence());
   }
 
-  object_loader_ = ObjectLoader(&device_, config.image_settings, cmd_pool_.Handle());
+  object_loader_ = ObjectLoader(&device_, config_.image_settings, cmd_pool_.Handle());
 }
 
 void Renderer::LoadModel(const std::string& path) {
@@ -98,7 +99,8 @@ void Renderer::LoadModel(const std::string& path) {
   for(const Shader& shader : shaders) {
     shader_modules.emplace_back(device_.CreateShaderModule(shader));
   }
-  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), config_.dynamic_states, Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
+  pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
+
   models_.reserve(object_.ubo.buffers.size());
   for(const auto& buffer : object_.ubo.buffers) {
     auto uniforms = static_cast<Uniforms*>(buffer.Map());
@@ -210,11 +212,13 @@ void Renderer::RenderFrame() {
   }
   RecordCommandBuffer(cmd_buffer, image_idx);
 
+  const std::vector<VkPipelineStageFlags> pipeline_stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
   VkSubmitInfo submit_info = {};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit_info.waitSemaphoreCount = 1;
   submit_info.pWaitSemaphores = &image_semaphore;
-  submit_info.pWaitDstStageMask = config_.pipeline_stages.data();
+  submit_info.pWaitDstStageMask = pipeline_stages.data();
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmd_buffer;
   submit_info.signalSemaphoreCount = 1;

@@ -24,9 +24,6 @@ struct Config {
 
   std::vector<const char*> instance_extensions;
   std::vector<const char*> device_extensions;
-
-  std::vector<VkDynamicState> dynamic_states;
-  std::vector<VkPipelineStageFlags> pipeline_stages;
 };
 
 } // namespace vk

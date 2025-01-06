@@ -30,13 +30,7 @@ render::vk::Config GetRenderConfig() {
     VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
 #endif
   };
-  config.device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-  config.dynamic_states = {
-    VK_DYNAMIC_STATE_VIEWPORT,
-    VK_DYNAMIC_STATE_SCISSOR
-  };
-
-  config.pipeline_stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+  config.device_extensions = {};
 
   config.frame_count = 2;
 

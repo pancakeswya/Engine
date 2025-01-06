@@ -331,7 +331,7 @@ Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::v
   };
 }
 
-Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkDynamicState>& dynamic_states, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
+Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
   shader_stages_infos.reserve(shaders.size());
   for(const Dispatchable<VkShaderModule>& shader : shaders) {
@@ -396,6 +396,11 @@ Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipelin
   color_blending.blendConstants[1] = 0.0f;
   color_blending.blendConstants[2] = 0.0f;
   color_blending.blendConstants[3] = 0.0f;
+
+  const std::vector dynamic_states = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+  };
 
   VkPipelineDynamicStateCreateInfo dynamic_state = {};
   dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;

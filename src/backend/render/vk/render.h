@@ -8,6 +8,7 @@
 #include "backend/render/vk/object.h"
 
 #include <vector>
+#include <string>
 
 namespace window {
 
@@ -19,7 +20,7 @@ namespace render::vk {
 
 class Renderer final {
 public:
-  explicit Renderer(const Config& config, window::IWindow& window);
+  explicit Renderer(Config config, window::IWindow& window);
   ~Renderer();
 
   void RenderFrame();

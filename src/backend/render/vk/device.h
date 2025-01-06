@@ -48,7 +48,7 @@ public:
   [[nodiscard]] Dispatchable<VkShaderModule> CreateShaderModule(const Shader& shader) const;
   [[nodiscard]] Dispatchable<VkRenderPass> CreateRenderPass(VkFormat image_format, VkFormat depth_format) const;
   [[nodiscard]] Dispatchable<VkPipelineLayout> CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const;
-  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkDynamicState>& dynamic_states, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const;
+  [[nodiscard]] Dispatchable<VkPipeline> CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const;
   [[nodiscard]] Dispatchable<VkCommandPool> CreateCommandPool() const;
   [[nodiscard]] Dispatchable<VkSemaphore> CreateSemaphore() const;
   [[nodiscard]] Dispatchable<VkFence> CreateFence() const;
