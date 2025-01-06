@@ -26,6 +26,8 @@ struct Config {
   std::vector<const char*> device_extensions;
 };
 
+extern Config DefaultConfig();
+
 } // namespace vk
 
 #endif // BACKEND_RENDER_VK_CONFIG_H_

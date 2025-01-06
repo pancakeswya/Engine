@@ -43,6 +43,7 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/model.cc
         ${SRC_DIR}/backend/render/data.cc
         ${SRC_DIR}/backend/render/data.h
+        ${SRC_DIR}/backend/render/vk/config.cc
         ${SRC_DIR}/backend/render/vk/config.h
         ${SRC_DIR}/backend/render/vk/render.cc
         ${SRC_DIR}/backend/render/vk/render.h
