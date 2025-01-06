@@ -49,7 +49,8 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/vk/error.h
         ${SRC_DIR}/backend/render/vk/dispatchable.h
         ${SRC_DIR}/backend/render/vk/object.h
-        ${SRC_DIR}/backend/render/vk/object.cc
+        ${SRC_DIR}/backend/render/vk/object_loader.h
+        ${SRC_DIR}/backend/render/vk/object_loader.cc
         ${SRC_DIR}/backend/render/vk/commander.h
         ${SRC_DIR}/backend/render/vk/commander.cc
         ${SRC_DIR}/backend/render/vk/instance.h

@@ -58,7 +58,6 @@ private:
   std::vector<Device::Dispatchable<VkFence>> fences_;
 
   Object object_;
-  ObjectLoader object_loader_;
 
   Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
   Device::Dispatchable<VkPipeline> pipeline_;

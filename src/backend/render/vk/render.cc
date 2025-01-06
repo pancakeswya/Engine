@@ -11,6 +11,7 @@
 #include "backend/render/vk/error.h"
 #include "backend/render/vk/shaders.h"
 #include "backend/render/vk/device_selector.h"
+#include "backend/render/vk/object_loader.h"
 
 #include "backend/window/window.h"
 
@@ -34,8 +35,7 @@ Renderer::Renderer(Config config, window::IWindow& window)
     curr_frame_(0),
     instance_(config_.app_info, MergeInstanceExtensions(window.GetExtensions(),
                                                         config_.instance_extensions)),
-    device_(),
-    object_loader_() {
+    device_() {
   window.SetWindowUserPointer(this);
   window.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
     auto render = static_cast<Renderer*>(user_ptr);
@@ -82,12 +82,12 @@ Renderer::Renderer(Config config, window::IWindow& window)
     render_semaphores_.emplace_back(device_.CreateSemaphore());
     fences_.emplace_back(device_.CreateFence());
   }
-
-  object_loader_ = ObjectLoader(&device_, config_.image_settings, cmd_pool_.Handle());
 }
 
 void Renderer::LoadModel(const std::string& path) {
-  object_ = object_loader_.Load(path, config_.frame_count);
+  const ObjectLoader object_loader(&device_, config_.image_settings, cmd_pool_.Handle());
+
+  object_ = object_loader.Load(path, config_.frame_count);
 
   const std::vector descriptor_set_layouts = { object_.ubo.descriptor_set_layout.Handle(), object_.tbo.descriptor_set_layout.Handle() };
   pipeline_layout_ = device_.CreatePipelineLayout(descriptor_set_layouts);
