@@ -8,6 +8,11 @@
 
 namespace window {
 
+enum class Type {
+  kGlfw,
+  kSdl
+};
+
 struct Size {
   int width;
   int height;
@@ -15,30 +20,47 @@ struct Size {
 
 using ResizeCallback = std::function<void(void*, Size)>;
 
-class ISurfaceFactory {
+class EventHandler {
 public:
-  virtual ~ISurfaceFactory() = default;
-  [[nodiscard]] virtual VkSurfaceKHR CreateSurface(VkInstance instance,
-                                                   const VkAllocationCallbacks *allocator) const = 0;
+  virtual ~EventHandler() = default;
+  virtual void OnRenderEvent() = 0;
 };
 
-class IWindow {
+class Window {
 public:
-  using Handle = std::unique_ptr<IWindow>;
+  using Handle = std::unique_ptr<Window>;
 
-  virtual ~IWindow() = default;
+  virtual ~Window() = default;
 
-  virtual void WaitUntilResized() const = 0;
-  [[nodiscard]] virtual bool ShouldClose() const = 0;
-  virtual void HandleEvents() const = 0;
+  [[nodiscard]] virtual bool ShouldClose() const noexcept = 0;
+  virtual void Loop(EventHandler* handler) const = 0;
 
   virtual void SetWindowResizedCallback(ResizeCallback resize_callback) = 0;
   virtual void SetWindowUserPointer(void* user_ptr) = 0;
 
   [[nodiscard]] virtual Size GetSize() const noexcept = 0;
-  [[nodiscard]] virtual std::vector<const char*> GetExtensions() const = 0;
-  [[nodiscard]] virtual const ISurfaceFactory& GetSurfaceFactory() const noexcept = 0;
 };
+
+namespace vk {
+
+class SurfaceFactory {
+public:
+  virtual ~SurfaceFactory() = default;
+  [[nodiscard]] virtual VkSurfaceKHR CreateSurface(VkInstance instance,
+                                                   const VkAllocationCallbacks *allocator) const = 0;
+};
+
+class Window : public virtual window::Window {
+public:
+  virtual void WaitUntilResized() const = 0;
+
+  [[nodiscard]] virtual std::vector<const char*> GetExtensions() const = 0;
+  [[nodiscard]] virtual const SurfaceFactory& GetSurfaceFactory() const noexcept = 0;
+};
+
+} // namespace vk
+
+namespace gl { class Window : public virtual window::Window {}; }
 
 } // namespace window
 

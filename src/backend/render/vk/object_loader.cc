@@ -1,13 +1,13 @@
 #include "backend/render/vk/object_loader.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include <cstring>
 #include <memory>
 #include <utility>
 
-#include "backend/render/data.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+#include "backend/render/data_util.h"
 #include "backend/render/vk/commander.h"
 #include "backend/render/vk/error.h"
 
@@ -27,7 +27,7 @@ std::pair<Device::Dispatchable<VkBuffer>, Device::Dispatchable<VkBuffer>> Create
   auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.Map());
   auto mapped_indices = static_cast<Index*>(transfer_indices.Map());
 
-  RemoveDuplicatesFromData(data, mapped_vertices, mapped_indices);
+  data_util::RemoveDuplicates(data, mapped_vertices, mapped_indices);
 
   transfer_vertices.Unmap();
   transfer_indices.Unmap();
@@ -78,8 +78,8 @@ std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(con
   for(const obj::NewMtl& mtl : data.mtl) {
     Device::Dispatchable<VkImage> texture;
     const std::string& path = mtl.map_kd;
-    std::optional<Device::Dispatchable<VkImage>> opt_texture = CreateStagingImage(path, usage, properties);
-    if (!opt_texture.has_value()) {
+    if (std::optional<Device::Dispatchable<VkImage>> opt_texture = CreateStagingImage(path, usage, properties);
+        !opt_texture.has_value()) {
       texture = CreateDummyImage(usage, properties);
     } else {
       texture = std::move(opt_texture.value());

@@ -146,7 +146,7 @@ Instance::Dispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() con
 }
 #endif
 
-Instance::Dispatchable<VkSurfaceKHR> Instance::CreateSurface(const window::ISurfaceFactory& surface_factory) const {
+Instance::Dispatchable<VkSurfaceKHR> Instance::CreateSurface(const window::vk::SurfaceFactory& surface_factory) const {
   VkSurfaceKHR surface = surface_factory.CreateSurface(handle_, allocator_);
   return {
     surface,

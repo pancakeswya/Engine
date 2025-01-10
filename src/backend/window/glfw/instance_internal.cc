@@ -1,10 +1,10 @@
-#include "backend/window/glfw/instance.h"
+#include "backend/window/glfw/instance_internal.h"
 
 #include <GLFW/glfw3.h>
 
 #include "backend/window/glfw/error.h"
 
-namespace window::glfw {
+namespace window::glfw::internal {
 
 Instance::Handle Instance::Init() {
   static Instance* instance_ptr = nullptr;
@@ -25,4 +25,4 @@ Instance::~Instance() {
   glfwTerminate();
 }
 
-} // namespace window::glfw
+} // namespace window::glfw::internal

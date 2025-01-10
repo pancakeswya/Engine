@@ -1,11 +1,11 @@
-#include "backend/render/data.h"
+#include "backend/render/data_util.h"
 
 #include <glm/glm.hpp>
 #include <unordered_map>
 
-namespace render {
+namespace render::data_util {
 
-void RemoveDuplicatesFromData(const obj::Data& data, Vertex* vertices, Index* indices) {
+void RemoveDuplicates(const obj::Data& data, Vertex* vertices, Index* indices) {
   std::unordered_map<obj::Indices, unsigned int, obj::Indices::Hash> index_map;
 
   unsigned int next_combined_idx = 0, combined_idx = 0;

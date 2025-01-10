@@ -199,7 +199,7 @@ const char* ParseFacet(const char* ptr, Data& data) {
       if (IsDigit(*ptr)) {
         index = std::strtol(ptr, &end, 10);
         if (end == ptr || index == 0) {
-          throw Error("invalid seporator in facet");
+          throw Error("invalid separator in facet");
         }
         if (index < 0) {
           indices.ft = data.vt.size() / 2 - static_cast<unsigned int>(-index);

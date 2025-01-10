@@ -10,6 +10,8 @@ set(EXTERNAL third_party)
 
 find_package(PkgConfig REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(SDL2 REQUIRED)
 
@@ -42,8 +44,17 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/render/types.h
         ${SRC_DIR}/backend/render/model.h
         ${SRC_DIR}/backend/render/model.cc
-        ${SRC_DIR}/backend/render/data.cc
-        ${SRC_DIR}/backend/render/data.h
+        ${SRC_DIR}/backend/render/data_util.cc
+        ${SRC_DIR}/backend/render/data_util.h
+        ${SRC_DIR}/backend/render/factory.cc
+        ${SRC_DIR}/backend/render/factory.h
+        ${SRC_DIR}/backend/render/render.h
+
+        ${SRC_DIR}/backend/render/gl/render.cc
+        ${SRC_DIR}/backend/render/gl/render.h
+        ${SRC_DIR}/backend/render/gl/error.h
+        ${SRC_DIR}/backend/render/gl/error.cc
+
         ${SRC_DIR}/backend/render/vk/config.cc
         ${SRC_DIR}/backend/render/vk/config.h
         ${SRC_DIR}/backend/render/vk/render.cc
@@ -68,18 +79,26 @@ add_executable(vk_engine
 
         ${SRC_DIR}/backend/window/window.h
         ${SRC_DIR}/backend/window/instance.h
-        ${SRC_DIR}/backend/window/provider.h
-        ${SRC_DIR}/backend/window/provider.cc
+        ${SRC_DIR}/backend/window/factory.h
+        ${SRC_DIR}/backend/window/factory.cc
         ${SRC_DIR}/backend/window/glfw/error.h
-        ${SRC_DIR}/backend/window/glfw/instance.h
-        ${SRC_DIR}/backend/window/glfw/instance.cc
-        ${SRC_DIR}/backend/window/glfw/window.h
-        ${SRC_DIR}/backend/window/glfw/window.cc
+        ${SRC_DIR}/backend/window/glfw/instance_internal.h
+        ${SRC_DIR}/backend/window/glfw/instance_internal.cc
+        ${SRC_DIR}/backend/window/glfw/window_internal.h
+        ${SRC_DIR}/backend/window/glfw/window_internal.cc
+        ${SRC_DIR}/backend/window/glfw/vk/instance.h
+        ${SRC_DIR}/backend/window/glfw/vk/window.h
+        ${SRC_DIR}/backend/window/glfw/vk/window.cc
+
+
+        ${SRC_DIR}/backend/window/glfw/gl/instance.h
+        ${SRC_DIR}/backend/window/glfw/gl/window.h
+
         ${SRC_DIR}/backend/window/sdl/error.h
-        ${SRC_DIR}/backend/window/sdl/instance.h
-        ${SRC_DIR}/backend/window/sdl/instance.cc
-        ${SRC_DIR}/backend/window/sdl/window.h
-        ${SRC_DIR}/backend/window/sdl/window.cc
+        ${SRC_DIR}/backend/window/sdl/vk/instance.h
+        ${SRC_DIR}/backend/window/sdl/vk/instance.cc
+        ${SRC_DIR}/backend/window/sdl/vk/window.h
+        ${SRC_DIR}/backend/window/sdl/vk/window.cc
 )
 
 target_link_directories(vk_engine PUBLIC
@@ -90,6 +109,7 @@ target_link_libraries(vk_engine
         Vulkan::Vulkan
         SDL2::SDL2
         SDL2::SDL2main
+        GLEW::GLEW
         glfw
         ${SHADERC_LIBRARIES}
 )

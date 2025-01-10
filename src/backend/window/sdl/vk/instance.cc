@@ -1,11 +1,11 @@
-#include "backend/window/sdl/instance.h"
+#include "backend/window/sdl/vk/instance.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
 #include "backend/window/sdl/error.h"
 
-namespace window::sdl {
+namespace window::sdl::vk {
 
 Instance::Handle Instance::Init() {
   static Instance* instance_ptr = nullptr;
@@ -30,4 +30,4 @@ Instance::~Instance() {
   SDL_Quit();
 }
 
-} // namespace window::sdl
+} // namespace window::sdl::vk

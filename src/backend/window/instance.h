@@ -5,11 +5,11 @@
 
 namespace window {
 
-class IInstance {
+class Instance {
 public:
-  using Handle = std::unique_ptr<IInstance>;
+  using Handle = std::unique_ptr<Instance>;
 
-  virtual ~IInstance() = default;
+  virtual ~Instance() = default;
 };
 
 } // namespace window

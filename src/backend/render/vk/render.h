@@ -2,30 +2,34 @@
 #define BACKEND_RENDER_VK_RENDER_H_
 
 #include <string>
+#include <memory>
+#include <utility>
 #include <vector>
 
+#define VULKAN_BACKEND
+#include "backend/render/render.h"
 #include "backend/render/model.h"
 #include "backend/render/vk/config.h"
 #include "backend/render/vk/device.h"
 #include "backend/render/vk/instance.h"
 #include "backend/render/vk/object.h"
 
-namespace window {
+namespace window::vk {
 
-class IWindow;
+class Window;
 
 } // namespace window
 
 namespace render::vk {
 
-class Renderer final {
+class Renderer final : public render::Renderer {
 public:
-  explicit Renderer(Config config, window::IWindow& window);
-  ~Renderer();
+  explicit Renderer(Config config, window::vk::Window& window);
+  ~Renderer() override;
 
-  void RenderFrame();
-  void LoadModel(const std::string& path);
-  [[nodiscard]] Model& GetModel() noexcept;
+  void RenderFrame() override;
+  void LoadModel(const std::string& path) override;
+  Model& GetModel() noexcept override;
 private:
   void RecreateSwapchain();
   void UpdateUniforms() const;
@@ -33,7 +37,7 @@ private:
 
   Config config_;
 
-  window::IWindow& window_;
+  window::vk::Window& window_;
 
   bool framebuffer_resized_;
   mutable size_t curr_frame_;

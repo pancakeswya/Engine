@@ -17,7 +17,7 @@ namespace render::vk {
 namespace {
 
 template<typename ...Args>
-std::vector<const char*> MergeInstanceExtensions(const Args&... args) {
+std::vector<const char*> MergeNames(const Args&... args) {
   std::vector<const char*> instance_extensions;
   (instance_extensions.insert(instance_extensions.end(), args.begin(), args.end()), ...);
   return instance_extensions;
@@ -25,13 +25,13 @@ std::vector<const char*> MergeInstanceExtensions(const Args&... args) {
 
 } // namespace
 
-Renderer::Renderer(Config config, window::IWindow& window)
+Renderer::Renderer(Config config, window::vk::Window& window)
   : config_(std::move(config)),
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config_.app_info, MergeInstanceExtensions(window.GetExtensions(),
-                                                        config_.instance_extensions)),
+    instance_(config_.app_info, MergeNames(window.GetExtensions(),
+                                                    config_.instance_extensions)),
     device_() {
   window.SetWindowUserPointer(this);
   window.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {

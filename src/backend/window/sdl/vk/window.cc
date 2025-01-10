@@ -1,6 +1,8 @@
-#include "backend/window/sdl/window.h"
+#include "backend/window/sdl/vk/window.h"
 
-namespace window::sdl {
+#include "backend/window/sdl/error.h"
+
+namespace window::sdl::vk {
 
 namespace {
 
@@ -26,7 +28,7 @@ VkSurfaceKHR SurfaceFactory::CreateSurface(VkInstance instance, [[maybe_unused]]
 }
 
 Window::Window(const Size size, const std::string& title)
-  : opaque_(), should_close_(false), window_(CreateWindow(size, title)), surface_factory_(window_) {}
+  : user_ptr_(), should_close_(false), window_(CreateWindow(size, title)), surface_factory_(window_) {}
 
 void Window::HandleEvents() const noexcept {
   SDL_Event event;
@@ -54,11 +56,26 @@ void Window::HandleEvents() const noexcept {
     }
   }
   if (window_resized) {
-    opaque_.resize_callback(opaque_.user_ptr, {event.window.data1, event.window.data2});
+    resize_callback_(user_ptr_, {event.window.data1, event.window.data2});
   }
 }
 
-bool Window::ShouldClose() const noexcept { return should_close_; }
+std::vector<const char*> Window::GetExtensions() const {
+  uint32_t ext_count;
+  if (!SDL_Vulkan_GetInstanceExtensions(window_, &ext_count, nullptr)) {
+    throw Error("Failed to get instance extensions count").WithMessage();
+  }
+  std::vector<const char*> extensions(ext_count);
+  if (!SDL_Vulkan_GetInstanceExtensions(window_, &ext_count, extensions.data())) {
+    throw Error("Failed to get instance extensions").WithMessage();
+  }
+  return extensions;
+}
+
+void Window::Loop(EventHandler* handler) const noexcept {
+  HandleEvents();
+  handler->OnRenderEvent();
+}
 
 void Window::WaitUntilResized() const noexcept {
   int width = 0, height = 0;
@@ -70,12 +87,4 @@ void Window::WaitUntilResized() const noexcept {
   }
 }
 
-void Window::SetWindowUserPointer(void* user_ptr) noexcept {
-  opaque_.user_ptr = user_ptr;
-}
-
-void Window::SetWindowResizedCallback(ResizeCallback resize_callback) noexcept {
-  opaque_.resize_callback = resize_callback;
-}
-
-} // namespace window::sdl
+} // namespace window::sdl::vk

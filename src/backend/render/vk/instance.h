@@ -6,9 +6,9 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
-namespace window {
+namespace window::vk {
 
-class ISurfaceFactory;
+class SurfaceFactory;
 
 } // namespace window
 
@@ -30,7 +30,7 @@ public:
 #ifdef DEBUG
   Dispatchable<VkDebugUtilsMessengerEXT> CreateMessenger() const;
 #endif
-  [[nodiscard]] Dispatchable<VkSurfaceKHR> CreateSurface(const window::ISurfaceFactory& surface_factory) const;
+  [[nodiscard]] Dispatchable<VkSurfaceKHR> CreateSurface(const window::vk::SurfaceFactory& surface_factory) const;
 
   explicit Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
   ~Instance();
