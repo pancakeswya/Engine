@@ -2,15 +2,18 @@
 #define BACKEND_WINDOW_SDL_VK_INSTANCE_H_
 
 #include "backend/window/instance.h"
+#include "backend/window/sdl/error.h"
+#include "backend/window/sdl/instance_internal.h"
+#include "entity/singleton.h"
 
 namespace window::sdl::vk {
 
-class Instance final : public window::Instance {
+class Instance final : internal::Instance, public entity::Singleton<Instance, Error>, public window::Instance {
 public:
-  static Handle Init();
-
   ~Instance() override;
 private:
+  friend class Singleton;
+
   Instance();
 };
 

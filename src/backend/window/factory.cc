@@ -7,6 +7,8 @@
 
 #include "backend/window/sdl/vk/instance.h"
 #include "backend/window/sdl/vk/window.h"
+#include "backend/window/sdl/gl/instance.h"
+#include "backend/window/sdl/gl/window.h"
 
 namespace window {
 
@@ -34,14 +36,14 @@ Instance::Handle Factory::CreateInstance() const {
   if (type_ == Type::kGlfw) {
     return Instance::Handle(glfw::gl::Instance::Init());
   }
-  return {};
+  return Instance::Handle(sdl::gl::Instance::Init());
 }
 
 Window::Handle Factory::CreateWindow(const Size size, const std::string& title) const {
   if (type_ == Type::kGlfw) {
     return Window::Handle(new glfw::gl::Window(size, title));
   }
-  return {};
+  return Window::Handle(new sdl::gl::Window(size, title));
 }
 
 } // namespace gl

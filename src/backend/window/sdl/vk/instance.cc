@@ -7,19 +7,7 @@
 
 namespace window::sdl::vk {
 
-Instance::Handle Instance::Init() {
-  static Instance* instance_ptr = nullptr;
-  if (instance_ptr == nullptr) {
-    instance_ptr = new Instance;
-    return Handle(instance_ptr);
-  }
-  throw Error("sdl instance already created");
-}
-
 Instance::Instance() {
-  if (const int res = SDL_Init(SDL_INIT_VIDEO); res != 0) {
-    throw Error("sdl init failed").WithCode(res);
-  }
   if (const int res = SDL_Vulkan_LoadLibrary(nullptr); res != 0) {
     throw Error("sdl load vulkan failed").WithCode(res);
   }
@@ -27,7 +15,6 @@ Instance::Instance() {
 
 Instance::~Instance() {
   SDL_Vulkan_UnloadLibrary();
-  SDL_Quit();
 }
 
 } // namespace window::sdl::vk

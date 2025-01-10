@@ -1,20 +1,10 @@
 #include "backend/window/sdl/vk/window.h"
 
+#include <SDL2/SDL_vulkan.h>
+
 #include "backend/window/sdl/error.h"
 
 namespace window::sdl::vk {
-
-namespace {
-
-SDL_Window* CreateWindow(const Size size, const std::string& title) {
-  SDL_Window* window = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, size.width, size.height,  SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
-  if (window == nullptr) {
-    throw Error("Failed to create window");
-  }
-  return window;
-}
-
-} // namespace
 
 SurfaceFactory::SurfaceFactory(SDL_Window* window) noexcept : window_(window) {}
 
@@ -28,37 +18,7 @@ VkSurfaceKHR SurfaceFactory::CreateSurface(VkInstance instance, [[maybe_unused]]
 }
 
 Window::Window(const Size size, const std::string& title)
-  : user_ptr_(), should_close_(false), window_(CreateWindow(size, title)), surface_factory_(window_) {}
-
-void Window::HandleEvents() const noexcept {
-  SDL_Event event;
-
-  bool window_resized = false;
-  while (SDL_PollEvent(&event)) {
-    switch (event.type) {
-      case SDL_QUIT:
-          should_close_ = true;
-          break;
-      case SDL_WINDOWEVENT:
-        if (event.window.windowID != SDL_GetWindowID(window_)) {
-          break;
-        }
-        switch (event.window.event) {
-          case SDL_WINDOWEVENT_RESIZED:
-          case SDL_WINDOWEVENT_SIZE_CHANGED:
-            window_resized = true;
-            break;
-          default:
-            break;
-        }
-      default:
-        break;
-    }
-  }
-  if (window_resized) {
-    resize_callback_(user_ptr_, {event.window.data1, event.window.data2});
-  }
-}
+  : internal::Window(size, title, SDL_WINDOW_VULKAN), surface_factory_(window_) {}
 
 std::vector<const char*> Window::GetExtensions() const {
   uint32_t ext_count;
@@ -70,11 +30,6 @@ std::vector<const char*> Window::GetExtensions() const {
     throw Error("Failed to get instance extensions").WithMessage();
   }
   return extensions;
-}
-
-void Window::Loop(EventHandler* handler) const noexcept {
-  HandleEvents();
-  handler->OnRenderEvent();
 }
 
 void Window::WaitUntilResized() const noexcept {

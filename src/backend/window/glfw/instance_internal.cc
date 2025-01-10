@@ -2,18 +2,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "backend/window/glfw/error.h"
-
 namespace window::glfw::internal {
-
-Instance::Handle Instance::Init() {
-  static Instance* instance_ptr = nullptr;
-  if (instance_ptr == nullptr) {
-    instance_ptr = new Instance;
-    return Handle(instance_ptr);
-  }
-  throw Error("glfw instance already created");
-}
 
 Instance::Instance() {
   if (glfwInit() == GLFW_FALSE) {
@@ -21,8 +10,6 @@ Instance::Instance() {
   }
 }
 
-Instance::~Instance() {
-  glfwTerminate();
-}
+Instance::~Instance() { glfwTerminate(); }
 
 } // namespace window::glfw::internal

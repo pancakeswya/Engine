@@ -16,11 +16,11 @@ namespace render::vk {
 
 namespace {
 
-template<typename ...Args>
-std::vector<const char*> MergeNames(const Args&... args) {
-  std::vector<const char*> instance_extensions;
-  (instance_extensions.insert(instance_extensions.end(), args.begin(), args.end()), ...);
-  return instance_extensions;
+template<typename T, typename ...Args>
+std::vector<T> MergeVectors(const Args&... args) {
+  std::vector<T> v1;
+  (v1.insert(v1.end(), args.begin(), args.end()), ...);
+  return v1;
 }
 
 } // namespace
@@ -30,8 +30,8 @@ Renderer::Renderer(Config config, window::vk::Window& window)
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config_.app_info, MergeNames(window.GetExtensions(),
-                                                    config_.instance_extensions)),
+    instance_(config_.app_info, MergeVectors<const char*>(window.GetExtensions(),
+                                                                   config_.instance_extensions)),
     device_() {
   window.SetWindowUserPointer(this);
   window.SetWindowResizedCallback([](void* user_ptr, window::Size size[[maybe_unused]]) {
@@ -237,8 +237,8 @@ void Renderer::RenderFrame() {
   present_info.pSwapchains = swapchain_.HandlePtr();
   present_info.pImageIndices = &image_idx;
 
-  const VkResult result = vkQueuePresentKHR(present_queue, &present_info);
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
+  if (const VkResult result = vkQueuePresentKHR(present_queue, &present_info);
+      result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
     framebuffer_resized_ = false;
     RecreateSwapchain();
   } else if (result != VK_SUCCESS) {

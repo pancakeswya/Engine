@@ -37,6 +37,7 @@ add_executable(vk_engine
         ${SRC_DIR}/main.cc
         ${SRC_DIR}/app/app.cc
         ${SRC_DIR}/app/app.h
+        ${SRC_DIR}/entity/singleton.h
         ${SRC_DIR}/obj/types.h
         ${SRC_DIR}/obj/error.h
         ${SRC_DIR}/obj/parser.h
@@ -81,6 +82,7 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/window/instance.h
         ${SRC_DIR}/backend/window/factory.h
         ${SRC_DIR}/backend/window/factory.cc
+
         ${SRC_DIR}/backend/window/glfw/error.h
         ${SRC_DIR}/backend/window/glfw/instance_internal.h
         ${SRC_DIR}/backend/window/glfw/instance_internal.cc
@@ -89,16 +91,20 @@ add_executable(vk_engine
         ${SRC_DIR}/backend/window/glfw/vk/instance.h
         ${SRC_DIR}/backend/window/glfw/vk/window.h
         ${SRC_DIR}/backend/window/glfw/vk/window.cc
-
-
         ${SRC_DIR}/backend/window/glfw/gl/instance.h
         ${SRC_DIR}/backend/window/glfw/gl/window.h
 
         ${SRC_DIR}/backend/window/sdl/error.h
+        ${SRC_DIR}/backend/window/sdl/instance_internal.h
+        ${SRC_DIR}/backend/window/sdl/instance_internal.cc
+        ${SRC_DIR}/backend/window/sdl/window_internal.h
+        ${SRC_DIR}/backend/window/sdl/window_internal.cc
         ${SRC_DIR}/backend/window/sdl/vk/instance.h
         ${SRC_DIR}/backend/window/sdl/vk/instance.cc
         ${SRC_DIR}/backend/window/sdl/vk/window.h
         ${SRC_DIR}/backend/window/sdl/vk/window.cc
+        ${SRC_DIR}/backend/window/sdl/gl/instance.h
+        ${SRC_DIR}/backend/window/sdl/gl/window.h
 )
 
 target_link_directories(vk_engine PUBLIC

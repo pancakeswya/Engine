@@ -2,8 +2,6 @@
 #define BACKEND_RENDER_VK_RENDER_H_
 
 #include <string>
-#include <memory>
-#include <utility>
 #include <vector>
 
 #define VULKAN_BACKEND
