@@ -55,10 +55,10 @@ Renderer::Renderer(Config config, window::vk::Window& window)
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
 
-  if (const std::optional<Device> result = DeviceSelector(devices).Select(requirements); !result) {
+  if (std::optional<Device> device = DeviceSelector(devices).Select(requirements); !device) {
     throw Error("failed to find suitable device");
   } else {
-    device_ = result.value();
+    device_ = std::move(*device);
   }
 
   swapchain_ = device_.CreateSwapchain(window.GetSize(), surface_.Handle());
@@ -177,7 +177,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx)
   }
 }
 
-void Renderer::UpdateUniforms() const {
+void Renderer::UpdateUniforms() {
   const render::Uniforms& uniforms = model_.GetUniforms();
   std::memcpy(uniforms_buff_[curr_frame_], &uniforms, sizeof(Uniforms));
 }

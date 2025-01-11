@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR src)
 set(EXTERNAL third_party)
 
-# add_compile_definitions(DEBUG)
+ add_compile_definitions(DEBUG)
 
 find_package(PkgConfig REQUIRED)
 find_package(Vulkan REQUIRED)
@@ -30,6 +30,7 @@ foreach (SHADER ${SHADERS})
 endforeach ()
 
 pkg_check_modules(SHADERC REQUIRED shaderc)
+#pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
 
 configure_file(${SRC_DIR}/backend/render/vk/shaders.cc.in ${SRC_DIR}/backend/render/vk/shaders.cc @ONLY)
 
@@ -113,6 +114,7 @@ target_link_directories(vk_engine PUBLIC
 
 target_link_libraries(vk_engine
         Vulkan::Vulkan
+        OpenGL::GL
         SDL2::SDL2
         SDL2::SDL2main
         GLEW::GLEW

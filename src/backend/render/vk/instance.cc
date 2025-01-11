@@ -1,7 +1,10 @@
 #include "backend/render/vk/instance.h"
 
 #include <vector>
+#ifdef DEBUG
+#include <cstring>
 #include <iostream>
+#endif
 
 #include "backend/render/vk/error.h"
 #include "backend/window/window.h"
@@ -11,8 +14,6 @@ namespace render::vk {
 namespace {
 
 #ifdef DEBUG
-
-#define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
 bool InstanceLayersAreSupported(const std::vector<const char*>& layers) {
   uint32_t layer_count;
@@ -122,6 +123,9 @@ Instance::~Instance() {
 }
 
 #ifdef DEBUG
+
+#define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
+
 Instance::Dispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const {
   const auto create_messenger = vkGetInstanceProcAddrByType(handle_, vkCreateDebugUtilsMessengerEXT);
   if (create_messenger == nullptr) {
@@ -144,6 +148,9 @@ Instance::Dispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() con
     allocator_
   };
 }
+
+#undef vkGetInstanceProcAddrByType
+
 #endif
 
 Instance::Dispatchable<VkSurfaceKHR> Instance::CreateSurface(const window::vk::SurfaceFactory& surface_factory) const {

@@ -153,9 +153,10 @@ void ImageCommander::TransitImageLayout(VkImageLayout old_layout, VkImageLayout 
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.image = image_.Handle();
   barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  barrier.subresourceRange.baseMipLevel = image_.MipLevels();
-  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = image_.MipLevels();
   barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
 
   VkPipelineStageFlags source_stage;
   VkPipelineStageFlags destination_stage;

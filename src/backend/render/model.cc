@@ -1,6 +1,7 @@
 #include "backend/render/model.h"
 
 #include <chrono>
+#include <iostream>
 
 namespace render {
 

@@ -19,7 +19,7 @@ private:
   GLFWwindow* window_;
 };
 
-class Window final : internal::Window, public window::vk::Window {
+class Window final : public internal::Window, public window::vk::Window {
 public:
   Window(Size size, const std::string& title);
   ~Window() noexcept override = default;

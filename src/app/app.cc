@@ -5,6 +5,10 @@
 #include "backend/render/factory.h"
 #include "backend/window/factory.h"
 
+#include "backend/window/glfw/vk/instance.h"
+#include "backend/window/glfw/vk/window.h"
+#include "backend/render/vk/render.h"
+
 namespace app {
 
 class Engine final : window::EventHandler {
@@ -38,8 +42,8 @@ private:
 
 int run() noexcept try {
   Engine engine{
-    window::gl::Factory(window::Type::kSdl),
-    render::Factory(render::Type::kGl)
+    window::vk::Factory(window::Type::kGlfw),
+    render::Factory(render::Type::kVk)
   };
   engine.Run();
   return 0;

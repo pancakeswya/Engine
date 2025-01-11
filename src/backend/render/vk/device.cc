@@ -78,10 +78,6 @@ inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
   );
 }
 
-inline uint32_t CalculateMipMaps(const VkExtent2D extent) {
-  return static_cast<uint32_t>(std::floor(std::log2(std::max(extent.width, extent.height)))) + 1;
-}
-
 Device::Dispatchable<VkDeviceMemory> CreateMemory(VkDevice logical_device, VkPhysicalDevice physical_device, const VkAllocationCallbacks* allocator, const VkMemoryPropertyFlags properties, const VkMemoryRequirements& mem_requirements) {
   VkMemoryAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -100,9 +96,7 @@ Device::Dispatchable<VkDeviceMemory> CreateMemory(VkDevice logical_device, VkPhy
   };
 }
 
-Device::Dispatchable<VkImage> CreateImageInternal(VkDevice logical_device, VkPhysicalDevice physical_device, const VkAllocationCallbacks* allocator, const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling) {
-  const uint32_t mip_levels = CalculateMipMaps(extent);
-
+Device::Dispatchable<VkImage> CreateImageInternal(VkDevice logical_device, VkPhysicalDevice physical_device, const VkAllocationCallbacks* allocator, const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels = 1) {
   VkImageCreateInfo image_info = {};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = VK_IMAGE_TYPE_2D;
@@ -582,8 +576,8 @@ Device::Dispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t
   };
 }
 
-Device::Dispatchable<VkImage> Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling) const {
-  return CreateImageInternal(logical_device_, physical_device_, allocator_, usage, extent, format, tiling);
+Device::Dispatchable<VkImage> Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels) const {
+  return CreateImageInternal(logical_device_, physical_device_, allocator_, usage, extent, format, tiling, mip_levels);
 }
 
 Device::Dispatchable<VkSwapchainKHR> Device::CreateSwapchain(const window::Size size, VkSurfaceKHR surface) const {

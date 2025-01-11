@@ -37,7 +37,12 @@ public:
   static SurfaceSupportDetails GetSurfaceSupport(VkPhysicalDevice physical_device, VkSurfaceKHR surface);
 
   Device() = default;
-  ~Device() = default;
+  Device(const Device&) = delete;
+  Device(Device&& other) noexcept;
+  ~Device();
+
+  Device& operator=(const Device&) = delete;
+  Device& operator=(Device&&) noexcept;
 
   [[nodiscard]] VkDevice Logical() const noexcept;
   [[nodiscard]] VkPhysicalDevice Physical() const noexcept;
@@ -59,7 +64,8 @@ public:
   [[nodiscard]] Dispatchable<VkImage> CreateImage(VkImageUsageFlags usage,
                                                   VkExtent2D extent,
                                                   VkFormat format,
-                                                  VkImageTiling tiling) const;
+                                                  VkImageTiling tiling,
+                                                  uint32_t mip_levels) const;
   [[nodiscard]] Dispatchable<VkSwapchainKHR> CreateSwapchain(window::Size, VkSurfaceKHR surface) const;
   [[nodiscard]] std::vector<VkCommandBuffer> CreateCommandBuffers(VkCommandPool cmd_pool, uint32_t count) const;
 private:
@@ -72,6 +78,31 @@ private:
   const VkAllocationCallbacks* allocator_;
   QueueFamilyIndices indices_;
 };
+
+inline Device::Device(render::vk::Device &&other) noexcept
+    : logical_device_(other.logical_device_), physical_device_(other.physical_device_),
+      allocator_(other.allocator_), indices_(other.indices_) {
+    other.logical_device_ = VK_NULL_HANDLE;
+    other.physical_device_ = VK_NULL_HANDLE;
+    other.allocator_ = nullptr;
+    other.indices_ = {};
+}
+
+inline Device::~Device() {
+    if (logical_device_ != nullptr) {
+        vkDestroyDevice(logical_device_, allocator_);
+    }
+}
+
+inline Device& Device::operator=(render::vk::Device&& other) noexcept {
+    if (this != &other) {
+        logical_device_ = std::exchange(other.logical_device_, VK_NULL_HANDLE);
+        physical_device_ = std::exchange(other.physical_device_, VK_NULL_HANDLE);
+        allocator_ = std::exchange(other.allocator_, nullptr);
+        indices_ = std::exchange(other.indices_, {});
+    }
+    return *this;
+}
 
 inline VkDevice Device::Logical() const noexcept {
   return logical_device_;

@@ -35,6 +35,10 @@ std::pair<Device::Dispatchable<VkBuffer>, Device::Dispatchable<VkBuffer>> Create
   return {std::move(transfer_vertices), std::move(transfer_indices)};
 }
 
+inline uint32_t CalculateMipMaps(const VkExtent2D extent) {
+    return static_cast<uint32_t>(std::floor(std::log2(std::max(extent.width, extent.height)))) + 1;
+}
+
 } // namespace
 
 std::vector<VkVertexInputBindingDescription> Vertex::GetBindingDescriptions() {
@@ -69,7 +73,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
   stbi_set_flip_vertically_on_load(true);
 
-  VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
   VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
   std::vector<Device::Dispatchable<VkImage>> textures;
@@ -100,7 +104,8 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStagingImageFromPixels(const u
   std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
   transfer_buffer.Unmap();
 
-  Device::Dispatchable<VkImage> image = device_->CreateImage(usage, extent, image_settings_.vk_format, VK_IMAGE_TILING_OPTIMAL);
+  Device::Dispatchable<VkImage> image = device_->CreateImage(usage, extent, image_settings_.vk_format, VK_IMAGE_TILING_OPTIMAL,
+                                                             CalculateMipMaps(extent));
   image.Allocate(properties);
   image.Bind();
   image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -243,7 +248,7 @@ Object ObjectLoader::Load(const std::string& path, const size_t frame_count) con
 
   ubo_buffers.resize(frame_count);
   for(Device::Dispatchable<VkBuffer>& ubo_buffer : ubo_buffers) {
-    ubo_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(UniformBufferObject));
+    ubo_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(Uniforms));
     ubo_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     ubo_buffer.Bind();
   }
