@@ -208,7 +208,7 @@ std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std
     VkDescriptorBufferInfo buffer_info = {};
     buffer_info.buffer = buffers[i].Handle();
     buffer_info.offset = 0;
-    buffer_info.range = sizeof(UniformBufferObject);
+    buffer_info.range = sizeof(Uniforms);
 
     VkWriteDescriptorSet descriptor_write = {};
     descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

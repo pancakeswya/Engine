@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR src)
 set(EXTERNAL third_party)
 
- add_compile_definitions(DEBUG)
+# add_compile_definitions(DEBUG)
 
 find_package(PkgConfig REQUIRED)
 find_package(Vulkan REQUIRED)
