@@ -76,7 +76,9 @@ ValueHandle ShaderProgramCreate() {
   static bool is_init = false;
   if (!is_init) {
     stbi_set_flip_vertically_on_load(true);
-    glewInit();
+    if (glewInit() != GLEW_OK) {
+        throw Error("Failed to gl loader");
+    }
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
@@ -190,6 +192,9 @@ void Renderer::LoadModel(const std::string& path) {
   glVertexAttribPointer(tex_loc, 2, GL_FLOAT, GL_FALSE,  8 * sizeof(float), (void*)(6 * sizeof(GLfloat)));
   glEnableVertexAttribArray(tex_loc);
 
+  glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+  glUnmapBuffer(GL_ARRAY_BUFFER);
+
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -213,16 +218,25 @@ void Renderer::RenderFrame() {
   uniform_location = glGetUniformLocation(program_.Value(), "ubo.view");
   glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(uniforms.view[0]));
   uniform_location = glGetUniformLocation(program_.Value(), "ubo.proj");
+
   glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(uniforms.proj[0]));
 
   size_t prev_offset = 0;
 
   for(const auto[index, offset] : object_.usemtl) {
+
+      glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, object_.textures[index].Value());
 
     glDrawElements(GL_TRIANGLES, offset - prev_offset, GL_UNSIGNED_INT, reinterpret_cast<void*>(prev_offset * sizeof(GLuint)));
+      glBindTexture(GL_TEXTURE_2D, 0);
     prev_offset = offset;
   }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glUseProgram(0);
+
 }
 
 

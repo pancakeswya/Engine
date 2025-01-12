@@ -57,6 +57,8 @@ public:
     }
   }
 
+  Handle& operator=(const Handle&) = delete;
+
   Handle& operator=(Handle&& other) noexcept {
     if (this != &other) {
       handle_ = std::exchange(other.handle_, {});

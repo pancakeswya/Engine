@@ -42,8 +42,8 @@ private:
 
 int run() noexcept try {
   Engine engine{
-    window::vk::Factory(window::Type::kGlfw),
-    render::Factory(render::Type::kVk)
+    window::gl::Factory(window::Type::kSdl),
+    render::Factory(render::Type::kGl)
   };
   engine.Run();
   return 0;
