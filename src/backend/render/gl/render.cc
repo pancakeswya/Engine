@@ -224,19 +224,10 @@ void Renderer::RenderFrame() {
   size_t prev_offset = 0;
 
   for(const auto[index, offset] : object_.usemtl) {
-
-      glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, object_.textures[index].Value());
-
     glDrawElements(GL_TRIANGLES, offset - prev_offset, GL_UNSIGNED_INT, reinterpret_cast<void*>(prev_offset * sizeof(GLuint)));
-      glBindTexture(GL_TEXTURE_2D, 0);
     prev_offset = offset;
   }
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glUseProgram(0);
-
 }
 
 

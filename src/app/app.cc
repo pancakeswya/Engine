@@ -42,7 +42,7 @@ private:
 
 int run() noexcept try {
   Engine engine{
-    window::gl::Factory(window::Type::kSdl),
+    window::vk::Factory(window::Type::kGlfw),
     render::Factory(render::Type::kGl)
   };
   engine.Run();

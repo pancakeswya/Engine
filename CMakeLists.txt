@@ -13,7 +13,7 @@ find_package(Vulkan REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
-find_package(SDL2 REQUIRED)
+#find_package(SDL2 REQUIRED)
 
 include_directories("${SRC_DIR}")
 include_directories("${EXTERNAL}/glm")
@@ -30,7 +30,7 @@ foreach (SHADER ${SHADERS})
 endforeach ()
 
 pkg_check_modules(SHADERC REQUIRED shaderc)
-#pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
+pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
 
 configure_file(${SRC_DIR}/backend/render/vk/shaders.cc.in ${SRC_DIR}/backend/render/vk/shaders.cc @ONLY)
 
@@ -115,8 +115,7 @@ target_link_directories(vk_engine PUBLIC
 target_link_libraries(vk_engine
         Vulkan::Vulkan
         OpenGL::GL
-        SDL2::SDL2
-        SDL2::SDL2main
+        ${SDL2_LIBRARIES}
         GLEW::GLEW
         glfw
         ${SHADERC_LIBRARIES}
