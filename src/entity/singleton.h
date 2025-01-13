@@ -3,16 +3,19 @@
 
 namespace entity {
 
-template<typename T, typename ErrT>
+template<typename T>
 class Singleton {
 public:
-  static auto Init() {
-    static T* instance_ptr = nullptr;
-    if (instance_ptr == nullptr) {
-      instance_ptr = new T;
-      return typename T::Handle(instance_ptr);
+  static T* GetInstance() {
+    static T* instance;
+    if (instance == nullptr) {
+      instance = new T();
     }
-    throw ErrT("instance already created");
+    return instance;
+  }
+
+  static void Destroy(T* instance) {
+    delete instance;
   }
 };
 

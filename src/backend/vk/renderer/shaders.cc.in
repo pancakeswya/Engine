@@ -1,0 +1,44 @@
+#include "backend/vk/renderer/shaders.h"
+
+#include <cstring>
+#include <shaderc/shaderc.hpp>
+
+#include "backend/vk/renderer/error.h"
+
+namespace vk {
+
+namespace {
+
+std::vector<uint32_t> CompileToSpv(const shaderc::Compiler& compiler, shaderc_shader_kind kind, const char* shader_code) {
+  const shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(shader_code, strlen(shader_code), kind, "source");
+  if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+    throw Error("failed to compile shaders: " + module.GetErrorMessage());
+  }
+  return {module.cbegin(), module.cend()};
+}
+
+} // namespace
+
+std::vector<Shader> GetShaders() {
+  shaderc::Compiler compiler;
+  return {
+              {
+                VK_SHADER_STAGE_VERTEX_BIT,
+                CompileToSpv(
+                  compiler,
+                  shaderc_vertex_shader,
+                  R"(@VERT@)"),
+                "main"
+              },
+              {
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                CompileToSpv(
+                  compiler,
+                  shaderc_fragment_shader,
+                  R"(@FRAG@)"),
+                "main"
+              }
+  };
+}
+
+} // namespace vk
