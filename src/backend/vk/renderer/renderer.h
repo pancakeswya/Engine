@@ -12,7 +12,7 @@
 #include "backend/vk/renderer/device.h"
 #include "backend/vk/renderer/instance.h"
 #include "backend/vk/renderer/object.h"
-#include "backend/vk/window/window.h"
+#include "backend/vk/renderer/window.h"
 
 namespace vk {
 

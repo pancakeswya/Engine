@@ -1,7 +1,7 @@
 #ifndef BACKEND_VK_WINDOW_GLFW_WINDOW_H_
 #define BACKEND_VK_WINDOW_GLFW_WINDOW_H_
 
-#include "backend/vk/window/window.h"
+#include "backend/vk/renderer/window.h"
 #include "backend/internal/glfw/window.h"
 
 #define GLFW_INCLUDE_VULKAN

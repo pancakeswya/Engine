@@ -1,7 +1,7 @@
 #ifndef BACKEND_GL_RENDERER_RENDER_H_
 #define BACKEND_GL_RENDERER_RENDER_H_
 
-#include "backend/gl/window/window.h"
+#include "backend/gl/renderer/window.h"
 #include "engine/render/model.h"
 #include "engine/render/renderer.h"
 #include "obj/types.h"

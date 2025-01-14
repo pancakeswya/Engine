@@ -1,7 +1,7 @@
 #ifndef BACKEND_GL_WINDOW_GLFW_WINDOW_H_
 #define BACKEND_GL_WINDOW_GLFW_WINDOW_H_
 
-#include "backend/gl/window/window.h"
+#include "backend/gl/renderer/window.h"
 #include "backend/internal/glfw/window.h"
 
 #include <string>

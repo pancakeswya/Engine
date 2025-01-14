@@ -1,5 +1,5 @@
-#ifndef BACKEND_VK_WINDOW_WINDOW_H_
-#define BACKEND_VK_WINDOW_WINDOW_H_
+#ifndef BACKEND_VK_RENDERER_WINDOW_H_
+#define BACKEND_VK_RENDERER_WINDOW_H_
 
 #include "engine/window/window.h"
 
@@ -26,4 +26,4 @@ public:
 
 } // namespace vk
 
-#endif // BACKEND_VK_WINDOW_WINDOW_H_
+#endif // BACKEND_VK_RENDERER_WINDOW_H_

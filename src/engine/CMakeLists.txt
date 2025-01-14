@@ -13,6 +13,8 @@ set(SOURCES
         window/plugin.h
 
         dll_loader.h
+        runner.cc
+        runner.h
 )
 
-add_library(renderer STATIC ${SOURCES})
+add_library(engine STATIC ${SOURCES})

@@ -1,4 +1,7 @@
 
+find_package(Vulkan REQUIRED)
+find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(SHADERC REQUIRED shaderc)
 
 set(SHADERS
@@ -15,7 +18,7 @@ endforeach ()
 
 configure_file(shaders.cc.in shaders.cc @ONLY)
 
-add_library(vk_renderer STATIC
+add_library(vk_renderer SHARED
         config.cc
         config.h
         renderer.cc
@@ -35,20 +38,16 @@ add_library(vk_renderer STATIC
         device_selector.cc
         commander.h
         commander.cc
+        plugin.cc
+        window.h
         shaders.h
         shaders.cc
 )
 
 target_compile_definitions(vk_renderer PRIVATE -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)
-
 target_link_directories(vk_renderer PUBLIC ${SHADERC_LIBRARY_DIRS})
-
 target_link_libraries(vk_renderer
         Vulkan::Vulkan
         ${SHADERC_LIBRARIES}
         obj
 )
-
-add_library(vk_renderer-plugin SHARED plugin.cc)
-
-target_link_libraries(vk_renderer-plugin PUBLIC vk_renderer)

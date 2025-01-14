@@ -128,7 +128,7 @@ PointerHandle LoadDummyTexture()  {
 
 std::optional<PointerHandle> LoadTexture(const std::string& path) {
   int image_width, image_height, image_channels;
-  std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha), stbi_image_free);
+  const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha), stbi_image_free);
   if (pixels == nullptr) {
     return std::nullopt;
   }
@@ -228,6 +228,5 @@ void Renderer::RenderFrame() {
     prev_offset = offset;
   }
 }
-
 
 } // namespace gl

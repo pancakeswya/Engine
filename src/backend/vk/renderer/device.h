@@ -3,7 +3,7 @@
 
 #include "backend/vk/renderer/dispatchable.h"
 #include "backend/vk/renderer/shaders.h"
-#include "backend/vk/window/window.h"
+#include "backend/vk/renderer/window.h"
 
 #include <vulkan/vulkan.h>
 

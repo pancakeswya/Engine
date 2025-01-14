@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "backend/vk/window/window.h"
+#include "backend/vk/renderer/window.h"
 #include "backend/internal/sdl/window.h"
 
 namespace sdl::vk {

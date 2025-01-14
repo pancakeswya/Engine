@@ -2,7 +2,7 @@
 #define BACKEND_VK_RENDERER_INSTANCE_H_
 
 #include "backend/vk/renderer/dispatchable.h"
-#include "backend/vk/window/window.h"
+#include "backend/vk/renderer/window.h"
 
 #include <vulkan/vulkan.h>
 #include <vector>
