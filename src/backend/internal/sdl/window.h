@@ -1,7 +1,7 @@
 #ifndef BACKEND_INTERNAL_SDL_WINDOW_H_
 #define BACKEND_INTERNAL_SDL_WINDOW_H_
 
-#include "engine/window.h"
+#include "engine/window/window.h"
 
 #include <SDL2/SDL.h>
 

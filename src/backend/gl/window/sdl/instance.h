@@ -3,20 +3,15 @@
 
 #include "backend/internal/sdl/instance.h"
 
-#include "engine/instance.h"
-#include "entity/singleton.h"
+#include "engine/window/instance.h"
 
 namespace sdl::gl {
 
 class Instance final : public internal::Instance,
-                       public engine::Instance,
-                       public entity::Singleton<Instance>  {
+                       public virtual engine::Instance {
 public:
-  ~Instance() override = default;
-private:
-  friend class Singleton;
-
   Instance() = default;
+  ~Instance() override = default;
 };
 
 } // namespace sdl::gl

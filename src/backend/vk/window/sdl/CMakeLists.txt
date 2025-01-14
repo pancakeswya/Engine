@@ -11,6 +11,6 @@ add_library(sdl_vk_window STATIC ${SOURCES})
 
 target_link_libraries(sdl_vk_window PUBLIC Vulkan::Vulkan sdl_internal)
 
-add_library(sdl_vk_window-entry SHARED entry.cc)
+add_library(sdl_vk_window-plugin SHARED plugin.cc)
 
-target_link_libraries(sdl_vk_window-entry PUBLIC sdl_vk_window)
+target_link_libraries(sdl_vk_window-plugin PUBLIC sdl_vk_window)

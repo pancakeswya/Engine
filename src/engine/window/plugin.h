@@ -1,8 +1,8 @@
-#ifndef ENGINE_WINDOW_ENTRY_H_
-#define ENGINE_WINDOW_ENTRY_H_
+#ifndef ENGINE_WINDOW_PLUGIN_H_
+#define ENGINE_WINDOW_PLUGIN_H_
 
-#include "engine/instance.h"
-#include "engine/window.h"
+#include "engine/window/instance.h"
+#include "engine/window/window.h"
 
 extern "C" {
 
@@ -14,4 +14,4 @@ extern void DestroyWindow(engine::Window* window);
 
 } // extern "C"
 
-#endif // ENGINE_WINDOW_ENTRY_H_
+#endif // ENGINE_WINDOW_PLUGIN_H_

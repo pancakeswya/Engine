@@ -8,7 +8,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include "engine/data_util.h"
+#include "engine/render/data_util.h"
 #include "backend/gl/renderer/error.h"
 #include "obj/parser.h"
 

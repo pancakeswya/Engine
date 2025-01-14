@@ -1,5 +1,5 @@
-#ifndef BACKEND_GL_WINDOW_SDL_WINDOW_H_
-#define BACKEND_GL_WINDOW_SDL_WINDOW_H_
+#ifndef BACKEND_GL_WINDOW_GLFW_WINDOW_H_
+#define BACKEND_GL_WINDOW_GLFW_WINDOW_H_
 
 #include "backend/gl/window/window.h"
 #include "backend/internal/glfw/window.h"
@@ -18,4 +18,4 @@ public:
 
 } // namespace glfw::gl
 
-#endif // BACKEND_GL_WINDOW_SDL_WINDOW_H_
+#endif // BACKEND_GL_WINDOW_GLFW_WINDOW_H_

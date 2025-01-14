@@ -1,5 +1,5 @@
-#ifndef BACKEND_GL_WINDOW_SDL_INSTANCE_H_
-#define BACKEND_GL_WINDOW_SDL_INSTANCE_H_
+#ifndef BACKEND_GL_WINDOW_GLFW_INSTANCE_H_
+#define BACKEND_GL_WINDOW_GLFW_INSTANCE_H_
 
 #include "backend/internal/glfw/instance.h"
 
@@ -9,4 +9,4 @@ using Instance = internal::Instance;
 
 } // namespace glfw::gl
 
-#endif // BACKEND_GL_WINDOW_SDL_INSTANCE_H_
+#endif // BACKEND_GL_WINDOW_GLFW_INSTANCE_H_

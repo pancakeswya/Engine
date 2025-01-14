@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "engine/model.h"
-#include "engine/renderer.h"
+#include "engine/render/model.h"
+#include "engine/render/renderer.h"
 
 #include "backend/vk/renderer/renderer.h"
 #include "backend/vk/renderer/config.h"

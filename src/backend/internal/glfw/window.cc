@@ -17,7 +17,7 @@ GLFWwindow* CreateWindow(const int width, const int height, const std::string& t
 } // namespace
 
 Window::Window(const int width, const int height, const std::string& title)
-: opaque_(), window_(CreateWindow(width, height, title)) {}
+  : opaque_(), window_(CreateWindow(width, height, title)) {}
 
 void Window::Loop(EventHandler* handler) const {
   glfwPollEvents();

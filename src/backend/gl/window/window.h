@@ -1,7 +1,7 @@
 #ifndef BACKEND_GL_WINDOW_WINDOW_H_
 #define BACKEND_GL_WINDOW_WINDOW_H_
 
-#include "engine/window.h"
+#include "engine/window/window.h"
 
 namespace gl {
 

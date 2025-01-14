@@ -1,20 +1,20 @@
-#include "engine/window_entry.h"
+#include "engine/window/plugin.h"
 
 #include "backend/vk/window/sdl/instance.h"
 #include "backend/vk/window/sdl/window.h"
 
 engine::Instance* GetInstance() {
-  return sdl::vk::Instance::GetInstance();
+  return new sdl::vk::Instance();
 }
 
-void DestroyInstance([[maybe_unused]]engine::Instance* instance) {
-  sdl::vk::Instance::Destroy(dynamic_cast<sdl::vk::Instance*>(instance));
+void DestroyInstance(engine::Instance* instance) {
+  delete instance;
 }
 
 engine::Window* CreateWindow(const int width, const int height, const std::string& title) {
   return new sdl::vk::Window(width, height, title);
 }
 
-extern void DestroyWindow(engine::Window* window) {
+void DestroyWindow(engine::Window* window) {
   delete window;
 }

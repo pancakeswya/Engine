@@ -1,5 +1,5 @@
-#ifndef ENGINE_TYPES_H_
-#define ENGINE_TYPES_H_
+#ifndef ENGINE_RENDER_TYPES_H_
+#define ENGINE_RENDER_TYPES_H_
 
 #include <cstdint>
 
@@ -24,4 +24,4 @@ struct Uniforms {
 
 } // namespace engine
 
-#endif // ENGINE_TYPES_H_
+#endif // ENGINE_RENDER_TYPES_H_

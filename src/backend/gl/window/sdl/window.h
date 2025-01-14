@@ -18,16 +18,7 @@ private:
   SDL_GLContext context_;
 };
 
-inline Window::Window(const int width, const int height, const std::string& title)
-  : internal::Window(size, title, SDL_WINDOW_OPENGL), context_(SDL_GL_CreateContext(window_)) {}
-
 inline Window::~Window() { SDL_GL_DeleteContext(context_); }
-
-inline void Window::Loop(EventHandler* handler) const noexcept {
-  internal::Window::Loop(handler);
-  SDL_GL_SwapWindow(window_);
-  SDL_Delay(1);
-}
 
 } // namespace sdl::gl
 

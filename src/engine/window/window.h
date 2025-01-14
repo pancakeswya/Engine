@@ -1,12 +1,28 @@
-#ifndef ENGINE_WINDOW_H_
-#define ENGINE_WINDOW_H_
+#ifndef ENGINE_WINDOW_WINDOW_H_
+#define ENGINE_WINDOW_WINDOW_H_
+
+#include "engine/dll_loader.h"
+#include "engine/window/instance.h"
 
 #include <functional>
+#include <memory>
 
 namespace engine {
 
 class Window {
 public:
+  using Handle = std::unique_ptr<Window, void(*)(Window*)>;
+
+  class Loader final : DllLoader {
+  public:
+    explicit Loader(const std::string& path);
+
+    [[nodiscard]] Instance::Handle LoadInstance() const;
+    [[nodiscard]] Handle LoadWindow(int width, int height, const std::string& title) const;
+
+    ~Loader() override = default;
+  };
+
   class EventHandler {
   public:
     virtual ~EventHandler() = default;
@@ -29,4 +45,4 @@ public:
 
 } // namespace engine
 
-#endif // ENGINE_WINDOW_H_
+#endif // ENGINE_WINDOW_WINDOW_H_

@@ -1,7 +1,7 @@
 #ifndef BACKEND_VK_WINDOW_WINDOW_H_
 #define BACKEND_VK_WINDOW_WINDOW_H_
 
-#include "engine/window.h"
+#include "engine/window/window.h"
 
 #include <vulkan/vulkan.h>
 

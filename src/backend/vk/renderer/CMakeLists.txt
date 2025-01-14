@@ -39,17 +39,16 @@ add_library(vk_renderer STATIC
         shaders.cc
 )
 
+target_compile_definitions(vk_renderer PRIVATE -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 target_link_directories(vk_renderer PUBLIC ${SHADERC_LIBRARY_DIRS})
 
 target_link_libraries(vk_renderer
         Vulkan::Vulkan
         ${SHADERC_LIBRARIES}
         obj
-        renderer
 )
 
-add_library(vk_renderer-entry SHARED
-        entry.cc
-)
+add_library(vk_renderer-plugin SHARED plugin.cc)
 
-target_link_libraries(vk_renderer-entry PUBLIC vk_renderer)
+target_link_libraries(vk_renderer-plugin PUBLIC vk_renderer)

@@ -1,18 +1,14 @@
 #ifndef BACKEND_INTERNAL_GLFW_INSTANCE_H_
 #define BACKEND_INTERNAL_GLFW_INSTANCE_H_
 
-#include "engine/instance.h"
-#include "entity/singleton.h"
+#include "engine/window/instance.h"
 
 namespace glfw::internal {
 
-class Instance final : public entity::Singleton<Instance>, public engine::Instance {
+class Instance final : public virtual engine::Instance {
 public:
-  ~Instance() override;
-private:
-  friend class Singleton;
-
   Instance();
+  ~Instance() override;
 };
 
 } // namespace glfw::internal

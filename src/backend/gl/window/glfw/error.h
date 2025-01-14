@@ -1,5 +1,5 @@
-#ifndef BACKEND_GL_WINDOW_SDL_ERROR_H_
-#define BACKEND_GL_WINDOW_SDL_ERROR_H_
+#ifndef BACKEND_GL_WINDOW_GLFW_ERROR_H_
+#define BACKEND_GL_WINDOW_GLFW_ERROR_H_
 
 #include "backend/internal/glfw/error.h"
 
@@ -9,4 +9,4 @@ using Error = internal::Error;
 
 } // namespace gl
 
-#endif // BACKEND_GL_WINDOW_SDL_ERROR_H_
+#endif // BACKEND_GL_WINDOW_GLFW_ERROR_H_
