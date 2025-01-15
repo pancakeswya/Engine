@@ -15,8 +15,8 @@ public:
   ValueObject(GLuint value, Deleter deleter);
   ~ValueObject();
 
-  ValueObject& operator=(const ValueObject&) = delete;
-  ValueObject& operator=(ValueObject&&) noexcept;
+  ValueObject& operator=(const ValueObject& other) = delete;
+  ValueObject& operator=(ValueObject&& other) noexcept;
 
   [[nodiscard]] GLuint Value() const noexcept;
 private:

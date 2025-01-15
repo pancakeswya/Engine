@@ -3,7 +3,7 @@
 
 #include <GL/glew.h>
 
-#include "backend/gl/renderer/handle.h"
+#include "backend/gl/renderer/handle_object.h"
 #include "obj/types.h"
 
 namespace gl {

@@ -26,7 +26,7 @@ public:
   engine::Model& GetModel() noexcept override;
 private:
   void RecreateSwapchain();
-  void UpdateUniforms();
+  void UpdateUniforms() const;
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
   Config config_;

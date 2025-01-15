@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include <GL/glew.h>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "engine/render/data_util.h"

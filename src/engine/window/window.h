@@ -1,9 +1,6 @@
 #ifndef ENGINE_WINDOW_WINDOW_H_
 #define ENGINE_WINDOW_WINDOW_H_
 
-#include "engine/dll_loader.h"
-#include "engine/window/instance.h"
-
 #include <functional>
 #include <memory>
 

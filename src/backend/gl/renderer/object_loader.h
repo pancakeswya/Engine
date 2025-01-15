@@ -1,10 +1,10 @@
 #ifndef BACKEND_GL_RENDERER_OBJECT_LOADER_H_
 #define BACKEND_GL_RENDERER_OBJECT_LOADER_H_
 
-#include "backend/gl/renderer/handle.h"
-#include "backend/gl/renderer/object.h"
-
 #include <string>
+
+#include "backend/gl/renderer/handle_object.h"
+#include "backend/gl/renderer/object.h"
 
 namespace gl {
 

@@ -1,5 +1,7 @@
 #include "backend/vk/renderer/config.h"
 
+#include <stb_image.h>
+
 namespace vk {
 
 Config DefaultConfig() {

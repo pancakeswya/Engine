@@ -132,7 +132,7 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateDummyImage(VkBufferUsageFlags 
 std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(const std::string& path, const VkBufferUsageFlags usage,
     const VkMemoryPropertyFlags properties) const {
   int image_width, image_height, image_channels;
-  std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings_.stbi_format), stbi_image_free);
+  const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings_.stbi_format), stbi_image_free);
   if (pixels == nullptr) {
     return std::nullopt;
   }

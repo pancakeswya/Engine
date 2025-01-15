@@ -1,5 +1,5 @@
 
-set(SOURCES
+add_library(engine STATIC
         render/data_util.h
         render/model.h
         render/renderer_loader.cc
@@ -14,9 +14,9 @@ set(SOURCES
         window/window.h
         window/plugin.h
 
+        cast_util.h
+        error.h
         dll_loader.h
         runner.cc
         runner.h
 )
-
-add_library(engine STATIC ${SOURCES})

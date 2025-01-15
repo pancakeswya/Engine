@@ -15,10 +15,7 @@ Instance::Handle WindowLoader::LoadInstance() const {
 Window::Handle WindowLoader::LoadWindow(const int width, const int height, const std::string& title) const {
   const auto create_window = DllLoader::Load<decltype(&CreateWindow)>("CreateWindow");
   const auto destroy_window = DllLoader::Load<decltype(&DestroyWindow)>("DestroyWindow");
-  auto win = create_window(width, height, title);
-  auto handle = Window::Handle(win, destroy_window);
-
-  return handle;
+  return {create_window(width, height, title), destroy_window};
 }
 
 

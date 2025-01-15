@@ -1,6 +1,6 @@
-#include "backend/gl/renderer/handle.h"
-
 #include <utility>
+
+#include "backend/gl/renderer/handle_object.h"
 
 namespace gl {
 
@@ -19,6 +19,7 @@ ValueObject::ValueObject(const GLuint value, const Deleter deleter) : value_(val
 ValueObject::~ValueObject() {
   if (deleter_ != nullptr) {
     deleter_(value_);
+    deleter_ = nullptr;
   }
 }
 
@@ -48,6 +49,7 @@ ArrayObject::ArrayObject(ArrayObject&& other) noexcept
 ArrayObject::~ArrayObject() {
   if (deleter_ != nullptr) {
     deleter_(size_, &array_);
+    deleter_ = nullptr;
   }
 }
 

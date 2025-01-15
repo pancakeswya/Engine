@@ -1,14 +1,13 @@
 #ifndef BACKEND_GL_RENDERER_RENDERER_H_
 #define BACKEND_GL_RENDERER_RENDERER_H_
 
-#include "engine/render/renderer.h"
-#include "engine/render/model.h"
-#include "backend/gl/renderer/window.h"
-#include "backend/gl/renderer/handle.h"
-#include "backend/gl/renderer/object.h"
-
-#include <GL/glew.h>
 #include <string>
+
+#include "backend/gl/renderer/handle_object.h"
+#include "backend/gl/renderer/object.h"
+#include "backend/gl/renderer/window.h"
+#include "engine/render/model.h"
+#include "engine/render/renderer.h"
 
 namespace gl {
 

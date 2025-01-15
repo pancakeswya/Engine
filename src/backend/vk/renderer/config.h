@@ -2,8 +2,6 @@
 #define BACKEND_VK_RENDERER_CONFIG_H_
 
 #include <vulkan/vulkan.h>
-#include <stb_image.h>
-
 #include <vector>
 
 namespace vk {

@@ -183,7 +183,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx)
   }
 }
 
-void Renderer::UpdateUniforms() {
+void Renderer::UpdateUniforms() const {
   const engine::Uniforms& uniforms = model_.GetUniforms();
   std::memcpy(uniforms_buff_[curr_frame_], &uniforms, sizeof(Uniforms));
 }

@@ -7,8 +7,8 @@
 
 int main() {
   try {
-    const engine::WindowLoader window_loader("/Users/pancakeswya/VulkanEngine/build/src/backend/gl/window/glfw/libglfw_gl_window.dylib");
-    const engine::RendererLoader renderer_loader("/Users/pancakeswya/VulkanEngine/build/src/backend/gl/renderer/libgl_renderer.dylib");
+    const engine::WindowLoader window_loader("/Users/pancakeswya/VulkanEngine/build/src/backend/vk/window/glfw/libglfw_vk_window.dylib");
+    const engine::RendererLoader renderer_loader("/Users/pancakeswya/VulkanEngine/build/src/backend/vk/renderer/libvk_renderer.dylib");
 
     engine::Runner runner(window_loader, renderer_loader);
     runner.Run();
