@@ -84,15 +84,15 @@ void Renderer::RenderFrame() {
   glUseProgram(program_.Value());
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, object_.ebo.Value());
   glBindBuffer(GL_ARRAY_BUFFER, object_.vbo.Value());
-  const engine::Uniforms& uniforms = model_.GetUniforms();
+  const auto& [model, view, proj] = model_.GetUniforms();
 
   GLint uniform_location = glGetUniformLocation(program_.Value(), "ubo.model");
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(uniforms.model[0]));
+  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(model[0]));
   uniform_location = glGetUniformLocation(program_.Value(), "ubo.view");
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(uniforms.view[0]));
+  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(view[0]));
   uniform_location = glGetUniformLocation(program_.Value(), "ubo.proj");
 
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(uniforms.proj[0]));
+  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(proj[0]));
 
   size_t prev_offset = 0;
 
