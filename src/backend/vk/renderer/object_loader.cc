@@ -72,8 +72,6 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 }
 
 std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
-  stbi_set_flip_vertically_on_load(true);
-
   VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
   VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
@@ -233,6 +231,8 @@ ObjectLoader::ObjectLoader(const Device* device, ImageSettings image_settings, V
 
 
 Object ObjectLoader::Load(const std::string& path, const size_t frame_count) const {
+  stbi_set_flip_vertically_on_load(true);
+
   obj::Data data = obj::ParseFromFile(path);
 
   auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data, device_);

@@ -2,13 +2,15 @@
 set(SOURCES
         render/data_util.h
         render/model.h
-        render/renderer.cc
+        render/renderer_loader.cc
+        render/renderer_loader.h
         render/renderer.h
         render/plugin.h
         render/types.h
 
         window/instance.h
-        window/window.cc
+        window/window_loader.cc
+        window/window_loader.h
         window/window.h
         window/plugin.h
 

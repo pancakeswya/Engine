@@ -1,0 +1,11 @@
+
+macro(make_shaders NAME_IN NAME_OUT)
+    file(GLOB SHADERS shaders/*)
+    foreach(SHADER ${SHADERS})
+        get_filename_component(SHADERNAME ${SHADER} LAST_EXT)
+        string(SUBSTRING "${SHADERNAME}" 1 -1 SHADERNAME)
+        string(TOUPPER ${SHADERNAME} SHADERNAME)
+        file(READ ${SHADER} ${SHADERNAME})
+    endforeach ()
+    configure_file(${NAME_IN} ${NAME_OUT} @ONLY)
+endmacro()

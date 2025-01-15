@@ -13,16 +13,6 @@ class Window {
 public:
   using Handle = std::unique_ptr<Window, void(*)(Window*)>;
 
-  class Loader final : DllLoader {
-  public:
-    explicit Loader(const std::string& path);
-
-    [[nodiscard]] Instance::Handle LoadInstance() const;
-    [[nodiscard]] Handle LoadWindow(int width, int height, const std::string& title) const;
-
-    ~Loader() override = default;
-  };
-
   class EventHandler {
   public:
     virtual ~EventHandler() = default;

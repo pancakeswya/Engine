@@ -2,7 +2,7 @@
 
 namespace engine {
 
-Runner::Runner(const Window::Loader& window_loader, const Renderer::Loader& renderer_loader)
+Runner::Runner(const WindowLoader& window_loader, const RendererLoader& renderer_loader)
     : instance_(window_loader.LoadInstance()),
       window_(window_loader.LoadWindow(1280, 720, "VulkanFun")),
       renderer_(renderer_loader.Load(*window_)) {}

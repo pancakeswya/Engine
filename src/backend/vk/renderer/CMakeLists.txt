@@ -4,19 +4,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(SHADERC REQUIRED shaderc)
 
-set(SHADERS
-        shaders/simple.vert
-        shaders/simple.frag
-)
-
-foreach (SHADER ${SHADERS})
-    get_filename_component(SHADERNAME ${SHADER} LAST_EXT)
-    string(SUBSTRING "${SHADERNAME}" 1 -1 SHADERNAME)
-    string(TOUPPER ${SHADERNAME} SHADERNAME)
-    file(READ ${SHADER} ${SHADERNAME})
-endforeach ()
-
-configure_file(shaders.cc.in shaders.cc @ONLY)
+make_shaders(shaders.cc.in shaders.cc)
 
 add_library(vk_renderer SHARED
         config.cc
