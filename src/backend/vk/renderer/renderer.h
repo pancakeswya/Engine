@@ -13,6 +13,7 @@
 #include "backend/vk/renderer/instance.h"
 #include "backend/vk/renderer/object.h"
 #include "backend/vk/renderer/window.h"
+#include "backend/vk/renderer/swapchain.h"
 
 namespace vk {
 
@@ -44,7 +45,7 @@ private:
 
   Device device_;
 
-  Device::Dispatchable<VkSwapchainKHR> swapchain_;
+  Swapchain swapchain_;
   std::vector<Device::Dispatchable<VkFramebuffer>> framebuffers_;
 
   Device::Dispatchable<VkRenderPass> render_pass_;

@@ -16,12 +16,12 @@ namespace vk {
 
 namespace {
 
-std::pair<Device::Dispatchable<VkBuffer>, Device::Dispatchable<VkBuffer>> CreateTransferBuffers(const obj::Data& data, const Device* device) {
-  Device::Dispatchable<VkBuffer> transfer_vertices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
+std::pair<Buffer, Buffer> CreateTransferBuffers(const obj::Data& data, const Device* device) {
+  Buffer transfer_vertices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Vertex) * data.indices.size());
   transfer_vertices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_vertices.Bind();
 
-  Device::Dispatchable<VkBuffer> transfer_indices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index) * data.indices.size());
+  Buffer transfer_indices = device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(Index) * data.indices.size());
   transfer_indices.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_indices.Bind();
 
@@ -71,31 +71,30 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
   return attribute_descriptions;
 }
 
-std::vector<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
+std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
   VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
   VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-  std::vector<Device::Dispatchable<VkImage>> textures;
-  textures.reserve(data.mtl.size());
+  std::vector<Image> images;
+  images.reserve(data.mtl.size());
 
   for(const obj::NewMtl& mtl : data.mtl) {
-    Device::Dispatchable<VkImage> texture;
+    Image image;
     const std::string& path = mtl.map_kd;
-    if (std::optional<Device::Dispatchable<VkImage>> opt_texture = CreateStagingImage(path, usage, properties);
-        !opt_texture.has_value()) {
-      texture = CreateDummyImage(usage, properties);
+    if (std::optional<Image> opt_image = CreateStagingImage(path, usage, properties); !opt_image.has_value()) {
+      image = CreateDummyImage(usage, properties);
     } else {
-      texture = std::move(opt_texture.value());
+      image = std::move(opt_image.value());
     }
-    textures.emplace_back(std::move(texture));
+    images.emplace_back(std::move(image));
   }
-  return textures;
+  return images;
 }
 
-Device::Dispatchable<VkImage> ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
+Image ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
   VkDeviceSize image_size = extent.width * extent.height * image_settings_.stbi_format;
 
-  Device::Dispatchable<VkBuffer> transfer_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
+  Buffer transfer_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image_size);
   transfer_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   transfer_buffer.Bind();
 
@@ -103,8 +102,7 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStagingImageFromPixels(const u
   std::memcpy(mapped_buffer, pixels, static_cast<size_t>(image_size));
   transfer_buffer.Unmap();
 
-  Device::Dispatchable<VkImage> image = device_->CreateImage(usage, extent, image_settings_.vk_format, VK_IMAGE_TILING_OPTIMAL,
-                                                             CalculateMipMaps(extent));
+  Image image = device_->CreateImage(usage, extent, image_settings_.vk_format, VK_IMAGE_TILING_OPTIMAL, CalculateMipMaps(extent));
   image.Allocate(properties);
   image.Bind();
   image.CreateView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -123,13 +121,13 @@ Device::Dispatchable<VkImage> ObjectLoader::CreateStagingImageFromPixels(const u
   return image;
 }
 
-Device::Dispatchable<VkImage> ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
+Image ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
   std::vector<unsigned char> dummy_colors(image_settings_.dummy_image_extent.width * image_settings_.dummy_image_extent.height, 0xff);
 
   return CreateStagingImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
 }
 
-std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(const std::string& path, const VkBufferUsageFlags usage,
+std::optional<Image> ObjectLoader::CreateStagingImage(const std::string& path, const VkBufferUsageFlags usage,
     const VkMemoryPropertyFlags properties) const {
   int image_width, image_height, image_channels;
   const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings_.stbi_format), stbi_image_free);
@@ -142,8 +140,8 @@ std::optional<Device::Dispatchable<VkImage>> ObjectLoader::CreateStagingImage(co
   return CreateStagingImageFromPixels(pixels.get(), image_extent, usage, properties);
 }
 
-inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const Device::Dispatchable<VkBuffer>& transfer_buffer, VkBufferUsageFlags usage) const {
-  Device::Dispatchable<VkBuffer> buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
+inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage) const {
+  Buffer buffer = device_->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
   buffer.Allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   buffer.Bind();
 
@@ -155,7 +153,7 @@ inline Device::Dispatchable<VkBuffer> ObjectLoader::CreateStagingBuffer(const De
   return buffer;
 }
 
-std::vector<VkDescriptorSet> ObjectLoader::CreateImagesDescriptorSets(const std::vector<Device::Dispatchable<VkImage>>& images, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
+std::vector<VkDescriptorSet> ObjectLoader::CreateImagesDescriptorSets(const std::vector<Image>& images, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
   const size_t count = images.size();
 
   std::vector layouts(count, descriptor_set_layout);
@@ -189,7 +187,7 @@ std::vector<VkDescriptorSet> ObjectLoader::CreateImagesDescriptorSets(const std:
   return descriptor_sets;
 }
 
-std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std::vector<Device::Dispatchable<VkBuffer>>& buffers, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
+std::vector<VkDescriptorSet> ObjectLoader::CreateBuffersDescriptorSets(const std::vector<Buffer>& buffers, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool) const {
   const size_t count = buffers.size();
 
   std::vector layouts(count, descriptor_set_layout);
@@ -244,11 +242,11 @@ Object ObjectLoader::Load(const std::string& path, const size_t frame_count) con
 
   object.usemtl = std::move(data.usemtl);
 
-  std::vector<Device::Dispatchable<VkImage>> texture_images = CreateStagingImages(data);
-  std::vector<Device::Dispatchable<VkBuffer>> ubo_buffers;
+  std::vector<Image> texture_images = CreateStagingImages(data);
+  std::vector<Buffer> ubo_buffers;
 
   ubo_buffers.resize(frame_count);
-  for(Device::Dispatchable<VkBuffer>& ubo_buffer : ubo_buffers) {
+  for(Buffer& ubo_buffer : ubo_buffers) {
     ubo_buffer = device_->CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(Uniforms));
     ubo_buffer.Allocate(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     ubo_buffer.Bind();

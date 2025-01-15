@@ -2,7 +2,8 @@
 
 #include "backend/vk/renderer/error.h"
 #include "backend/vk/renderer/config.h"
-#include "backend/vk/renderer/object.h"
+#include "backend/vk/renderer/buffer.h"
+#include "backend/vk/renderer/image.h"
 
 namespace vk {
 
@@ -54,17 +55,17 @@ void Commander::End() const {
   }
 }
 
-BufferCommander::BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
+BufferCommander::BufferCommander(Buffer& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
   : Commander(buffer.Parent(), cmd_pool, graphics_queue), buffer_(buffer) {}
 
 
-void BufferCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const {
+void BufferCommander::CopyBuffer(const Buffer& src) const {
   VkBufferCopy copy_region = {};
   copy_region.size = src.Size();
   vkCmdCopyBuffer(cmd_buffer_, src.Handle(), buffer_.Handle(), 1, &copy_region);
 }
 
-ImageCommander::ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
+ImageCommander::ImageCommander(Image& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
     : Commander(image.Parent(), cmd_pool, graphics_queue), image_(image) {}
 
 void ImageCommander::GenerateMipmaps() const {
@@ -186,7 +187,7 @@ void ImageCommander::TransitImageLayout(VkImageLayout old_layout, VkImageLayout 
   );
 }
 
-void ImageCommander::CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const {
+void ImageCommander::CopyBuffer(const Buffer& src) const {
   VkBufferImageCopy region = {};
   region.bufferOffset = 0;
   region.bufferRowLength = 0;

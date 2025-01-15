@@ -23,24 +23,24 @@ protected:
 
 class BufferCommander : public Commander {
 public:
-  BufferCommander(Device::Dispatchable<VkBuffer>& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue);
+  BufferCommander(Buffer& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~BufferCommander() = default;
 
-  void CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const;
+  void CopyBuffer(const Buffer& src) const;
 private:
-  Device::Dispatchable<VkBuffer>& buffer_;
+  Buffer& buffer_;
 };
 
 class ImageCommander : public Commander {
 public:
-  ImageCommander(Device::Dispatchable<VkImage>& image, VkCommandPool cmd_pool, VkQueue graphics_queue);
+  ImageCommander(Image& image, VkCommandPool cmd_pool, VkQueue graphics_queue);
   ~ImageCommander() = default;
 
   void GenerateMipmaps() const;
   void TransitImageLayout(VkImageLayout old_layout, VkImageLayout new_layout) const;
-  void CopyBuffer(const Device::Dispatchable<VkBuffer>& src) const;
+  void CopyBuffer(const Buffer& src) const;
 private:
-  Device::Dispatchable<VkImage>& image_;
+  Image& image_;
 };
 
 class CommanderGuard {

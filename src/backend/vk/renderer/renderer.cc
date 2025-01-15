@@ -5,10 +5,10 @@
 #include <cstring>
 #include <limits>
 
-#include "backend/vk/renderer/error.h"
-#include "backend/vk/renderer/shaders.h"
 #include "backend/vk/renderer/device_selector.h"
+#include "backend/vk/renderer/error.h"
 #include "backend/vk/renderer/object_loader.h"
+#include "backend/vk/renderer/shader.h"
 
 namespace vk {
 
@@ -93,9 +93,9 @@ void Renderer::LoadModel(const std::string& path) {
 
   const std::vector shaders = GetShaders();
 
-  std::vector<Device::Dispatchable<VkShaderModule>> shader_modules;
+  std::vector<ShaderModule> shader_modules;
   shader_modules.reserve(shaders.size());
-  for(const Shader& shader : shaders) {
+  for(const ShaderInfo& shader : shaders) {
     shader_modules.emplace_back(device_.CreateShaderModule(shader));
   }
   pipeline_ = device_.CreatePipeline(pipeline_layout_.Handle(), render_pass_.Handle(), Vertex::GetAttributeDescriptions(), Vertex::GetBindingDescriptions(), shader_modules);
@@ -114,7 +114,7 @@ void Renderer::RecreateSwapchain() {
     throw Error("failed to idle device");
   }
   framebuffers_.clear();
-  swapchain_ = Device::Dispatchable<VkSwapchainKHR>();
+  swapchain_ = Swapchain();
 
   VkExtent2D size = {};
   size.width = window_.GetWidth();

@@ -1,155 +1,17 @@
 #include "backend/vk/renderer/device.h"
 
-#include <algorithm>
 #include <array>
-#include <cmath>
-#include <limits>
 #include <set>
 
+#include "backend/vk/renderer/buffer.h"
 #include "backend/vk/renderer/error.h"
+#include "backend/vk/renderer/image.h"
 #include "backend/vk/renderer/instance.h"
+#include "backend/vk/renderer/internal.h"
+#include "backend/vk/renderer/shader.h"
+#include "backend/vk/renderer/swapchain.h"
 
 namespace vk {
-
-namespace {
-
-inline VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats) {
-  for (const VkSurfaceFormatKHR& available_format : available_formats) {
-    if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
-        available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-      return available_format;
-        }
-  }
-  return available_formats[0];
-}
-
-inline VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes) {
-  for (const auto& available_present_mode : available_present_modes) {
-    if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      return available_present_mode;
-    }
-  }
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-inline VkExtent2D ChooseSwapExtent(const VkExtent2D extent, const VkSurfaceCapabilitiesKHR& capabilities) {
-  if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-    return capabilities.currentExtent;
-  }
-
-  return {
-    std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-    std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
-  };
-}
-
-int32_t FindMemoryType(const uint32_t type_filter, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties mem_properties;
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
-
-  for (int32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
-    if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
-      return i;
-    }
-  }
-  throw Error("failed to find suitable memory type!");
-}
-
-VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkPhysicalDevice physical_device, VkImageTiling tiling, VkFormatFeatureFlags features) {
-  for (const VkFormat format : formats) {
-    VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(physical_device, format, &props);
-    if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-      return format;
-    }
-    if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-      return format;
-    }
-  }
-  throw Error("failed to find supported format");
-}
-
-inline VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
-  return FindSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-      physical_device,
-      VK_IMAGE_TILING_OPTIMAL,
-      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-  );
-}
-
-Device::Dispatchable<VkDeviceMemory> CreateMemory(VkDevice logical_device, VkPhysicalDevice physical_device, const VkAllocationCallbacks* allocator, const VkMemoryPropertyFlags properties, const VkMemoryRequirements& mem_requirements) {
-  VkMemoryAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.allocationSize = mem_requirements.size;
-  alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, physical_device, properties);
-
-  VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
-  if (const VkResult result = vkAllocateMemory(logical_device, &alloc_info, allocator, &buffer_memory); result != VK_SUCCESS) {
-    throw Error("failed to allocate vertex buffer memory").WithCode(result);
-  }
-  return {
-    buffer_memory,
-    logical_device,
-    vkFreeMemory,
-    allocator
-  };
-}
-
-Device::Dispatchable<VkImage> CreateImageInternal(VkDevice logical_device, VkPhysicalDevice physical_device, const VkAllocationCallbacks* allocator, const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels = 1) {
-  VkImageCreateInfo image_info = {};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent = { extent.width, extent.height, 1 };
-  image_info.mipLevels = mip_levels;
-  image_info.arrayLayers = 1;
-  image_info.format = format;
-  image_info.tiling = tiling;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usage;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  VkImage image = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateImage(logical_device, &image_info, allocator, &image); result != VK_SUCCESS) {
-    throw Error("failed to create image!").WithCode(result);
-  }
-  return {
-    image,
-    logical_device,
-    physical_device,
-    allocator,
-    extent,
-    format,
-    mip_levels
-  };
-}
-
-Device::Dispatchable<VkImageView> CreateImageViewInternal(VkImage image, VkDevice logical_device, const VkAllocationCallbacks* allocator, const VkImageAspectFlags aspect_flags, const VkFormat format, const uint32_t mip_levels = 1) {
-  VkImageViewCreateInfo view_info = {};
-  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.image = image;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = format;
-  view_info.subresourceRange.aspectMask = aspect_flags;
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = mip_levels;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
-
-  VkImageView image_view = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateImageView(logical_device, &view_info, allocator, &image_view); result != VK_SUCCESS) {
-    throw Error("failed to create texture image view").WithCode(result);
-  }
-  return {
-    image_view,
-    logical_device,
-    vkDestroyImageView,
-    allocator
-  };
-}
-
-} // namespace
 
 SurfaceSupportDetails Device::GetSurfaceSupport(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
   SurfaceSupportDetails details;
@@ -221,11 +83,36 @@ Device::Device(VkPhysicalDevice physical_device, const QueueFamilyIndices& indic
   }
 }
 
-Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const Shader& shader) const {
+Device::Device(Device &&other) noexcept
+    : logical_device_(other.logical_device_), physical_device_(other.physical_device_),
+      allocator_(other.allocator_), indices_(other.indices_) {
+  other.logical_device_ = VK_NULL_HANDLE;
+  other.physical_device_ = VK_NULL_HANDLE;
+  other.allocator_ = nullptr;
+  other.indices_ = {};
+}
+
+Device::~Device() {
+  if (logical_device_ != nullptr) {
+    vkDestroyDevice(logical_device_, allocator_);
+  }
+}
+
+Device& Device::operator=(Device&& other) noexcept {
+  if (this != &other) {
+    logical_device_ = std::exchange(other.logical_device_, VK_NULL_HANDLE);
+    physical_device_ = std::exchange(other.physical_device_, VK_NULL_HANDLE);
+    allocator_ = std::exchange(other.allocator_, nullptr);
+    indices_ = std::exchange(other.indices_, {});
+  }
+  return *this;
+}
+
+ShaderModule Device::CreateShaderModule(const ShaderInfo& shader_info) const {
   VkShaderModuleCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  create_info.codeSize = shader.spirv.size() * sizeof(uint32_t);
-  create_info.pCode = shader.spirv.data();
+  create_info.codeSize = shader_info.spirv.size() * sizeof(uint32_t);
+  create_info.pCode = shader_info.spirv.data();
 
   VkShaderModule module = VK_NULL_HANDLE;
   if (const VkResult result = vkCreateShaderModule(logical_device_, &create_info, allocator_, &module); result != VK_SUCCESS) {
@@ -235,8 +122,7 @@ Device::Dispatchable<VkShaderModule> Device::CreateShaderModule(const Shader& sh
     module,
     logical_device_,
     allocator_,
-    shader.stage,
-    shader.entry_point,
+    shader_info
   };
 }
 
@@ -284,7 +170,7 @@ Device::Dispatchable<VkRenderPass> Device::CreateRenderPass(const VkFormat image
   dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
   dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-  std::array attachments = {color_attachment, depth_attachment};
+  const std::array attachments = {color_attachment, depth_attachment};
 
   VkRenderPassCreateInfo render_pass_info = {};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -325,10 +211,10 @@ Device::Dispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::v
   };
 }
 
-Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Dispatchable<VkShaderModule>>& shaders) const {
+Device::Dispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<ShaderModule>& shaders) const {
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages_infos;
   shader_stages_infos.reserve(shaders.size());
-  for(const Dispatchable<VkShaderModule>& shader : shaders) {
+  for(const ShaderModule& shader : shaders) {
     VkPipelineShaderStageCreateInfo shader_stage_info = {};
     shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shader_stage_info.stage = shader.Stage();
@@ -481,7 +367,7 @@ Device::Dispatchable<VkFence> Device::CreateFence() const {
   };
 }
 
-Device::Dispatchable<VkBuffer> Device::CreateBuffer(const VkBufferUsageFlags usage, const uint32_t data_size) const {
+Buffer Device::CreateBuffer(const VkBufferUsageFlags usage, const uint32_t data_size) const {
   VkBufferCreateInfo buffer_info = {};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size = data_size;
@@ -576,17 +462,17 @@ Device::Dispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t
   };
 }
 
-Device::Dispatchable<VkImage> Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels) const {
-  return CreateImageInternal(logical_device_, physical_device_, allocator_, usage, extent, format, tiling, mip_levels);
+Image Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels) const {
+  return internal::CreateImage(logical_device_, physical_device_, allocator_, usage, extent, format, tiling, mip_levels);
 }
 
-Device::Dispatchable<VkSwapchainKHR> Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) const {
+Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) const {
   const SurfaceSupportDetails device_support_details = GetSurfaceSupport(physical_device_, surface);
 
-  VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(device_support_details.formats);
-  VkPresentModeKHR present_mode = ChooseSwapPresentMode(device_support_details.present_modes);
+  VkSurfaceFormatKHR surface_format = Swapchain::ChooseSurfaceFormat(device_support_details.formats);
+  VkPresentModeKHR present_mode = Swapchain::ChoosePresentMode(device_support_details.present_modes);
 
-  VkExtent2D extent = ChooseSwapExtent(size, device_support_details.capabilities);
+  VkExtent2D extent = Swapchain::ChooseExtent(size, device_support_details.capabilities);
   VkFormat format = surface_format.format;
 
   uint32_t image_count = device_support_details.capabilities.minImageCount + 1;
@@ -645,293 +531,6 @@ std::vector<VkCommandBuffer> Device::CreateCommandBuffers(VkCommandPool cmd_pool
     throw Error("failed to allocate command buffers").WithCode(result);
   }
   return cmd_buffers;
-}
-
-Device::Dispatchable<VkBuffer>::Dispatchable() noexcept : physical_device_(VK_NULL_HANDLE), size_(0) {}
-
-Device::Dispatchable<VkBuffer>::Dispatchable(Dispatchable&& other) noexcept
-  : Base(std::move(other)),
-    memory_(std::move(other.memory_)),
-    physical_device_(other.physical_device_),
-    size_(other.size_) {
-  other.physical_device_ = VK_NULL_HANDLE;
-  other.size_ = 0;
-}
-
-Device::Dispatchable<VkBuffer>::Dispatchable(VkBuffer buffer,
-                                             VkDevice logical_device,
-                                             VkPhysicalDevice physical_device,
-                                             const VkAllocationCallbacks* allocator,
-                                             const uint32_t size) noexcept
-   : Base(buffer, logical_device, vkDestroyBuffer, allocator),
-     physical_device_(physical_device),
-     size_(size) {}
-
-
-Device::Dispatchable<VkBuffer>& Device::Dispatchable<VkBuffer>::operator=(Dispatchable&& other) noexcept {
-  if (this != &other) {
-    static_cast<Base&>(*this) = static_cast<Base>(std::move(other));
-    memory_ = std::move(other.memory_);
-    physical_device_ = std::exchange(other.physical_device_, VK_NULL_HANDLE);
-    size_ = std::exchange(other.size_, 0);
-  }
-  return *this;
-}
-
-void Device::Dispatchable<VkBuffer>::Bind() const {
-  if (const VkResult result = vkBindBufferMemory(parent_, handle_, memory_.Handle(), 0); result != VK_SUCCESS) {
-    throw Error("failed to bind memory").WithCode(result);
-  }
-}
-
-void Device::Dispatchable<VkBuffer>::Allocate(const VkMemoryPropertyFlags properties) {
-  VkMemoryRequirements mem_requirements;
-  vkGetBufferMemoryRequirements(parent_, handle_, &mem_requirements);
-
-  memory_ = CreateMemory(parent_, physical_device_, allocator_, properties, mem_requirements);
-}
-
-void* Device::Dispatchable<VkBuffer>::Map() const {
-  void* data;
-  if (const VkResult result = vkMapMemory(memory_.Parent(), memory_.Handle(), 0, size_, 0, &data); result != VK_SUCCESS) {
-    throw Error("failed to map buffer memory").WithCode(result);
-  }
-  return data;
-}
-
-void Device::Dispatchable<VkBuffer>::Unmap() const noexcept {
-  vkUnmapMemory(memory_.Parent(), memory_.Handle());
-}
-
-uint32_t Device::Dispatchable<VkBuffer>::Size() const noexcept {
-  return size_;
-}
-
-Device::Dispatchable<VkImage>::Dispatchable() noexcept
-  : mip_levels_(0), physical_device_(VK_NULL_HANDLE), extent_(), format_() {}
-
-Device::Dispatchable<VkImage>::Dispatchable(Dispatchable&& other) noexcept
-  : Base(std::move(other)),
-    mip_levels_(other.mip_levels_),
-    physical_device_(other.physical_device_),
-    extent_(other.extent_),
-    format_(other.format_),
-    view_(std::move(other.view_)),
-    sampler_(std::move(other.sampler_)),
-    memory_(std::move(other.memory_)) {
-  other.mip_levels_ = 0;
-  other.physical_device_ = VK_NULL_HANDLE;
-  other.extent_ = {};
-  other.format_ = {};
-}
-
-Device::Dispatchable<VkImage>& Device::Dispatchable<VkImage>::operator=(Dispatchable&& other) noexcept {
-  if (this != &other) {
-    static_cast<Base&>(*this) = static_cast<Base>(std::move(other));
-    mip_levels_ = std::exchange(other.mip_levels_, 0);
-    physical_device_ = std::exchange(other.physical_device_, VK_NULL_HANDLE);
-    extent_ = std::exchange(other.extent_, {});
-    format_ = std::exchange(other.format_, {});
-    view_ = std::move(other.view_);
-    sampler_ = std::move(other.sampler_);
-    memory_ = std::move(other.memory_);
-  }
-  return *this;
-}
-
-Device::Dispatchable<VkImage>::Dispatchable(VkImage image,
-                                            VkDevice logical_device,
-                                            VkPhysicalDevice physical_device,
-                                            const VkAllocationCallbacks* allocator,
-                                            const VkExtent2D extent,
-                                            const VkFormat format,
-                                            const uint32_t mip_levels) noexcept
-  : Base(image, logical_device, vkDestroyImage, allocator),
-    mip_levels_(mip_levels),
-    physical_device_(physical_device),
-    extent_(extent),
-    format_(format) {}
-
-void Device::Dispatchable<VkImage>::Allocate(const VkMemoryPropertyFlags properties) {
-  VkMemoryRequirements mem_requirements;
-  vkGetImageMemoryRequirements(parent_, handle_, &mem_requirements);
-
-  memory_ = CreateMemory(parent_, physical_device_, allocator_, properties, mem_requirements);
-}
-
-void Device::Dispatchable<VkImage>::Bind() const {
-  if (const VkResult result = vkBindImageMemory(parent_, handle_, memory_.Handle(), 0); result != VK_SUCCESS) {
-    throw Error("failed to bind memory").WithCode(result);
-  }
-}
-
-void Device::Dispatchable<VkImage>::CreateView(const VkImageAspectFlags aspect_flags) {
-  view_ = CreateImageViewInternal(handle_, parent_, allocator_, aspect_flags, format_, mip_levels_);
-}
-
-void Device::Dispatchable<VkImage>::CreateSampler(const VkSamplerMipmapMode mipmap_mode) {
-  VkPhysicalDeviceProperties properties = {};
-  vkGetPhysicalDeviceProperties(physical_device_, &properties);
-
-  VkSamplerCreateInfo sampler_info = {};
-  sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  sampler_info.magFilter = VK_FILTER_LINEAR;
-  sampler_info.minFilter = VK_FILTER_LINEAR;
-  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.anisotropyEnable = VK_TRUE;
-  sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-  sampler_info.unnormalizedCoordinates = VK_FALSE;
-  sampler_info.compareEnable = VK_FALSE;
-  sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-  sampler_info.mipmapMode = mipmap_mode;
-  sampler_info.minLod = 0.0f;
-  sampler_info.maxLod = static_cast<float>(mip_levels_);
-  sampler_info.mipLodBias = 0.0f;
-
-  VkSampler sampler = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateSampler(parent_, &sampler_info, allocator_, &sampler); result != VK_SUCCESS) {
-    throw Error("failed to create texture sampler").WithCode(result);
-  }
-  sampler_ = Dispatchable<VkSampler>(sampler, parent_, vkDestroySampler, allocator_);
-}
-
-bool Device::Dispatchable<VkImage_T*>::FormatFeatureSupported(const VkFormatFeatureFlagBits feature) const {
-  VkFormatProperties format_properties = {};
-  vkGetPhysicalDeviceFormatProperties(physical_device_, format_, &format_properties);
-  return (format_properties.optimalTilingFeatures & feature) != 0;
-}
-
-Device::Dispatchable<VkShaderModule>::Dispatchable() noexcept : stage_(VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM) {}
-
-Device::Dispatchable<VkShaderModule>::Dispatchable(Dispatchable&& other) noexcept
-  : Base(std::move(other)), stage_(other.stage_), entry_point_(other.entry_point_) {
-  other.stage_ = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
-  other.entry_point_ = {};
-}
-
-Device::Dispatchable<VkShaderModule>::Dispatchable(VkShaderModule module,
-                                                   VkDevice logical_device,
-                                                   const VkAllocationCallbacks* allocator,
-                                                   VkShaderStageFlagBits type,
-                                                   std::string_view entry_point) noexcept
-  : Base(module, logical_device, vkDestroyShaderModule, allocator), stage_(type), entry_point_(entry_point) {}
-
-
-Device::Dispatchable<VkShaderModule>& Device::Dispatchable<VkShaderModule>::operator=(Dispatchable&& other) noexcept {
-  if (this != &other) {
-    static_cast<Base&>(*this) = static_cast<Base>(std::move(other));
-    stage_ = std::exchange(other.stage_, VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM);
-    entry_point_ = std::exchange(other.entry_point_, {});
-  }
-  return *this;
-}
-
-Device::Dispatchable<VkSwapchainKHR>::Dispatchable() noexcept : extent_(), format_(VK_FORMAT_UNDEFINED), physical_device_(VK_NULL_HANDLE)  {}
-
-Device::Dispatchable<VkSwapchainKHR>::Dispatchable(Dispatchable&& other) noexcept
-  : Base(std::move(other)),
-    extent_(other.extent_),
-    format_(other.format_),
-    physical_device_(other.physical_device_),
-    depth_image_(std::move(other.depth_image_)),
-    image_views_(std::move(other.image_views_)) {
-  other.physical_device_ = VK_NULL_HANDLE;
-  other.extent_ = {};
-  other.format_ = {};
-}
-
-Device::Dispatchable<VkSwapchainKHR>& Device::Dispatchable<VkSwapchainKHR>::operator=(Dispatchable&& other) noexcept {
-  if (this != &other) {
-    static_cast<Base&>(*this) = static_cast<Base>(std::move(other));
-    physical_device_ = std::exchange(other.physical_device_, VK_NULL_HANDLE);
-    extent_ = std::exchange(other.extent_, {});
-    format_ = std::exchange(other.format_, {});
-    depth_image_ = std::move(other.depth_image_);
-    image_views_ = std::move(other.image_views_);
-  }
-  return *this;
-}
-
-Device::Dispatchable<VkSwapchainKHR>::Dispatchable(VkSwapchainKHR swapchain,
-                                                   VkDevice logical_device,
-                                                   VkPhysicalDevice physical_device,
-                                                   const VkAllocationCallbacks* allocator,
-                                                   const VkExtent2D extent,
-                                                   const VkFormat format) noexcept :
-      Base(swapchain, logical_device, vkDestroySwapchainKHR, allocator),
-      extent_(extent),
-      format_(format),
-      physical_device_(physical_device),
-      depth_image_(CreateDepthImage()),
-      image_views_(CreateImageViews()) {}
-
-std::vector<VkImage> Device::Dispatchable<VkSwapchainKHR>::GetImages() const {
-  uint32_t image_count;
-  if (const VkResult result = vkGetSwapchainImagesKHR(parent_, handle_, &image_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get swapchain image count").WithCode(result);
-  }
-  std::vector<VkImage> images(image_count);
-  if (const VkResult result = vkGetSwapchainImagesKHR(parent_, handle_, &image_count, images.data()); result != VK_SUCCESS) {
-    throw Error("failed to get swapchain images").WithCode(result);
-  }
-  return images;
-}
-
-std::vector<Device::Dispatchable<VkImageView>> Device::Dispatchable<VkSwapchainKHR>::CreateImageViews() const {
-  std::vector<VkImage> images = GetImages();
-  std::vector<Dispatchable<VkImageView>> image_views;
-  image_views.reserve(images.size());
-  for(VkImage image : images) {
-    Dispatchable<VkImageView> image_view = CreateImageViewInternal(image, parent_, allocator_,
-                                                                   VK_IMAGE_ASPECT_COLOR_BIT, format_);
-    image_views.emplace_back(std::move(image_view));
-  }
-  return image_views;
-}
-
-Device::Dispatchable<VkImage> Device::Dispatchable<VkSwapchainKHR>::CreateDepthImage() const {
-  const VkFormat depth_format = FindDepthFormat(physical_device_);
-
-  Dispatchable<VkImage> depth_image = CreateImageInternal(parent_, physical_device_, allocator_, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, extent_, depth_format, VK_IMAGE_TILING_OPTIMAL);
-  depth_image.Allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  depth_image.Bind();
-  depth_image.CreateView(VK_IMAGE_ASPECT_DEPTH_BIT);
-  return depth_image;
-}
-
-Device::Dispatchable<VkFramebuffer> Device::Dispatchable<VkSwapchainKHR>::CreateFramebuffer(const std::vector<VkImageView>& views, VkRenderPass render_pass) const {
-  VkFramebufferCreateInfo create_info = {};
-  create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  create_info.renderPass = render_pass;
-  create_info.attachmentCount = static_cast<uint32_t>(views.size());
-  create_info.pAttachments = views.data();
-  create_info.width = extent_.width;
-  create_info.height = extent_.height;
-  create_info.layers = 1;
-
-  VkFramebuffer framebuffer = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateFramebuffer(parent_, &create_info, allocator_, &framebuffer); result != VK_SUCCESS) {
-    throw Error("failed to create framebuffer").WithCode(result);
-  }
-  return {
-    framebuffer,
-    parent_,
-    vkDestroyFramebuffer,
-    allocator_,
-  };
-}
-
-std::vector<Device::Dispatchable<VkFramebuffer>> Device::Dispatchable<VkSwapchainKHR>::CreateFramebuffers(VkRenderPass render_pass) const {
-  std::vector<Dispatchable<VkFramebuffer>> framebuffers;
-  framebuffers.reserve(image_views_.size());
-  for(const Dispatchable<VkImageView>& image_view : image_views_) {
-    Dispatchable<VkFramebuffer> framebuffer = CreateFramebuffer({image_view.Handle(), depth_image_.View().Handle()}, render_pass);
-    framebuffers.emplace_back(std::move(framebuffer));
-  }
-  return framebuffers;
 }
 
 } // namespace vk

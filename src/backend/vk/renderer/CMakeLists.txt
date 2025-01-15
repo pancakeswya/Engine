@@ -4,13 +4,11 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(SHADERC REQUIRED shaderc)
 
-make_shaders(shaders.cc.in shaders.cc)
+make_shaders(shader.cc.in shader.cc)
 
 add_library(vk_renderer SHARED
         config.cc
         config.h
-        renderer.cc
-        renderer.h
         error.h
         dispatchable.h
         object.h
@@ -28,8 +26,18 @@ add_library(vk_renderer SHARED
         commander.cc
         plugin.cc
         window.h
-        shaders.h
-        shaders.cc
+        renderer.cc
+        renderer.h
+        internal.cc
+        internal.h
+        buffer.cc
+        buffer.h
+        image.cc
+        image.h
+        swapchain.cc
+        swapchain.h
+        shader.h
+        shader.cc
 )
 
 target_compile_definitions(vk_renderer PRIVATE -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)

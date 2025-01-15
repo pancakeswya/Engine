@@ -8,6 +8,8 @@
 #include "engine/render/types.h"
 
 #include "backend/vk/renderer/device.h"
+#include "backend/vk/renderer/buffer.h"
+#include "backend/vk/renderer/image.h"
 #include "obj/types.h"
 
 namespace vk {
@@ -40,16 +42,16 @@ struct DescriptorSetObject {
 };
 
 struct TextureBufferObject : DescriptorSetObject {
-  std::vector<Device::Dispatchable<VkImage>> images;
+  std::vector<Image> images;
 };
 
 struct UniformBufferObject : DescriptorSetObject {
-  std::vector<Device::Dispatchable<VkBuffer>> buffers;
+  std::vector<Buffer> buffers;
 };
 
 struct Object {
-  Device::Dispatchable<VkBuffer> indices;
-  Device::Dispatchable<VkBuffer> vertices;
+  Buffer indices;
+  Buffer vertices;
 
   std::vector<obj::UseMtl> usemtl;
 
