@@ -3,12 +3,9 @@
 
 #include "backend/internal/sdl/instance.h"
 
-#include "engine/window/instance.h"
-
 namespace sdl::vk {
 
-class Instance final : public internal::Instance,
-                       public virtual engine::Instance {
+class Instance final : public internal::Instance{
 public:
   Instance();
   ~Instance() override;

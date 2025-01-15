@@ -8,7 +8,7 @@
 
 namespace glfw::internal {
 
-class Instance : public virtual engine::Instance {
+class Instance : public engine::Instance {
 public:
   Instance();
   ~Instance() override;
