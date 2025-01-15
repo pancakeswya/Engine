@@ -98,7 +98,7 @@ void Renderer::RenderFrame() {
 
   for(const auto[index, offset] : object_.usemtl) {
     glBindTexture(GL_TEXTURE_2D, object_.textures[index].Value());
-    glDrawElements(GL_TRIANGLES, offset - prev_offset, GL_UNSIGNED_INT, reinterpret_cast<void*>(prev_offset * sizeof(GLuint)));
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(offset - prev_offset), GL_UNSIGNED_INT, reinterpret_cast<void*>(prev_offset * sizeof(GLuint)));
     prev_offset = offset;
   }
 }
