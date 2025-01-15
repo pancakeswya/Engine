@@ -5,7 +5,9 @@
 
 namespace glfw::gl {
 
-using Error = internal::Error;
+class Error final : public internal::Error {
+  using internal::Error::Error;
+};
 
 } // namespace gl
 

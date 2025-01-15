@@ -5,7 +5,15 @@
 
 namespace glfw::vk {
 
-using Instance = internal::Instance;
+class Instance final : public internal::Instance {
+public:
+  Instance();
+  ~Instance() override = default;
+};
+
+inline Instance::Instance() {
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+}
 
 } // namespace window::glfw::vk
 

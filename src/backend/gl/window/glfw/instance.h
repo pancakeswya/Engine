@@ -5,7 +5,10 @@
 
 namespace glfw::gl {
 
-using Instance = internal::Instance;
+class Instance final : public internal::Instance {
+public:
+  using internal::Instance::Instance;
+};
 
 } // namespace glfw::gl
 

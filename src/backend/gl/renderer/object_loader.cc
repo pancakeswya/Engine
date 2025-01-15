@@ -15,7 +15,7 @@ namespace gl {
 
 namespace {
 
-ArrayHandle TextureCreate(const uint8_t* data, int width, int height) {
+ArrayHandle TextureCreate(const uint8_t* data, const int width, const int height) {
   const auto texture_creator = []{
     GLuint texture_handle;
     glGenTextures(1, &texture_handle);

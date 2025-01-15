@@ -10,8 +10,7 @@ namespace sdl::gl {
 class Instance final : public internal::Instance,
                        public virtual engine::Instance {
 public:
-  Instance() = default;
-  ~Instance() override = default;
+  using internal::Instance::Instance;
 };
 
 } // namespace sdl::gl

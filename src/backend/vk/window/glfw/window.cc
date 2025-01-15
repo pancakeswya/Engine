@@ -15,8 +15,7 @@ VkSurfaceKHR SurfaceFactory::CreateSurface(VkInstance instance, const VkAllocati
 }
 
 Window::Window(const int width, const int height, const std::string& title)
-  : internal::Window((glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API),
-                        internal::Window(width, height, title))),
+  : internal::Window(width, height, title),
     surface_factory_(window_) {}
 
 void Window::Loop(EventHandler* handler) const noexcept { internal::Window::Loop(handler); }

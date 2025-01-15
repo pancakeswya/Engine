@@ -5,7 +5,10 @@
 
 namespace sdl::gl {
 
-using Error = internal::Error;
+class Error final : public internal::Error {
+public:
+  using internal::Error::Error;
+};
 
 } // namespace sdl::gl
 

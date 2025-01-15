@@ -7,11 +7,11 @@ namespace gl {
 std::vector<Shader> GetShaders() {
     return {
         {
-            R"(@VERT@)",
+            R"(@simple.vert@)",
             GL_VERTEX_SHADER
         },
         {
-            R"(@FRAG@)",
+            R"(@simple.frag@)",
             GL_FRAGMENT_SHADER
         }
     };

@@ -8,7 +8,7 @@
 
 namespace sdl::internal {
 
-struct Error final : std::runtime_error {
+struct Error : std::runtime_error {
   using runtime_error::runtime_error;
 
   [[nodiscard]] Error WithCode(const int result) const {

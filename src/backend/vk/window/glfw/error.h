@@ -5,7 +5,10 @@
 
 namespace glfw {
 
-using Error = internal::Error;
+class Error final : public internal::Error {
+public:
+  using internal::Error::Error;
+};
 
 } // namespace glfw
 

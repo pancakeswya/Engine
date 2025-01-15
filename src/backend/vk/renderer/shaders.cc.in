@@ -27,7 +27,7 @@ std::vector<Shader> GetShaders() {
                 CompileToSpv(
                   compiler,
                   shaderc_vertex_shader,
-                  R"(@VERT@)"),
+                  R"(@simple.vert@)"),
                 "main"
               },
               {
@@ -35,7 +35,7 @@ std::vector<Shader> GetShaders() {
                 CompileToSpv(
                   compiler,
                   shaderc_fragment_shader,
-                  R"(@FRAG@)"),
+                  R"(@simple.frag@)"),
                 "main"
               }
   };
