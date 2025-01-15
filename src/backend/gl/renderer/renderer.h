@@ -22,7 +22,7 @@ public:
   [[nodiscard]] engine::Model& GetModel() noexcept override;
 private:
   Window& window_;
-  ValueHandle program_;
+  ValueObject program_;
 
   Object object_;
 

@@ -5,16 +5,16 @@
 namespace gl {
 
 std::vector<Shader> GetShaders() {
-    return {
-        {
-            R"(@simple.vert@)",
-            GL_VERTEX_SHADER
-        },
-        {
-            R"(@simple.frag@)",
-            GL_FRAGMENT_SHADER
-        }
-    };
+  return {
+    {
+      R"(@simple.vert@)",
+      GL_VERTEX_SHADER
+    },
+    {
+      R"(@simple.frag@)",
+      GL_FRAGMENT_SHADER
+    }
+  };
 }
 
 } // namespace gl

@@ -15,17 +15,9 @@ namespace gl {
 
 namespace {
 
-ArrayHandle TextureCreate(const uint8_t* data, const int width, const int height) {
-  const auto texture_creator = []{
-    GLuint texture_handle;
-    glGenTextures(1, &texture_handle);
-    return texture_handle;
-  };
-  const auto texture_deleter = [](GLuint* texture) {
-    glDeleteTextures(1, texture);
-  };
-  ArrayHandle texture(texture_creator(), texture_deleter);
-  glBindTexture(GL_TEXTURE_2D, texture.GetValue());
+ArrayObject TextureCreate(const uint8_t* data, const int width, const int height) {
+  ArrayObject texture(1, glGenTextures, glDeleteTextures);
+  glBindTexture(GL_TEXTURE_2D, texture.Value());
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -37,16 +29,16 @@ ArrayHandle TextureCreate(const uint8_t* data, const int width, const int height
   return texture;
 }
 
-ArrayHandle LoadDummyTexture()  {
+ArrayObject LoadDummyTexture()  {
   constexpr int dummy_width = 16;
   constexpr int dummy_height = 16;
 
-  std::vector<unsigned char> dummy_colors(dummy_width * dummy_height, 0xff);
+  const std::vector<unsigned char> dummy_colors(dummy_width * dummy_height, 0xff);
 
   return TextureCreate(dummy_colors.data(), dummy_width, dummy_height);
 }
 
-std::optional<ArrayHandle> LoadTexture(const std::string& path) {
+std::optional<ArrayObject> LoadTexture(const std::string& path) {
   int image_width, image_height, image_channels;
   const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha), stbi_image_free);
   if (pixels == nullptr) {
@@ -55,14 +47,14 @@ std::optional<ArrayHandle> LoadTexture(const std::string& path) {
   return TextureCreate(pixels.get(), image_width, image_height);
 }
 
-std::vector<ArrayHandle> LoadTextures(const obj::Data& data) {
-  std::vector<ArrayHandle> textures;
+std::vector<ArrayObject> LoadTextures(const obj::Data& data) {
+  std::vector<ArrayObject> textures;
   textures.reserve(data.mtl.size());
 
   for(const obj::NewMtl& mtl : data.mtl) {
-    ArrayHandle texture;
+    ArrayObject texture;
     const std::string& path = mtl.map_kd;
-    if (std::optional<ArrayHandle> opt_texture = LoadTexture(path); !opt_texture.has_value()) {
+    if (std::optional<ArrayObject> opt_texture = LoadTexture(path); !opt_texture.has_value()) {
       texture = LoadDummyTexture();
     } else {
       texture = std::move(opt_texture.value());
@@ -74,47 +66,38 @@ std::vector<ArrayHandle> LoadTextures(const obj::Data& data) {
 
 } // namespace
 
-Object ObjectLoader::Load(const std::string& path) {
+Object ObjectLoader::Load(const std::string& path) const {
   stbi_set_flip_vertically_on_load(true);
 
   obj::Data data = obj::ParseFromFile(path);
 
-  const auto buffer_creator = []() {
-    GLuint buffer;
-    glGenBuffers(1, &buffer);
-    return buffer;
-  };
-  const auto buffer_deleter = [](GLuint* buffers){
-    glDeleteBuffers(1, buffers);
-  };
-
-  ArrayHandle ebo(buffer_creator(), buffer_deleter);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.GetValue());
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(engine::Index) * data.indices.size(),  nullptr, GL_STATIC_DRAW);
+  ArrayObject ebo(1, glGenBuffers, glDeleteBuffers);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo.Value());
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(engine::Index) * data.indices.size()),  nullptr, GL_STATIC_DRAW);
 
   auto indices = static_cast<engine::Index*>(glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY));
   if (indices == nullptr) {
     throw Error("Failed to map indices");
   }
-  ArrayHandle vbo(buffer_creator(), buffer_deleter);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo.GetValue());
-  glBufferData(GL_ARRAY_BUFFER, sizeof(engine::Vertex) * data.indices.size(), nullptr, GL_STATIC_DRAW);
+  ArrayObject vbo(1, glGenBuffers, glDeleteBuffers);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo.Value());
+  glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(engine::Vertex) * data.indices.size()), nullptr, GL_STATIC_DRAW);
   auto vertices = static_cast<engine::Vertex*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
   if (vertices == nullptr) {
     throw Error("Failed to map vertices");
   }
   engine::data_util::RemoveDuplicates(data, vertices, indices);
 
-  const GLuint pos_loc = glGetAttribLocation(program_.GetValue(), "inPosition");
-  glVertexAttribPointer(pos_loc, 3, GL_FLOAT, GL_FALSE,  8 * sizeof(float), (void*)0);
+  const GLuint pos_loc = glGetAttribLocation(program_.Value(), "inPosition");
+  glVertexAttribPointer(pos_loc, 3, GL_FLOAT, GL_FALSE,  8 * sizeof(float), nullptr);
   glEnableVertexAttribArray(pos_loc);
 
-  const GLuint normal_loc = glGetAttribLocation(program_.GetValue(), "inNormal");
-  glVertexAttribPointer(normal_loc, 3, GL_FLOAT, GL_FALSE,  8 * sizeof(float), (void*)(3 * sizeof(GLfloat)));
+  const GLuint normal_loc = glGetAttribLocation(program_.Value(), "inNormal");
+  glVertexAttribPointer(normal_loc, 3, GL_FLOAT, GL_FALSE,  8 * sizeof(float), reinterpret_cast<void*>(3 * sizeof(GLfloat)));
   glEnableVertexAttribArray(normal_loc);
 
-  const GLuint tex_loc = glGetAttribLocation(program_.GetValue(), "inTexCoord");
-  glVertexAttribPointer(tex_loc, 2, GL_FLOAT, GL_FALSE,  8 * sizeof(float), (void*)(6 * sizeof(GLfloat)));
+  const GLuint tex_loc = glGetAttribLocation(program_.Value(), "inTexCoord");
+  glVertexAttribPointer(tex_loc, 2, GL_FLOAT, GL_FALSE,  8 * sizeof(float), reinterpret_cast<void*>(6 * sizeof(GLfloat)));
   glEnableVertexAttribArray(tex_loc);
 
   glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);

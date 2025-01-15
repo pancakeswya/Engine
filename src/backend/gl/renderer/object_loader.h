@@ -10,15 +10,15 @@ namespace gl {
 
 class ObjectLoader {
 public:
-  explicit ObjectLoader(const ValueHandle& program);
+  explicit ObjectLoader(const ValueObject& program);
   ~ObjectLoader() = default;
 
-  Object Load(const std::string& path);
+  [[nodiscard]] Object Load(const std::string& path) const;
 private:
-  const ValueHandle& program_;
+  const ValueObject& program_;
 };
 
-inline ObjectLoader::ObjectLoader(const ValueHandle& program) : program_(program) {}
+inline ObjectLoader::ObjectLoader(const ValueObject& program) : program_(program) {}
 
 } // namespace gl
 

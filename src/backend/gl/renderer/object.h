@@ -9,10 +9,10 @@
 namespace gl {
 
 struct Object {
-  ArrayHandle vbo;
-  ArrayHandle ebo;
+  ArrayObject vbo;
+  ArrayObject ebo;
 
-  std::vector<ArrayHandle> textures;
+  std::vector<ArrayObject> textures;
   std::vector<obj::UseMtl> usemtl;
 };
 

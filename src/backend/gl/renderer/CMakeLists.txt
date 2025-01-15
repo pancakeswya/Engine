@@ -11,6 +11,7 @@ add_library(gl_renderer SHARED
         object.h
         object_loader.cc
         object_loader.h
+        handle.cc
         handle.h
         renderer.cc
         renderer.h

@@ -3,61 +3,55 @@
 
 #include <GL/glew.h>
 
-#include <functional>
-#include <type_traits>
-#include <utility>
-
 namespace gl {
 
-template<typename T>
-class Handle {
+class ValueObject {
 public:
-  using Deleter = std::function<void(T)>;
-  using Value = std::remove_pointer_t<T>;
-  using Ptr = Value*;
+  using Deleter = void(*)(GLuint);
 
-  Handle() = default;
+  ValueObject() = default;
+  ValueObject(const ValueObject& other) = delete;
+  ValueObject(ValueObject&& other) noexcept;
+  ValueObject(GLuint value, Deleter deleter);
+  ~ValueObject();
 
-  Handle(const Handle&) = delete;
+  ValueObject& operator=(const ValueObject&) = delete;
+  ValueObject& operator=(ValueObject&&) noexcept;
 
-  Handle(Handle&& other) noexcept : handle_(std::move(other.handle_)), deleter_(std::move(other.deleter_)) {
-    other.handle_ = {};
-    other.deleter_ = {};
-  }
-
-  explicit Handle(Value handle, Deleter deleter) noexcept
-    : handle_(handle), deleter_(std::move(deleter)) {}
-
-  ~Handle() {
-    if (deleter_) {
-      if constexpr (std::is_pointer_v<T>) {
-        deleter_(&handle_);
-      } else {
-        deleter_(handle_);
-      }
-    }
-  }
-
-  Handle& operator=(const Handle&) = delete;
-
-  Handle& operator=(Handle&& other) noexcept {
-    if (this != &other) {
-      handle_ = std::exchange(other.handle_, {});
-      deleter_ = std::exchange(other.deleter_, {});
-    }
-    return *this;
-  }
-
-  [[nodiscard]] Value GetValue() const noexcept {
-    return handle_;
-  }
+  [[nodiscard]] GLuint Value() const noexcept;
 private:
-  Value handle_;
+  GLuint value_;
   Deleter deleter_;
 };
 
-using ValueHandle = Handle<GLuint>;
-using ArrayHandle = Handle<GLuint*>;
+inline GLuint ValueObject::Value() const noexcept {
+  return value_;
+}
+
+class ArrayObject {
+public:
+  using Creator = void(*)(GLsizei, GLuint*);
+  using Deleter = void(*)(GLsizei, const GLuint*);
+
+  ArrayObject() = default;
+  ArrayObject(const ArrayObject& other) = delete;
+  ArrayObject(ArrayObject&& other) noexcept;
+  ArrayObject(GLsizei count, Creator creator, Deleter deleter);
+  ~ArrayObject();
+
+  ArrayObject& operator=(const ArrayObject& other) = delete;
+  ArrayObject& operator=(ArrayObject&& other) noexcept;
+
+  [[nodiscard]] GLuint Value() const noexcept;
+private:
+  GLsizei size_;
+  GLuint array_;
+  Deleter deleter_;
+};
+
+inline GLuint ArrayObject::Value() const noexcept {
+  return array_;
+}
 
 } // namespace gl
 
