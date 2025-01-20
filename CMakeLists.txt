@@ -3,10 +3,7 @@ project(engine)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# add_compile_definitions(DEBUG)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
+add_compile_definitions(DEBUG)
 
 include(cmake/shaders.cmake)
 

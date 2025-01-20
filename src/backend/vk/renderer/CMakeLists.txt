@@ -18,18 +18,20 @@ add_library(vk_renderer SHARED
         commander.cc
         instance.h
         instance.cc
+        instance_dispatchable_factory.cc
+        instance_dispatchable_factory.h
         device.h
         device.cc
         device_selector.h
         device_selector.cc
+        device_dispatchable_factory.cc
+        device_dispatchable_factory.h
         commander.h
         commander.cc
         plugin.cc
         window.h
         renderer.cc
         renderer.h
-        internal.cc
-        internal.h
         buffer.cc
         buffer.h
         image.cc
@@ -40,9 +42,11 @@ add_library(vk_renderer SHARED
         shader.cc
 )
 
+set_property(TARGET vk_renderer PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_compile_definitions(vk_renderer PRIVATE -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_link_directories(vk_renderer PUBLIC ${SHADERC_LIBRARY_DIRS})
-target_link_libraries(vk_renderer
+target_link_libraries(vk_renderer PUBLIC
         Vulkan::Vulkan
         ${SHADERC_LIBRARIES}
         obj

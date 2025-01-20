@@ -20,6 +20,8 @@ add_library(gl_renderer SHARED
         window.h
 )
 
+set_property(TARGET gl_renderer PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(gl_renderer PUBLIC
         obj
         OpenGL::GL

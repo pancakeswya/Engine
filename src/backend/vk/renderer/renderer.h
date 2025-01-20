@@ -4,18 +4,25 @@
 #include <string>
 #include <vector>
 
+#ifdef __APPLE__
+#define VK_ENABLE_BETA_EXTENSIONS
+#endif
+
+#include <vulkan/vulkan.h>
+
 #include "engine/render/model.h"
 #include "engine/render/renderer.h"
 
-#include "backend/vk/renderer/renderer.h"
+#include "backend/vk/renderer/window.h"
 #include "backend/vk/renderer/config.h"
 #include "backend/vk/renderer/device.h"
 #include "backend/vk/renderer/instance.h"
-#include "backend/vk/renderer/object.h"
-#include "backend/vk/renderer/window.h"
 #include "backend/vk/renderer/swapchain.h"
+#include "backend/vk/renderer/object.h"
 
 namespace vk {
+
+class DeviceDispatchableFactory;
 
 class Renderer final : public engine::Renderer {
 public:
@@ -27,6 +34,9 @@ public:
   engine::Model& GetModel() noexcept override;
 private:
   void RecreateSwapchain();
+  void CreateSwapchain(const DeviceDispatchableFactory& dispatchable_factory);
+  void CreateFramebuffers(const DeviceDispatchableFactory& dispatchable_factory);
+
   void UpdateUniforms() const;
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
@@ -39,28 +49,30 @@ private:
 
   Instance instance_;
 #ifdef DEBUG
-  Instance::Dispatchable<VkDebugUtilsMessengerEXT> messenger_;
+  InstanceDispatchable<VkDebugUtilsMessengerEXT> messenger_;
 #endif // DEBUG
-  Instance::Dispatchable<VkSurfaceKHR> surface_;
+  InstanceDispatchable<VkSurfaceKHR> surface_;
 
   Device device_;
 
   Swapchain swapchain_;
-  std::vector<Device::Dispatchable<VkFramebuffer>> framebuffers_;
+  Image depth_image_;
+  std::vector<DeviceDispatchable<VkImageView>> image_views_;
+  std::vector<DeviceDispatchable<VkFramebuffer>> framebuffers_;
 
-  Device::Dispatchable<VkRenderPass> render_pass_;
+  std::vector<DeviceDispatchable<VkSemaphore>> image_semaphores_;
+  std::vector<DeviceDispatchable<VkSemaphore>> render_semaphores_;
+  std::vector<DeviceDispatchable<VkFence>> fences_;
 
-  Device::Dispatchable<VkCommandPool> cmd_pool_;
+  DeviceDispatchable<VkRenderPass> render_pass_;
+
+  DeviceDispatchable<VkCommandPool> cmd_pool_;
   std::vector<VkCommandBuffer> cmd_buffers_;
-
-  std::vector<Device::Dispatchable<VkSemaphore>> image_semaphores_;
-  std::vector<Device::Dispatchable<VkSemaphore>> render_semaphores_;
-  std::vector<Device::Dispatchable<VkFence>> fences_;
 
   Object object_;
 
-  Device::Dispatchable<VkPipelineLayout> pipeline_layout_;
-  Device::Dispatchable<VkPipeline> pipeline_;
+  DeviceDispatchable<VkPipelineLayout> pipeline_layout_;
+  DeviceDispatchable<VkPipeline> pipeline_;
 
   std::vector<Uniforms*> uniforms_buff_;
 

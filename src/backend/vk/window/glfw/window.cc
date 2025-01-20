@@ -18,7 +18,7 @@ Window::Window(const int width, const int height, const std::string& title)
   : internal::Window(width, height, title),
     surface_factory_(window_) {}
 
-void Window::Loop(EventHandler* handler) const noexcept { internal::Window::Loop(handler); }
+void Window::Loop(EventHandler* handler) const { internal::Window::Loop(handler); }
 
 void Window::WaitUntilResized() const noexcept {
   int width = 0, height = 0;

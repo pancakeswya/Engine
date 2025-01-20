@@ -9,4 +9,6 @@ add_library(glfw_gl_window SHARED
         window.h
 )
 
+set_property(TARGET glfw_gl_window PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(glfw_gl_window PUBLIC glfw)

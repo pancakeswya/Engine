@@ -11,6 +11,8 @@ add_library(sdl_vk_window SHARED
         window.cc
 )
 
+set_property(TARGET sdl_vk_window PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(sdl_vk_window PUBLIC ${SDL2_INCLUDE_DIRS})
 
 target_link_libraries(sdl_vk_window PUBLIC Vulkan::Vulkan ${SDL2_LIBRARIES})

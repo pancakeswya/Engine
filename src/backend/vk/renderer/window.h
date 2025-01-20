@@ -21,6 +21,9 @@ public:
   virtual void WaitUntilResized() const = 0;
 
   [[nodiscard]] virtual std::vector<const char*> GetExtensions() const = 0;
+private:
+  friend class InstanceDispatchableFactory;
+
   [[nodiscard]] virtual const SurfaceFactory& GetSurfaceFactory() const noexcept = 0;
 };
 

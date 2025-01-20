@@ -1,8 +1,7 @@
-#ifndef BACKEND_VK_RENDERER_SELECTOR_H_
-#define BACKEND_VK_RENDERER_SELECTOR_H_
+#ifndef BACKEND_VK_RENDERER_DEVICE_SELECTOR_H_
+#define BACKEND_VK_RENDERER_DEVICE_SELECTOR_H_
 
 #include <vector>
-#include <utility>
 #include <optional>
 
 #include <vulkan/vulkan.h>
@@ -35,4 +34,4 @@ inline DeviceSelector::DeviceSelector(const std::vector<VkPhysicalDevice>& devic
 
 } // namespace vk
 
-#endif // BACKEND_VK_RENDERER_SELECTOR_H_
+#endif // BACKEND_VK_RENDERER_DEVICE_SELECTOR_H_

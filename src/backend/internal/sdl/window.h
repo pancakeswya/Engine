@@ -13,7 +13,7 @@ public:
   Window(int width, int height, const std::string& title, SDL_WindowFlags flags);
   ~Window() noexcept override = default;
 
-  void Loop(EventHandler* handler) const noexcept override;
+  void Loop(EventHandler* handler) const override;
 
   [[nodiscard]] bool ShouldClose() const noexcept override;
   [[nodiscard]] int GetWidth() const noexcept override;
@@ -67,7 +67,7 @@ inline SDL_Window* Window::CreateWindow(const int width, const int height, const
 inline Window::Window(const int width, const int height, const std::string& title, const SDL_WindowFlags flags)
   : user_ptr_(), should_close_(false), window_(CreateWindow(width, height, title, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | flags)) {}
 
-inline void Window::Loop(EventHandler* handler) const noexcept {
+inline void Window::Loop(EventHandler* handler) const {
   HandleEvents();
   handler->OnRenderEvent();
 }

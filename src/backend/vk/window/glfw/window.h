@@ -27,7 +27,7 @@ public:
   Window(int width, int height, const std::string& title);
   ~Window() noexcept override = default;
 
-  void Loop(EventHandler* handler) const noexcept override;
+  void Loop(EventHandler* handler) const override;
   void WaitUntilResized() const noexcept override;
 
   [[nodiscard]] std::vector<const char*> GetExtensions() const override;

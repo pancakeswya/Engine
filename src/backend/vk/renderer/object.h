@@ -7,7 +7,7 @@
 
 #include "engine/render/types.h"
 
-#include "backend/vk/renderer/device.h"
+#include "backend/vk/renderer/dispatchable.h"
 #include "backend/vk/renderer/buffer.h"
 #include "backend/vk/renderer/image.h"
 #include "obj/types.h"
@@ -37,12 +37,13 @@ struct IndexType<uint32_t> {
 struct Uniforms : engine::Uniforms {};
 
 struct DescriptorSetObject {
-  Device::Dispatchable<VkDescriptorSetLayout> descriptor_set_layout;
+  DeviceDispatchable<VkDescriptorSetLayout> descriptor_set_layout;
   std::vector<VkDescriptorSet> descriptor_sets;
 };
 
 struct TextureBufferObject : DescriptorSetObject {
   std::vector<Image> images;
+  std::vector<DeviceDispatchable<VkSampler>> samplers;
 };
 
 struct UniformBufferObject : DescriptorSetObject {
@@ -58,7 +59,7 @@ struct Object {
   TextureBufferObject tbo;
   UniformBufferObject ubo;
 
-  Device::Dispatchable<VkDescriptorPool> descriptor_pool;
+  DeviceDispatchable<VkDescriptorPool> descriptor_pool;
 };
 
 } // namespace vk

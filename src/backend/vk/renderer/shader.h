@@ -20,15 +20,11 @@ struct ShaderInfo : ShaderInfoBase {
 
 extern std::vector<ShaderInfo> GetShaders();
 
-class ShaderModule final : public Device::Dispatchable<VkShaderModule> {
+class ShaderModule final : public DeviceDispatchable<VkShaderModule> {
 public:
   ShaderModule() noexcept;
   ShaderModule(const ShaderModule& other) = delete;
   ShaderModule(ShaderModule&& other) noexcept;
-  ShaderModule(VkShaderModule module,
-               VkDevice logical_device,
-               const VkAllocationCallbacks* allocator,
-               const ShaderInfoBase& info) noexcept;
   ~ShaderModule() override = default;
 
   ShaderModule& operator=(const ShaderModule& other) = delete;
@@ -37,7 +33,14 @@ public:
   [[nodiscard]] VkShaderStageFlagBits Stage() const noexcept;
   [[nodiscard]] std::string_view EntryPoint() const noexcept;
 private:
+  using Base = DeviceDispatchable<VkShaderModule>;
+
+  friend class DeviceDispatchableFactory;
+
   ShaderInfoBase info_;
+
+  ShaderModule(DeviceDispatchable<VkShaderModule>&& shader_module,
+               const ShaderInfoBase& info) noexcept;
 };
 
 inline VkShaderStageFlagBits ShaderModule::Stage() const noexcept {

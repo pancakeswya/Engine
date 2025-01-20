@@ -1,7 +1,8 @@
 #ifndef BACKEND_VK_RENDERER_COMMANDER_H_
 #define BACKEND_VK_RENDERER_COMMANDER_H_
 
-#include "backend/vk/renderer/device.h"
+#include "backend/vk/renderer/buffer.h"
+#include "backend/vk/renderer/image.h"
 
 #include <vulkan/vulkan.h>
 

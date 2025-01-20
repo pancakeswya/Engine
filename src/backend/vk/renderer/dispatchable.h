@@ -3,14 +3,14 @@
 
 #include <vulkan/vulkan.h>
 
+#include <cstdio>
 #include <utility>
 
 namespace vk {
 
-template<typename HandleType, typename ParentWrapper>
+template<typename HandleType, typename ParentType>
 class Dispatchable {
 public:
-  using ParentType = typename ParentWrapper::HandleType;
   using DestroyFunc = void (*)(ParentType parent, HandleType type, const VkAllocationCallbacks*);
 
   Dispatchable() noexcept
@@ -34,7 +34,7 @@ public:
 
   Dispatchable(HandleType handle,
                ParentType parent,
-               DestroyFunc destroy,
+               const DestroyFunc destroy,
                const VkAllocationCallbacks* allocator) noexcept
       : handle_(handle),
         parent_(parent),
@@ -56,9 +56,9 @@ public:
 
   virtual ~Dispatchable() { Destroy(); }
 
-  HandleType Handle() const noexcept { return handle_; }
-  const HandleType* HandlePtr() const noexcept { return &handle_; }
-  ParentType Parent() const noexcept { return parent_; }
+  [[nodiscard]] HandleType GetHandle() const noexcept { return handle_; }
+  [[nodiscard]] ParentType GetParent() const noexcept { return parent_; }
+  [[nodiscard]] const VkAllocationCallbacks* GetAllocator() const noexcept { return allocator_; }
 protected:
   HandleType handle_;
   ParentType parent_;
@@ -68,15 +68,79 @@ protected:
 private:
   void Destroy() noexcept {
     if (destroy_ != nullptr) {
-      destroy_(parent_, handle_, allocator_);
-
-      handle_ = VK_NULL_HANDLE;
+      if (handle_ != VK_NULL_HANDLE) {
+        destroy_(parent_, handle_, allocator_);
+        handle_ = VK_NULL_HANDLE;
+      }
       parent_ = VK_NULL_HANDLE;
       destroy_ = nullptr;
       allocator_ = VK_NULL_HANDLE;
     }
   }
 };
+
+template<typename HandleType>
+class SelfDispatchable {
+public:
+  using DestroyFunc = void (*)(HandleType handle, const VkAllocationCallbacks*);
+
+  SelfDispatchable() noexcept
+      : handle_(VK_NULL_HANDLE), destroy_(nullptr), allocator_(nullptr) {}
+
+  SelfDispatchable(const SelfDispatchable&) = delete;
+
+  SelfDispatchable(SelfDispatchable&& other) noexcept
+    : handle_(other.handle_),
+      destroy_(other.destroy_),
+      allocator_(other.allocator_) {
+    other.handle_ = VK_NULL_HANDLE;
+    other.destroy_ = nullptr;
+    other.allocator_ = VK_NULL_HANDLE;
+  }
+
+  SelfDispatchable(HandleType handle,
+                   const DestroyFunc destroy,
+                   const VkAllocationCallbacks* allocator) noexcept
+    : handle_(handle), destroy_(destroy), allocator_(allocator) {}
+
+  virtual ~SelfDispatchable() { Destroy(); }
+
+  SelfDispatchable& operator=(const SelfDispatchable&) = delete;
+
+  SelfDispatchable& operator=(SelfDispatchable&& other) noexcept {
+    if (this != &other) {
+      Destroy();
+      handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
+      destroy_ = std::exchange(other.destroy_, nullptr);
+      allocator_ = std::exchange(other.allocator_, VK_NULL_HANDLE);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] HandleType GetHandle() const noexcept { return handle_; }
+  [[nodiscard]] const VkAllocationCallbacks* GetAllocator() const noexcept { return allocator_; }
+protected:
+  HandleType handle_;
+  DestroyFunc destroy_;
+  const VkAllocationCallbacks* allocator_;
+private:
+  void Destroy() noexcept {
+    if (destroy_ != nullptr) {
+      if (handle_ != VK_NULL_HANDLE) {
+        destroy_(handle_, allocator_);
+        handle_ = VK_NULL_HANDLE;
+      }
+      destroy_ = nullptr;
+      allocator_ = VK_NULL_HANDLE;
+    }
+  }
+};
+
+template<typename HandleType>
+using InstanceDispatchable = Dispatchable<HandleType, VkInstance>;
+
+template<typename HandleType>
+using DeviceDispatchable = Dispatchable<HandleType, VkDevice>;
 
 } // namespace vk
 
