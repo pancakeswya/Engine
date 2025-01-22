@@ -1,10 +1,10 @@
 #ifndef BACKEND_VK_RENDERER_ERROR_H_
 #define BACKEND_VK_RENDERER_ERROR_H_
 
-#include <vulkan/vulkan.h>
-
 #include <stdexcept>
 #include <string>
+
+#include <vulkan/vulkan.h>
 
 namespace vk {
 

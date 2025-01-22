@@ -1,6 +1,6 @@
 #include "engine/render/plugin.h"
-#include "engine/cast_util.h"
 
+#include "engine/cast_util.h"
 #include "backend/vk/renderer/config.h"
 #include "backend/vk/renderer/renderer.h"
 #include "backend/vk/renderer/window.h"

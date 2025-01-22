@@ -45,7 +45,7 @@ public:
 private:
   void RecreateSwapchain();
   std::pair<Swapchain, Image> CreateSwapchainAndDepthImage() const;
-  std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> CreateFramebuffersAndSyncObjects() const;
+  std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> CreateSwapchainImagesAndSyncObjects() const;
 
   void UpdateUniforms() const;
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);

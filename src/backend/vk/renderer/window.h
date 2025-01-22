@@ -1,11 +1,11 @@
 #ifndef BACKEND_VK_RENDERER_WINDOW_H_
 #define BACKEND_VK_RENDERER_WINDOW_H_
 
-#include "engine/window/window.h"
+#include <vector>
 
 #include <vulkan/vulkan.h>
 
-#include <vector>
+#include "engine/window/window.h"
 
 namespace vk {
 
@@ -22,7 +22,7 @@ public:
 
   [[nodiscard]] virtual std::vector<const char*> GetExtensions() const = 0;
 private:
-  friend class InstanceDispatchableFactory;
+  friend class Instance;
 
   [[nodiscard]] virtual const SurfaceFactory& GetSurfaceFactory() const noexcept = 0;
 };

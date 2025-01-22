@@ -11,38 +11,12 @@ namespace vk {
 
 namespace {
 
-int32_t FindMemoryType(const uint32_t type_filter, VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties mem_properties;
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_properties);
-
-  for (int32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
-    if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
-      return i;
-    }
-  }
-  throw Error("failed to find suitable memory type!");
-}
-
-VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkPhysicalDevice physical_device, const VkImageTiling tiling, const VkFormatFeatureFlags features) {
-  for (const VkFormat format : formats) {
-    VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(physical_device, format, &props);
-    if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-      return format;
-    }
-    if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-      return format;
-    }
-  }
-  throw Error("failed to find supported format");
-}
-
 VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats) {
   for (const VkSurfaceFormatKHR& available_format : available_formats) {
     if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
         available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
       return available_format;
-        }
+    }
   }
   return available_formats[0];
 }
@@ -60,7 +34,6 @@ VkExtent2D ChooseExtent(const VkExtent2D extent, const VkSurfaceCapabilitiesKHR&
   if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
   }
-
   return {
     std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
     std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
@@ -69,56 +42,11 @@ VkExtent2D ChooseExtent(const VkExtent2D extent, const VkSurfaceCapabilitiesKHR&
 
 } // namespace
 
-SurfaceSupportDetails Device::GetSurfaceSupport(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
-  SurfaceSupportDetails details;
-  if (const VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &details.capabilities); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface capabilities").WithCode(result);
-  }
-  uint32_t format_count;
-  if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface formats count").WithCode(result);
-  }
-
-  if (format_count != 0) {
-    details.formats.resize(format_count);
-    if (const VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, details.formats.data()); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface formats").WithCode(result);
-    }
-  }
-  uint32_t present_mode_count;
-  if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get physical device surface present modes count").WithCode(result);
-  }
-
-  if (present_mode_count != 0) {
-    details.present_modes.resize(present_mode_count);
-    if (const VkResult result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, details.present_modes.data()); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface present modes").WithCode(result);
-    }
-  }
-  return details;
-}
-
-VkFormat Device::FindDepthFormat() const {
-  return FindSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-      physical_device_,
-      VK_IMAGE_TILING_OPTIMAL,
-      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-  );
-}
-
-bool Device::FormatFeatureSupported(const VkFormat format, const VkFormatFeatureFlagBits feature) const {
-  VkFormatProperties format_properties = {};
-  vkGetPhysicalDeviceFormatProperties(physical_device_, format, &format_properties);
-  return (format_properties.optimalTilingFeatures & feature) != 0;
-}
-
 template<typename Handle, typename HandleInfo>
 DeviceDispatchable<Handle> Device::ExecuteCreate(const DeviceCreateFunc<Handle, HandleInfo> create_func, const DeviceDestroyFunc<Handle> destroy_func, const HandleInfo* handle_info) const {
   Handle handle = VK_NULL_HANDLE;
-  VkDevice logical_device = logical_device_.GetHandle();
-  const VkAllocationCallbacks* allocator = logical_device_.GetAllocator();
+  VkDevice logical_device = GetHandle();
+  const VkAllocationCallbacks* allocator = GetAllocator();
   if (const VkResult result = create_func(logical_device, handle_info, allocator, &handle); result != VK_SUCCESS) {
     throw Error("failed to create render pass").WithCode(result);
   }
@@ -130,13 +58,22 @@ DeviceDispatchable<Handle> Device::ExecuteCreate(const DeviceCreateFunc<Handle, 
   };
 }
 
+template<typename Handle, typename AllocInfo>
+[[nodiscard]] std::vector<Handle> Device::ExecuteAllocate(DeviceAllocateFunc<Handle, AllocInfo> allocate_func, const uint32_t count, const AllocInfo* alloc_info) const {
+  std::vector<Handle> seq(count);
+  if (const VkResult result = allocate_func(GetHandle(), alloc_info, seq.data()); result != VK_SUCCESS) {
+    throw Error("failed to allocate descriptor sets").WithCode(result);
+  }
+  return seq;
+}
+
 DeviceDispatchable<VkShaderModule> Device::CreateShaderModule(const std::vector<uint32_t>& spirv) const {
   VkShaderModuleCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   create_info.codeSize = spirv.size() * sizeof(uint32_t);
   create_info.pCode = spirv.data();
 
-  return ExecuteCreate<VkShaderModule>(vkCreateShaderModule, vkDestroyShaderModule, &create_info);
+  return ExecuteCreate(vkCreateShaderModule, vkDestroyShaderModule, &create_info);
 }
 
 DeviceDispatchable<VkRenderPass> Device::CreateRenderPass(const VkFormat image_format, const VkFormat depth_format) const {
@@ -194,7 +131,7 @@ DeviceDispatchable<VkRenderPass> Device::CreateRenderPass(const VkFormat image_f
   render_pass_info.dependencyCount = 1;
   render_pass_info.pDependencies = &dependency;
 
-  return ExecuteCreate<VkRenderPass>(vkCreateRenderPass, vkDestroyRenderPass, &render_pass_info);
+  return ExecuteCreate(vkCreateRenderPass, vkDestroyRenderPass, &render_pass_info);
 }
 
 DeviceDispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts) const {
@@ -203,7 +140,7 @@ DeviceDispatchable<VkPipelineLayout> Device::CreatePipelineLayout(const std::vec
   pipeline_layout_info.setLayoutCount = descriptor_set_layouts.size();
   pipeline_layout_info.pSetLayouts = descriptor_set_layouts.data();
 
-  return ExecuteCreate<VkPipelineLayout>(vkCreatePipelineLayout, vkDestroyPipelineLayout, &pipeline_layout_info);
+  return ExecuteCreate(vkCreatePipelineLayout, vkDestroyPipelineLayout, &pipeline_layout_info);
 }
 
 DeviceDispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_layout, VkRenderPass render_pass, const std::vector<VkVertexInputAttributeDescription>& attribute_descriptions, const std::vector<VkVertexInputBindingDescription>& binding_descriptions, const std::vector<Shader>& shaders) const {
@@ -300,8 +237,8 @@ DeviceDispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_
   pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 
   VkPipeline pipeline = VK_NULL_HANDLE;
-  VkDevice logical_device = logical_device_.GetHandle();
-  const VkAllocationCallbacks* allocator = logical_device_.GetAllocator();
+  VkDevice logical_device = GetHandle();
+  const VkAllocationCallbacks* allocator = GetAllocator();
   if (const VkResult result = vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipeline_info, allocator, &pipeline); result != VK_SUCCESS) {
     throw Error("failed to create graphics pipeline").WithCode(result);
   }
@@ -319,14 +256,14 @@ DeviceDispatchable<VkCommandPool> Device::CreateCommandPool(const uint32_t famil
   create_info.queueFamilyIndex = family_index;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-  return ExecuteCreate<VkCommandPool>(vkCreateCommandPool, vkDestroyCommandPool, &create_info);
+  return ExecuteCreate(vkCreateCommandPool, vkDestroyCommandPool, &create_info);
 }
 
 DeviceDispatchable<VkSemaphore> Device::CreateSemaphore() const {
   VkSemaphoreCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  return ExecuteCreate<VkSemaphore>(vkCreateSemaphore, vkDestroySemaphore, &create_info);
+  return ExecuteCreate(vkCreateSemaphore, vkDestroySemaphore, &create_info);
 }
 
 DeviceDispatchable<VkFence> Device::CreateFence() const {
@@ -334,59 +271,11 @@ DeviceDispatchable<VkFence> Device::CreateFence() const {
   create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  return ExecuteCreate<VkFence>(vkCreateFence, vkDestroyFence, &create_info);
-}
-
-Memory Device::CreateMemory(const VkMemoryPropertyFlags properties, const VkMemoryRequirements mem_requirements) const {
-  VkMemoryAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.allocationSize = mem_requirements.size;
-  alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, physical_device_, properties);
-
-  return Memory(ExecuteCreate<VkDeviceMemory>(vkAllocateMemory, vkFreeMemory, &alloc_info));
-}
-
-std::vector<VkDescriptorSet> Device::CreateDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count) const {
-  const std::vector layouts(count, descriptor_set_layout);
-
-  VkDescriptorSetAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.descriptorPool = descriptor_pool;
-  alloc_info.descriptorSetCount = static_cast<uint32_t>(layouts.size());
-  alloc_info.pSetLayouts = layouts.data();
-
-  std::vector<VkDescriptorSet> descriptor_sets(count);
-  if (const VkResult result = vkAllocateDescriptorSets(logical_device_.GetHandle(), &alloc_info, descriptor_sets.data()); result != VK_SUCCESS) {
-    throw Error("failed to allocate descriptor sets").WithCode(result);
-  }
-  return descriptor_sets;
+  return ExecuteCreate(vkCreateFence, vkDestroyFence, &create_info);
 }
 
 
-Buffer Device::CreateBuffer(const VkBufferUsageFlags usage, const uint32_t data_size) const {
-  VkBufferCreateInfo buffer_info = {};
-  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size = data_size;
-  buffer_info.usage = usage;
-  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  return Buffer(ExecuteCreate<VkBuffer>(vkCreateBuffer, vkDestroyBuffer, &buffer_info), data_size);
-}
-
-void Device::AllocateBuffer(Buffer& buffer, const VkMemoryPropertyFlags properties) const {
-  VkMemoryRequirements mem_requirements;
-  vkGetBufferMemoryRequirements(logical_device_.GetHandle(), buffer.GetHandle(), &mem_requirements);
-
-  buffer.memory_ = CreateMemory(properties, mem_requirements);
-}
-
-void Device::BindBuffer(const Buffer& buffer) const {
-  if (const VkResult result = vkBindBufferMemory(logical_device_.GetHandle(), buffer.GetHandle(), buffer.memory_.GetHandle(), 0); result != VK_SUCCESS) {
-    throw Error("failed to bind buffer memory").WithCode(result);
-  }
-}
-
-DeviceDispatchable<VkDescriptorSetLayout> Device::CreateUboDescriptorSetLayout() const {
+DeviceDispatchable<VkDescriptorSetLayout> Device::CreateUniformDescriptorSetLayout() const {
   VkDescriptorSetLayoutBinding layout_binding = {};
   layout_binding.binding = 0;
   layout_binding.descriptorCount = 1;
@@ -399,7 +288,7 @@ DeviceDispatchable<VkDescriptorSetLayout> Device::CreateUboDescriptorSetLayout()
   layout_info.bindingCount = 1;
   layout_info.pBindings = &layout_binding;
 
-  return ExecuteCreate<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, vkDestroyDescriptorSetLayout, &layout_info);
+  return ExecuteCreate(vkCreateDescriptorSetLayout, vkDestroyDescriptorSetLayout, &layout_info);
 }
 
 DeviceDispatchable<VkDescriptorSetLayout> Device::CreateSamplerDescriptorSetLayout() const {
@@ -415,63 +304,24 @@ DeviceDispatchable<VkDescriptorSetLayout> Device::CreateSamplerDescriptorSetLayo
   layout_info.bindingCount = 1;
   layout_info.pBindings = &sampler_layout_binding;
 
-  return ExecuteCreate<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, vkDestroyDescriptorSetLayout, &layout_info);
+  return ExecuteCreate(vkCreateDescriptorSetLayout, vkDestroyDescriptorSetLayout, &layout_info);
 }
 
-DeviceDispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t ubo_count, const size_t texture_count) const {
+DeviceDispatchable<VkDescriptorPool> Device::CreateDescriptorPool(const size_t uniform_count, const size_t sampler_count) const {
   std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[0].descriptorCount = static_cast<uint32_t>(ubo_count);
+  pool_sizes[0].descriptorCount = static_cast<uint32_t>(uniform_count);
 
   pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_sizes[1].descriptorCount = static_cast<uint32_t>(texture_count);
+  pool_sizes[1].descriptorCount = static_cast<uint32_t>(sampler_count);
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
   pool_info.pPoolSizes = pool_sizes.data();
-  pool_info.maxSets = static_cast<uint32_t>(ubo_count + texture_count);
+  pool_info.maxSets = static_cast<uint32_t>(uniform_count + sampler_count);
 
-  return ExecuteCreate<VkDescriptorPool>(vkCreateDescriptorPool, vkDestroyDescriptorPool, &pool_info);
-}
-
-Image Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels) const {
-  VkImageCreateInfo image_info = {};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent = { extent.width, extent.height, 1 };
-  image_info.mipLevels = mip_levels;
-  image_info.arrayLayers = 1;
-  image_info.format = format;
-  image_info.tiling = tiling;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usage;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  return Image(
-    ExecuteCreate<VkImage>(vkCreateImage, vkDestroyImage, &image_info),
-    extent,
-    format,
-    mip_levels
-  );
-}
-
-void Device::AllocateImage(Image& image, const VkMemoryPropertyFlags properties) const {
-  VkMemoryRequirements mem_requirements;
-  vkGetImageMemoryRequirements(logical_device_.GetHandle(), image.GetHandle(), &mem_requirements);
-
-  image.memory_ = CreateMemory(properties, mem_requirements);
-}
-
-void Device::BindImage(const Image& image) const {
-  if (const VkResult result = vkBindImageMemory(logical_device_.GetHandle(), image.GetHandle(), image.GetMemory().GetHandle(), 0); result != VK_SUCCESS) {
-    throw Error("failed to bind image memory").WithCode(result);
-  }
-}
-
-void Device::MakeImageView(Image& image, const VkImageAspectFlags aspect_flags) const {
-  image.view_ = CreateImageView(image.GetHandle(), aspect_flags, image.GetFormat(), image.GetMipLevels());
+  return ExecuteCreate(vkCreateDescriptorPool, vkDestroyDescriptorPool, &pool_info);
 }
 
 DeviceDispatchable<VkImageView> Device::CreateImageView(VkImage image, const VkImageAspectFlags aspect_flags, const VkFormat format, const uint32_t mip_levels) const {
@@ -486,7 +336,7 @@ DeviceDispatchable<VkImageView> Device::CreateImageView(VkImage image, const VkI
   view_info.subresourceRange.baseArrayLayer = 0;
   view_info.subresourceRange.layerCount = 1;
 
-  return ExecuteCreate<VkImageView>(vkCreateImageView, vkDestroyImageView, &view_info);
+  return ExecuteCreate(vkCreateImageView, vkDestroyImageView, &view_info);
 }
 
 DeviceDispatchable<VkFramebuffer> Device::CreateFramebuffer(const std::vector<VkImageView>& views, VkRenderPass render_pass, const VkExtent2D extent) const {
@@ -499,12 +349,12 @@ DeviceDispatchable<VkFramebuffer> Device::CreateFramebuffer(const std::vector<Vk
   create_info.height = extent.height;
   create_info.layers = 1;
 
-  return ExecuteCreate<VkFramebuffer>(vkCreateFramebuffer, vkDestroyFramebuffer, &create_info);
+  return ExecuteCreate(vkCreateFramebuffer, vkDestroyFramebuffer, &create_info);
 }
 
 DeviceDispatchable<VkSampler> Device::CreateSampler(const VkSamplerMipmapMode mipmap_mode, const uint32_t mip_levels) const {
   VkPhysicalDeviceProperties properties = {};
-  vkGetPhysicalDeviceProperties(physical_device_, &properties);
+  vkGetPhysicalDeviceProperties(physical_device_.GetHandle(), &properties);
 
   VkSamplerCreateInfo sampler_info = {};
   sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -524,11 +374,104 @@ DeviceDispatchable<VkSampler> Device::CreateSampler(const VkSamplerMipmapMode mi
   sampler_info.maxLod = static_cast<float>(mip_levels);
   sampler_info.mipLodBias = 0.0f;
 
-  return ExecuteCreate<VkSampler>(vkCreateSampler, vkDestroySampler, &sampler_info);
+  return ExecuteCreate(vkCreateSampler, vkDestroySampler, &sampler_info);
+}
+
+std::vector<VkDescriptorSet> Device::CreateDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, size_t count) const {
+  const std::vector layouts(count, descriptor_set_layout);
+
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(layouts.size());
+  alloc_info.pSetLayouts = layouts.data();
+
+  return ExecuteAllocate(vkAllocateDescriptorSets, count, &alloc_info);
+}
+
+std::vector<VkCommandBuffer> Device::CreateCommandBuffers(VkCommandPool cmd_pool, const uint32_t count) const {
+  VkCommandBufferAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.commandPool = cmd_pool;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandBufferCount = count;
+
+  return ExecuteAllocate(vkAllocateCommandBuffers, count, &alloc_info);
+}
+
+Memory Device::CreateMemory(const VkMemoryPropertyFlags properties, const VkMemoryRequirements mem_requirements) const {
+  VkMemoryAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  alloc_info.allocationSize = mem_requirements.size;
+  alloc_info.memoryTypeIndex = physical_device_.FindMemoryType(mem_requirements.memoryTypeBits, properties);
+
+  return Memory(ExecuteCreate(vkAllocateMemory, vkFreeMemory, &alloc_info));
+}
+
+Buffer Device::CreateBuffer(const VkBufferUsageFlags usage, const uint32_t data_size) const {
+  VkBufferCreateInfo buffer_info = {};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.size = data_size;
+  buffer_info.usage = usage;
+  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  return Buffer(ExecuteCreate(vkCreateBuffer, vkDestroyBuffer, &buffer_info), data_size);
+}
+
+void Device::AllocateBuffer(Buffer& buffer, const VkMemoryPropertyFlags properties) const {
+  VkMemoryRequirements mem_requirements;
+  vkGetBufferMemoryRequirements(GetHandle(), buffer.GetHandle(), &mem_requirements);
+
+  buffer.memory_ = CreateMemory(properties, mem_requirements);
+}
+
+void Device::BindBuffer(const Buffer& buffer) const {
+  if (const VkResult result = vkBindBufferMemory(GetHandle(), buffer.GetHandle(), buffer.memory_.GetHandle(), 0); result != VK_SUCCESS) {
+    throw Error("failed to bind buffer memory").WithCode(result);
+  }
+}
+
+Image Device::CreateImage(const VkImageUsageFlags usage, const VkExtent2D extent, const VkFormat format, const VkImageTiling tiling, const uint32_t mip_levels) const {
+  VkImageCreateInfo image_info = {};
+  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  image_info.imageType = VK_IMAGE_TYPE_2D;
+  image_info.extent = { extent.width, extent.height, 1 };
+  image_info.mipLevels = mip_levels;
+  image_info.arrayLayers = 1;
+  image_info.format = format;
+  image_info.tiling = tiling;
+  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  image_info.usage = usage;
+  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  return Image(
+    ExecuteCreate(vkCreateImage, vkDestroyImage, &image_info),
+    extent,
+    format,
+    mip_levels
+  );
+}
+
+void Device::AllocateImage(Image& image, const VkMemoryPropertyFlags properties) const {
+  VkMemoryRequirements mem_requirements;
+  vkGetImageMemoryRequirements(GetHandle(), image.GetHandle(), &mem_requirements);
+
+  image.memory_ = CreateMemory(properties, mem_requirements);
+}
+
+void Device::BindImage(const Image& image) const {
+  if (const VkResult result = vkBindImageMemory(GetHandle(), image.GetHandle(), image.GetMemory().GetHandle(), 0); result != VK_SUCCESS) {
+    throw Error("failed to bind image memory").WithCode(result);
+  }
+}
+
+void Device::MakeImageView(Image& image, const VkImageAspectFlags aspect_flags) const {
+  image.view_ = CreateImageView(image.GetHandle(), aspect_flags, image.GetFormat(), image.GetMipLevels());
 }
 
 Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) const {
-  const SurfaceSupportDetails device_support_details = GetSurfaceSupport(physical_device_, surface);
+  const PhysicalDevice::SurfaceSupportDetails device_support_details = physical_device_.GetSurfaceSupportDetails(surface);
 
   VkSurfaceFormatKHR surface_format = ChooseSurfaceFormat(device_support_details.formats);
   VkPresentModeKHR present_mode = ChoosePresentMode(device_support_details.present_modes);
@@ -567,24 +510,10 @@ Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) c
   create_info.clipped = VK_TRUE;
 
   return Swapchain(
-    ExecuteCreate<VkSwapchainKHR>(vkCreateSwapchainKHR, vkDestroySwapchainKHR, &create_info),
+    ExecuteCreate(vkCreateSwapchainKHR, vkDestroySwapchainKHR, &create_info),
     extent,
     format
   );
-}
-
-std::vector<VkCommandBuffer> Device::CreateCommandBuffers(VkCommandPool cmd_pool, uint32_t count) const {
-  VkCommandBufferAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.commandPool = cmd_pool;
-  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandBufferCount = count;
-
-  std::vector<VkCommandBuffer> cmd_buffers(count);
-  if (const VkResult result = vkAllocateCommandBuffers(logical_device_.GetHandle(), &alloc_info, cmd_buffers.data()); result != VK_SUCCESS) {
-    throw Error("failed to allocate command buffers").WithCode(result);
-  }
-  return cmd_buffers;
 }
 
 } // namespace vk

@@ -1,14 +1,10 @@
 #include "backend/vk/renderer/renderer.h"
 
 #include <array>
-#include <chrono>
 #include <cstring>
-#include <limits>
 
-#include "backend/gl/renderer/shaders.h"
 #include "backend/vk/renderer/device_selector.h"
 #include "backend/vk/renderer/error.h"
-#include "backend/vk/renderer/instance_dispatchable_factory.h"
 #include "backend/vk/renderer/object_loader.h"
 #include "backend/vk/renderer/shader.h"
 
@@ -39,14 +35,11 @@ Renderer::Renderer(Config config, Window& window)
     auto render = static_cast<Renderer*>(user_ptr);
     render->framebuffer_resized_ = true;
   });
-
-  const InstanceDispatchableFactory instance_dispatchable_factory(instance_);
-
 #ifdef DEBUG
-  messenger_ = instance_dispatchable_factory.CreateMessenger();
+  messenger_ = instance_.CreateMessenger();
 #endif
 
-  surface_ = instance_dispatchable_factory.CreateSurface(window);
+  surface_ = instance_.CreateSurface(window);
 
   config_.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   config_.device_extensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
@@ -63,23 +56,89 @@ Renderer::Renderer(Config config, Window& window)
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
 
-  if (std::optional<Device> device = DeviceSelector(devices).Select(requirements); !device) {
+  std::optional<Device> device = DeviceSelector(devices).Select(requirements);
+  if (!device) {
     throw Error("failed to find suitable device");
-  } else {
-    device_ = std::move(*device);
   }
+  device_ = std::move(*device);
 
   std::tie(swapchain_, depth_image_) = CreateSwapchainAndDepthImage();
   render_pass_ = device_.CreateRenderPass(swapchain_.GetFormat(),  depth_image_.GetFormat());
-  std::tie(swapchain_framebuffers_, sync_objects_) = CreateFramebuffersAndSyncObjects();
+  std::tie(swapchain_framebuffers_, sync_objects_) = CreateSwapchainImagesAndSyncObjects();
 
   cmd_pool_ = device_.CreateCommandPool(device_.GetGraphicsQueue().family_index);
   cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.GetHandle(), config_.frame_count);
 }
 
+Renderer::~Renderer() {
+  vkDeviceWaitIdle(device_.GetHandle());
+}
+
+void Renderer::RenderFrame() {
+  uint32_t image_idx;
+
+  VkFence fence = sync_objects_[curr_frame_].fence.GetHandle();
+  VkSemaphore image_semaphore = sync_objects_[curr_frame_].image_semaphore.GetHandle();
+  VkSemaphore render_semaphore = sync_objects_[curr_frame_].render_semaphore.GetHandle();
+
+  VkCommandBuffer cmd_buffer = cmd_buffers_[curr_frame_];
+  VkSwapchainKHR swapchain = swapchain_.GetHandle();
+
+  if (const VkResult result = vkWaitForFences(device_.GetHandle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); result != VK_SUCCESS) {
+    throw Error("failed to wait for fences").WithCode(result);
+  }
+  if (const VkResult result = vkAcquireNextImageKHR(device_.GetHandle(), swapchain_.GetHandle(), std::numeric_limits<uint64_t>::max(), image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+      RecreateSwapchain();
+      return;
+    }
+    throw Error("failed to acquire next image").WithCode(result);
+  }
+  UpdateUniforms();
+  if (const VkResult result = vkResetFences(device_.GetHandle(), 1, &fence); result != VK_SUCCESS) {
+    throw Error("failed to reset fences").WithCode(result);
+  }
+  if (const VkResult result = vkResetCommandBuffer(cmd_buffer, 0); result != VK_SUCCESS) {
+    throw Error("failed to reset command buffer").WithCode(result);
+  }
+  RecordCommandBuffer(cmd_buffer, image_idx);
+
+  const std::vector<VkPipelineStageFlags> pipeline_stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = &image_semaphore;
+  submit_info.pWaitDstStageMask = pipeline_stages.data();
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &cmd_buffer;
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = &render_semaphore;
+
+  if (const VkResult result = vkQueueSubmit(device_.GetGraphicsQueue().handle, 1, &submit_info, fence); result != VK_SUCCESS) {
+    throw Error("failed to submit draw command buffer").WithCode(result);
+  }
+
+  VkPresentInfoKHR present_info = {};
+  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  present_info.waitSemaphoreCount = 1;
+  present_info.pWaitSemaphores = &render_semaphore;
+  present_info.swapchainCount = 1;
+  present_info.pSwapchains = &swapchain;
+  present_info.pImageIndices = &image_idx;
+
+  if (const VkResult result = vkQueuePresentKHR(device_.GetGraphicsQueue().handle, &present_info);
+      result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
+    framebuffer_resized_ = false;
+    RecreateSwapchain();
+  } else if (result != VK_SUCCESS) {
+    throw Error("failed to queue present").WithCode(result);
+  }
+  curr_frame_ = (curr_frame_ + 1) % config_.frame_count;
+}
+
 void Renderer::LoadModel(const std::string& path) {
-  object_ = ObjectLoader(device_, config_.image_settings, cmd_pool_.GetHandle())
-                        .Load(path, config_.frame_count);
+  object_ = ObjectLoader(device_, config_.image_settings, cmd_pool_.GetHandle()).Load(path, config_.frame_count);
 
   const std::vector descriptor_set_layouts = { object_.uniform_descriptor.layout.GetHandle(), object_.sampler_descriptor.layout.GetHandle() };
 
@@ -100,9 +159,21 @@ void Renderer::LoadModel(const std::string& path) {
 
   uniforms_buff_.reserve(object_.uniform_descriptor.sets.size());
   for(const UniformDescriptorSet& descriptor_set : object_.uniform_descriptor.sets) {
-    auto uniforms = static_cast<Uniforms*>(descriptor_set.buffer.GetMemory().Map(sizeof(Uniforms)));
+    auto uniforms = static_cast<Uniforms*>(descriptor_set.buffer.GetMemory().Map());
     uniforms_buff_.emplace_back(uniforms);
   }
+}
+
+void Renderer::RecreateSwapchain() {
+  window_.WaitUntilResized();
+
+  if (const VkResult result = vkDeviceWaitIdle(device_.GetHandle()); result != VK_SUCCESS) {
+    throw Error("failed to idle device");
+  }
+  swapchain_ = Swapchain();
+
+  std::tie(swapchain_, depth_image_) = CreateSwapchainAndDepthImage();
+  std::tie(swapchain_framebuffers_, sync_objects_) = CreateSwapchainImagesAndSyncObjects();
 }
 
 std::pair<Swapchain, Image> Renderer::CreateSwapchainAndDepthImage() const {
@@ -112,7 +183,12 @@ std::pair<Swapchain, Image> Renderer::CreateSwapchainAndDepthImage() const {
 
   Swapchain swapchain = device_.CreateSwapchain(swapchain_extent, surface_.GetHandle());
 
-  Image depth_image = device_.CreateImage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, swapchain.GetExtent(), device_.FindDepthFormat(), VK_IMAGE_TILING_OPTIMAL);
+  VkFormat depth_format = device_.GetPhysicalDevice().FindSupportedFormat(
+      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+  );
+  Image depth_image = device_.CreateImage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, swapchain.GetExtent(), depth_format, VK_IMAGE_TILING_OPTIMAL);
   device_.AllocateImage(depth_image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   device_.BindImage(depth_image);
   device_.MakeImageView(depth_image, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -120,7 +196,7 @@ std::pair<Swapchain, Image> Renderer::CreateSwapchainAndDepthImage() const {
   return { std::move(swapchain), std::move(depth_image) };
 }
 
-std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> Renderer::CreateFramebuffersAndSyncObjects() const {
+std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> Renderer::CreateSwapchainImagesAndSyncObjects() const {
   const std::vector<VkImage> images = swapchain_.GetImages();
   std::vector<SwapchainFramebuffer> swapchain_framebuffers;
   swapchain_framebuffers.reserve(images.size());
@@ -149,16 +225,9 @@ std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> Renderer::
   return { std::move(swapchain_framebuffers), std::move(sync_objects) };
 }
 
-void Renderer::RecreateSwapchain() {
-  window_.WaitUntilResized();
-
-  if (const VkResult result = vkDeviceWaitIdle(device_.GetLogical()); result != VK_SUCCESS) {
-    throw Error("failed to idle device");
-  }
-  swapchain_ = Swapchain();
-
-  std::tie(swapchain_, depth_image_) = CreateSwapchainAndDepthImage();
-  std::tie(swapchain_framebuffers_, sync_objects_) = CreateFramebuffersAndSyncObjects();
+inline void Renderer::UpdateUniforms() const {
+  const engine::Uniforms& uniforms = model_.GetUniforms();
+  std::memcpy(uniforms_buff_[curr_frame_], &uniforms, sizeof(Uniforms));
 }
 
 void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, const size_t image_idx) {
@@ -218,78 +287,6 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, const size_t imag
   if (const VkResult result = vkEndCommandBuffer(cmd_buffer); result != VK_SUCCESS) {
     throw Error("failed to record command buffer").WithCode(result);
   }
-}
-
-void Renderer::UpdateUniforms() const {
-  const engine::Uniforms& uniforms = model_.GetUniforms();
-  std::memcpy(uniforms_buff_[curr_frame_], &uniforms, sizeof(Uniforms));
-}
-
-void Renderer::RenderFrame() {
-  uint32_t image_idx;
-
-  VkFence fence = sync_objects_[curr_frame_].fence.GetHandle();
-  VkSemaphore image_semaphore = sync_objects_[curr_frame_].image_semaphore.GetHandle();
-  VkSemaphore render_semaphore = sync_objects_[curr_frame_].render_semaphore.GetHandle();
-
-  VkCommandBuffer cmd_buffer = cmd_buffers_[curr_frame_];
-  VkSwapchainKHR swapchain = swapchain_.GetHandle();
-
-  if (const VkResult result = vkWaitForFences(device_.GetLogical(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); result != VK_SUCCESS) {
-    throw Error("failed to wait for fences").WithCode(result);
-  }
-  if (const VkResult result = vkAcquireNextImageKHR(device_.GetLogical(), swapchain_.GetHandle(), std::numeric_limits<uint64_t>::max(), image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-      RecreateSwapchain();
-      return;
-    }
-    throw Error("failed to acquire next image").WithCode(result);
-  }
-  UpdateUniforms();
-  if (const VkResult result = vkResetFences(device_.GetLogical(), 1, &fence); result != VK_SUCCESS) {
-    throw Error("failed to reset fences").WithCode(result);
-  }
-  if (const VkResult result = vkResetCommandBuffer(cmd_buffer, 0); result != VK_SUCCESS) {
-    throw Error("failed to reset command buffer").WithCode(result);
-  }
-  RecordCommandBuffer(cmd_buffer, image_idx);
-
-  const std::vector<VkPipelineStageFlags> pipeline_stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = &image_semaphore;
-  submit_info.pWaitDstStageMask = pipeline_stages.data();
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffer;
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &render_semaphore;
-
-  if (const VkResult result = vkQueueSubmit(device_.GetGraphicsQueue().handle, 1, &submit_info, fence); result != VK_SUCCESS) {
-    throw Error("failed to submit draw command buffer").WithCode(result);
-  }
-
-  VkPresentInfoKHR present_info = {};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &render_semaphore;
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains = &swapchain;
-  present_info.pImageIndices = &image_idx;
-
-  if (const VkResult result = vkQueuePresentKHR(device_.GetGraphicsQueue().handle, &present_info);
-      result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
-    framebuffer_resized_ = false;
-    RecreateSwapchain();
-  } else if (result != VK_SUCCESS) {
-    throw Error("failed to queue present").WithCode(result);
-  }
-  curr_frame_ = (curr_frame_ + 1) % config_.frame_count;
-}
-
-Renderer::~Renderer() {
-  vkDeviceWaitIdle(device_.GetLogical());
 }
 
 } // namespace vk

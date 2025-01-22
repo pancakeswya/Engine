@@ -21,33 +21,32 @@ inline uint32_t CalculateMipMaps(const VkExtent2D extent) {
 
 } // namespace
 
-std::vector<VkVertexInputBindingDescription> Vertex::GetBindingDescriptions() {
-  std::vector<VkVertexInputBindingDescription>binding_descriptions(1);
-  binding_descriptions[0].binding = 0;
-  binding_descriptions[0].stride = sizeof(Vertex);
-  binding_descriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-  return binding_descriptions;
+void ObjectLoader::Init() noexcept {
+  stbi_set_flip_vertically_on_load(true);
 }
 
-std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions() {
-  std::vector<VkVertexInputAttributeDescription> attribute_descriptions(3);
-  attribute_descriptions[0].binding = 0;
-  attribute_descriptions[0].location = 0;
-  attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attribute_descriptions[0].offset = offsetof(Vertex, pos);
+ObjectLoader::ObjectLoader(const Device& device, ImageSettings image_settings, VkCommandPool cmd_pool) noexcept
+  : device_(device),
+    image_settings_(image_settings),
+    cmd_pool_(cmd_pool) {}
 
-  attribute_descriptions[1].binding = 0;
-  attribute_descriptions[1].location = 1;
-  attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attribute_descriptions[1].offset = offsetof(Vertex, normal);
+Object ObjectLoader::Load(const std::string& path, const size_t frame_count) const {
+  obj::Data data = obj::ParseFromFile(path);
 
-  attribute_descriptions[2].binding = 0;
-  attribute_descriptions[2].location = 2;
-  attribute_descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-  attribute_descriptions[2].offset = offsetof(Vertex, tex_coord);
+  auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data);
 
-  return attribute_descriptions;
+  Object object = {};
+  object.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  object.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+  object.usemtl = std::move(data.usemtl);
+
+  std::vector<Image> images = CreateStagingImages(data);
+
+  object.descriptor_pool = device_.CreateDescriptorPool(frame_count, images.size());
+  object.uniform_descriptor = CreateUniformDescriptor(object.descriptor_pool.GetHandle(), frame_count);
+  object.sampler_descriptor = CreateSamplerDescriptor(object.descriptor_pool.GetHandle(), std::move(images));
+
+  return object;
 }
 
 std::pair<Buffer, Buffer> ObjectLoader::CreateTransferBuffers(const obj::Data& data) const {
@@ -59,8 +58,8 @@ std::pair<Buffer, Buffer> ObjectLoader::CreateTransferBuffers(const obj::Data& d
   device_.AllocateBuffer(transfer_indices, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   device_.BindBuffer(transfer_indices);
 
-  auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.GetMemory().Map(transfer_vertices.Size()));
-  auto mapped_indices = static_cast<Index*>(transfer_indices.GetMemory().Map(transfer_indices.Size()));
+  auto mapped_vertices = static_cast<Vertex*>(transfer_vertices.GetMemory().Map());
+  auto mapped_indices = static_cast<Index*>(transfer_indices.GetMemory().Map());
 
   engine::data_util::RemoveDuplicates(data, mapped_vertices, mapped_indices);
 
@@ -70,29 +69,17 @@ std::pair<Buffer, Buffer> ObjectLoader::CreateTransferBuffers(const obj::Data& d
   return {std::move(transfer_vertices), std::move(transfer_indices)};
 }
 
-std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
-  if (!device_.FormatFeatureSupported(image_settings_.vk_format, VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-    throw Error("image format does not support linear blitting");
-  }
-  constexpr VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                      VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                      VK_IMAGE_USAGE_SAMPLED_BIT;
-  constexpr VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, const VkBufferUsageFlags usage) const {
+  Buffer buffer = device_.CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
+  device_.AllocateBuffer(buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  device_.BindBuffer(buffer);
 
-  std::vector<Image> images;
-  images.reserve(data.mtl.size());
+  BufferCommander commander(buffer, cmd_pool_, device_.GetGraphicsQueue().handle);
+  CommanderGuard commander_guard(commander);
 
-  for(const obj::NewMtl& mtl : data.mtl) {
-    Image image;
-    const std::string& path = mtl.map_kd;
-    if (std::optional<Image> opt_image = CreateStagingImage(path, usage, properties); !opt_image.has_value()) {
-      image = CreateDummyImage(usage, properties);
-    } else {
-      image = std::move(opt_image.value());
-    }
-    images.emplace_back(std::move(image));
-  }
-  return images;
+  commander.CopyBuffer(transfer_buffer);
+
+  return buffer;
 }
 
 Image ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, const VkExtent2D extent, const VkBufferUsageFlags usage, const VkMemoryPropertyFlags properties) const {
@@ -102,7 +89,7 @@ Image ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, co
   device_.AllocateBuffer(transfer_buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   device_.BindBuffer(transfer_buffer);
 
-  void* mapped_buffer = transfer_buffer.GetMemory().Map(image_size);
+  void* mapped_buffer = transfer_buffer.GetMemory().Map();
   std::memcpy(mapped_buffer, pixels, image_size);
   transfer_buffer.GetMemory().Unmap();
 
@@ -121,41 +108,43 @@ Image ObjectLoader::CreateStagingImageFromPixels(const unsigned char* pixels, co
   return image;
 }
 
-Image ObjectLoader::CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const {
-  const std::vector<unsigned char> dummy_colors(image_settings_.dummy_image_extent.width * image_settings_.dummy_image_extent.height, 0xff);
-
-  return CreateStagingImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
-}
-
-std::optional<Image> ObjectLoader::CreateStagingImage(const std::string& path,
-                                                      const VkBufferUsageFlags usage,
-                                                      const VkMemoryPropertyFlags properties) const {
+Image ObjectLoader::CreateStagingImage(const std::string& path,
+                                       const VkBufferUsageFlags usage,
+                                       const VkMemoryPropertyFlags properties) const {
   int image_width, image_height, image_channels;
   const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, image_settings_.stbi_format), stbi_image_free);
   if (pixels == nullptr) {
-    return std::nullopt;
+    const size_t dummy_size = image_settings_.dummy_image_extent.width * image_settings_.dummy_image_extent.height;
+    const std::vector<unsigned char> dummy_colors(dummy_size, 0xff);
+    return CreateStagingImageFromPixels(dummy_colors.data(), image_settings_.dummy_image_extent, usage, properties);
   }
-
   const VkExtent2D image_extent = { static_cast<uint32_t>(image_width), static_cast<uint32_t>(image_height) };
 
   return CreateStagingImageFromPixels(pixels.get(), image_extent, usage, properties);
 }
 
-inline Buffer ObjectLoader::CreateStagingBuffer(const Buffer& transfer_buffer, const VkBufferUsageFlags usage) const {
-  Buffer buffer = device_.CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, transfer_buffer.Size());
-  device_.AllocateBuffer(buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  device_.BindBuffer(buffer);
+std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
+  if (!device_.GetPhysicalDevice().GetFormatFeatureSupported(image_settings_.vk_format, VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+    throw Error("image format does not support linear blitting");
+  }
+  constexpr VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                      VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                      VK_IMAGE_USAGE_SAMPLED_BIT;
+  constexpr VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-  BufferCommander commander(buffer, cmd_pool_, device_.GetGraphicsQueue().handle);
-  CommanderGuard commander_guard(commander);
+  std::vector<Image> images;
+  images.reserve(data.mtl.size());
 
-  commander.CopyBuffer(transfer_buffer);
-
-  return buffer;
+  for(const obj::NewMtl& mtl : data.mtl) {
+    const std::string& path = mtl.map_kd;
+    Image image = CreateStagingImage(path, usage, properties);
+    images.emplace_back(std::move(image));
+  }
+  return images;
 }
 
 UniformDescriptor ObjectLoader::CreateUniformDescriptor(VkDescriptorPool descriptor_pool, const size_t frame_count) const {
-  DeviceDispatchable<VkDescriptorSetLayout> descriptor_set_layout = device_.CreateUboDescriptorSetLayout();
+  DeviceDispatchable<VkDescriptorSetLayout> descriptor_set_layout = device_.CreateUniformDescriptorSetLayout();
   const std::vector<VkDescriptorSet> descriptor_sets = device_.CreateDescriptorSets(descriptor_set_layout.GetHandle(), descriptor_pool, frame_count);
 
   std::vector<UniformDescriptorSet> uniform_descriptor_sets;
@@ -200,34 +189,6 @@ UniformDescriptor ObjectLoader::CreateUniformDescriptor(VkDescriptorPool descrip
     std::move(sampler_descriptor_sets),
     std::move(descriptor_set_layout),
   };
-}
-
-ObjectLoader::ObjectLoader(const Device& device, ImageSettings image_settings, VkCommandPool cmd_pool) noexcept
-  : device_(device),
-    image_settings_(image_settings),
-    cmd_pool_(cmd_pool) {}
-
-void ObjectLoader::Init() noexcept {
-  stbi_set_flip_vertically_on_load(true);
-}
-
-Object ObjectLoader::Load(const std::string& path, const size_t frame_count) const {
-  obj::Data data = obj::ParseFromFile(path);
-
-  auto[transfer_vertices, transfer_indices] = CreateTransferBuffers(data);
-
-  Object object = {};
-  object.vertices = CreateStagingBuffer(transfer_vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-  object.indices = CreateStagingBuffer(transfer_indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-  object.usemtl = std::move(data.usemtl);
-
-  std::vector<Image> images = CreateStagingImages(data);
-
-  object.descriptor_pool = device_.CreateDescriptorPool(frame_count, images.size());
-  object.uniform_descriptor = CreateUniformDescriptor(object.descriptor_pool.GetHandle(), frame_count);
-  object.sampler_descriptor = CreateSamplerDescriptor(object.descriptor_pool.GetHandle(), std::move(images));
-
-  return object;
 }
 
 } // namespace vk

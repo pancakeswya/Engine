@@ -1,10 +1,9 @@
 #ifndef BACKEND_VK_RENDERER_DISPATCHABLE_H_
 #define BACKEND_VK_RENDERER_DISPATCHABLE_H_
 
-#include <vulkan/vulkan.h>
-
-#include <cstdio>
 #include <utility>
+
+#include <vulkan/vulkan.h>
 
 namespace vk {
 

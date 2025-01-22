@@ -119,6 +119,36 @@ VkDebugUtilsMessengerCreateInfoEXT Instance::GetMessengerCreateInfo() noexcept {
   return create_info;
 }
 
+#define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
+
+InstanceDispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const {
+  VkInstance instance = GetHandle();
+  const VkAllocationCallbacks* allocator = GetAllocator();
+
+  const auto create_messenger = vkGetInstanceProcAddrByType(instance, vkCreateDebugUtilsMessengerEXT);
+  if (create_messenger == nullptr) {
+    throw Error("Couldn't find vkCreateDebugUtilsMessengerEXT by procc addr");
+  }
+  const auto destroy_messenger = vkGetInstanceProcAddrByType(instance, vkDestroyDebugUtilsMessengerEXT);
+  if (destroy_messenger == nullptr) {
+    throw Error("Couldn't find vkDestroyDebugUtilsMessengerEXT by procc addr");
+  }
+  const VkDebugUtilsMessengerCreateInfoEXT messenger_info = Instance::GetMessengerCreateInfo();
+
+  VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
+  if (const VkResult result = create_messenger(instance, &messenger_info, allocator, &messenger); result != VK_SUCCESS) {
+    throw Error("failed to set up debug messenger").WithCode(result);
+  }
+  return {
+    messenger,
+    instance,
+    destroy_messenger,
+    allocator
+  };
+}
+
+#undef vkGetInstanceProcAddrByType
+
 #endif
 
 Instance::Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
@@ -137,6 +167,19 @@ std::vector<VkPhysicalDevice> Instance::EnumeratePhysicalDevices() const {
     throw Error("failed to get physical devices").WithCode(result);
   }
   return devices;
+}
+
+InstanceDispatchable<VkSurfaceKHR> Instance::CreateSurface(const Window& window) const {
+  VkInstance instance = GetHandle();
+  const VkAllocationCallbacks* allocator = GetAllocator();
+
+  VkSurfaceKHR surface = window.GetSurfaceFactory().CreateSurface(instance, allocator);
+  return {
+    surface,
+    instance,
+    vkDestroySurfaceKHR,
+    allocator
+  };
 }
 
 } // namespace vk

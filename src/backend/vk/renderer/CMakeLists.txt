@@ -11,6 +11,7 @@ add_library(vk_renderer SHARED
         config.h
         error.h
         dispatchable.h
+        object.cc
         object.h
         object_loader.h
         object_loader.cc
@@ -18,8 +19,8 @@ add_library(vk_renderer SHARED
         commander.cc
         instance.h
         instance.cc
-        instance_dispatchable_factory.cc
-        instance_dispatchable_factory.h
+        physical_device.h
+        physical_device.cc
         device.h
         device.cc
         device_selector.h

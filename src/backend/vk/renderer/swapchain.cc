@@ -1,6 +1,5 @@
 #include "backend/vk/renderer/swapchain.h"
 
-
 #include "backend/vk/renderer/error.h"
 
 namespace vk {

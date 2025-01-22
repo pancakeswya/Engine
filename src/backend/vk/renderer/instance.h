@@ -1,10 +1,12 @@
 #ifndef BACKEND_VK_RENDERER_INSTANCE_H_
 #define BACKEND_VK_RENDERER_INSTANCE_H_
 
-#include "backend/vk/renderer/dispatchable.h"
+#include <vector>
 
 #include <vulkan/vulkan.h>
-#include <vector>
+
+#include "backend/vk/renderer/dispatchable.h"
+#include "backend/vk/renderer/window.h"
 
 namespace vk {
 
@@ -17,13 +19,10 @@ public:
 
   explicit Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
 
-  Instance() = default;
-  Instance(const Instance&) = delete;
-  Instance(Instance&& other) noexcept = default;
-  ~Instance() override = default;
-
-  Instance& operator=(const Instance&) = delete;
-  Instance& operator=(Instance&&) noexcept = default;
+#ifdef DEBUG
+  [[nodiscard]] InstanceDispatchable<VkDebugUtilsMessengerEXT> CreateMessenger() const;
+#endif
+  [[nodiscard]] InstanceDispatchable<VkSurfaceKHR> CreateSurface(const Window& window) const;
 
   [[nodiscard]] std::vector<VkPhysicalDevice> EnumeratePhysicalDevices() const;
 };

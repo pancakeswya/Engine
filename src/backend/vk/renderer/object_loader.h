@@ -1,7 +1,6 @@
 #ifndef BACKEND_VK_RENDERER_OBJECT_LOADER_H_
 #define BACKEND_VK_RENDERER_OBJECT_LOADER_H_
 
-#include <optional>
 #include <vector>
 #include <utility>
 
@@ -22,9 +21,8 @@ public:
 private:
   [[nodiscard]] std::pair<Buffer, Buffer> CreateTransferBuffers(const obj::Data& data) const;
   [[nodiscard]] Buffer CreateStagingBuffer(const Buffer& transfer_buffer, VkBufferUsageFlags usage) const;
-  [[nodiscard]] Image CreateDummyImage(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] Image CreateStagingImageFromPixels(const unsigned char* pixels, VkExtent2D extent, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
-  [[nodiscard]] std::optional<Image> CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
+  [[nodiscard]] Image CreateStagingImage(const std::string& path, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] std::vector<Image> CreateStagingImages(const obj::Data& data) const;
   [[nodiscard]] UniformDescriptor CreateUniformDescriptor(VkDescriptorPool descriptor_pool, size_t frame_count) const;
   [[nodiscard]] SamplerDescriptor CreateSamplerDescriptor(VkDescriptorPool descriptor_pool, std::vector<Image>&& images) const;

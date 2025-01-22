@@ -12,7 +12,7 @@ class Memory : public DeviceDispatchable<VkDeviceMemory> {
 public:
   using DeviceDispatchable::DeviceDispatchable;
 
-  [[nodiscard]] void* Map(const VkDeviceSize size) const {
+  [[nodiscard]] void* Map(const VkDeviceSize size = VK_WHOLE_SIZE) const {
     void* data;
     if (const VkResult result = vkMapMemory(GetDevice(), GetHandle(), 0, size, 0, &data); result != VK_SUCCESS) {
       throw Error("failed to map buffer memory").WithCode(result);

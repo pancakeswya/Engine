@@ -15,54 +15,31 @@ struct QueueFamilyIndices {
   uint32_t present;
 };
 
-bool PhysicalDeviceExtensionSupport(VkPhysicalDevice device, const std::vector<const char*>& extensions) {
-  uint32_t extension_count;
-  if (const VkResult result = vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr); result != VK_SUCCESS) {
-    throw Error("failed to get device extension properties count").WithCode(result);
-  }
-  std::vector<VkExtensionProperties> available_extensions(extension_count);
-  if (const VkResult result = vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data()); result != VK_SUCCESS) {
-    throw Error("failed to get device extension properties").WithCode(result);
-  }
-  std::set<std::string> required_extensions(extensions.begin(), extensions.end());
-
-  for (const VkExtensionProperties& extension : available_extensions) {
-    required_extensions.erase(extension.extensionName);
-  }
-
-  return required_extensions.empty();
-}
-
-std::pair<bool, QueueFamilyIndices> PhysicalDeviceIsSuitable(VkPhysicalDevice device, const DeviceSelector::Requirements& requirements) {
+std::pair<bool, QueueFamilyIndices> PhysicalDeviceIsSuitable(const PhysicalDevice& physical_device, const DeviceSelector::Requirements& requirements) {
   std::optional<uint32_t> graphic, present;
-  uint32_t families_count = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, nullptr);
 
-  std::vector<VkQueueFamilyProperties> families(families_count);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &families_count, families.data());
+  std::vector<VkQueueFamilyProperties> queue_family_props = physical_device.GetQueueFamilyProperties();
 
-  for (size_t i = 0; i < families_count; ++i) {
-    if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+  for (size_t i = 0; i < queue_family_props.size(); ++i) {
+    if (queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
       graphic = static_cast<uint32_t>(i);
     }
-    VkBool32 present_support = false;
-    if (const VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(device, i, requirements.surface, &present_support); result != VK_SUCCESS) {
-      throw Error("failed to get physical device surface support").WithCode(result);
-    }
-    if (present_support) {
+    if (physical_device.GetSurfaceSupported(requirements.surface, i)) {
       present = static_cast<uint32_t>(i);
     }
-    VkPhysicalDeviceFeatures supported_features;
-    vkGetPhysicalDeviceFeatures(device, &supported_features);
-    if ((!requirements.graphic || graphic.has_value()) &&
-        (!requirements.present || present.has_value()) &&
-        (!requirements.anisotropy || supported_features.samplerAnisotropy) &&
-        PhysicalDeviceExtensionSupport(device, requirements.extensions)) {
-      const SurfaceSupportDetails details = Device::GetSurfaceSupport(device, requirements.surface);
-      if (!details.formats.empty() && !details.present_modes.empty()) {
-        return {true, {graphic.value(), present.value()}};
-      }
-        }
+    if ((requirements.graphic && !graphic.has_value()) ||
+        (requirements.present && !present.has_value())) {
+      continue;
+    }
+    const VkPhysicalDeviceFeatures device_features = physical_device.GetPhysicalDeviceFeatures();
+    if ((requirements.anisotropy && !device_features.samplerAnisotropy) ||
+        !physical_device.GetExtensionsSupport(requirements.extensions)) {
+      continue;
+    }
+    const PhysicalDevice::SurfaceSupportDetails details = physical_device.GetSurfaceSupportDetails(requirements.surface);
+    if (!details.formats.empty() && !details.present_modes.empty()) {
+      return {true, {graphic.value(), present.value()}};
+    }
   }
   return {};
 }
@@ -115,19 +92,25 @@ SelfDispatchable<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const 
 } // namespace
 
 std::optional<Device> DeviceSelector::Select(const Requirements& requirements, const VkAllocationCallbacks* allocator) const {
-  for(VkPhysicalDevice physical_device : physical_devices_) {
+  for(VkPhysicalDevice vk_physical_device : physical_devices_) {
+    PhysicalDevice physical_device(vk_physical_device);
     if (auto[suitable, indices] = PhysicalDeviceIsSuitable(physical_device, requirements); suitable) {
-      Device device = {};
-      device.logical_device_ = CreateDevice(physical_device, indices, requirements.extensions, allocator);
-      device.physical_device_ = physical_device;
+      SelfDispatchable<VkDevice> device = CreateDevice(vk_physical_device, indices, requirements.extensions, allocator);
 
-      vkGetDeviceQueue(device.logical_device_.GetHandle(), indices.graphic, 0, &device.graphics_queue_.handle);
-      device.graphics_queue_.family_index = indices.graphic;
+      Queue graphics_queue = {};
+      vkGetDeviceQueue(device.GetHandle(), indices.graphic, 0, &graphics_queue.handle);
+      graphics_queue.family_index = indices.graphic;
 
-      vkGetDeviceQueue(device.logical_device_.GetHandle(), indices.present, 0, &device.present_queue_.handle);
-      device.present_queue_.family_index = indices.present;
+      Queue present_queue = {};
+      vkGetDeviceQueue(device.GetHandle(), indices.present, 0, &present_queue.handle);
+      present_queue.family_index = indices.present;
 
-      return device;
+      return Device(
+        std::move(device),
+        physical_device,
+        graphics_queue,
+        present_queue
+      );
     }
   }
   return std::nullopt;

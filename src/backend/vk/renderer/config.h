@@ -1,8 +1,9 @@
 #ifndef BACKEND_VK_RENDERER_CONFIG_H_
 #define BACKEND_VK_RENDERER_CONFIG_H_
 
-#include <vulkan/vulkan.h>
 #include <vector>
+
+#include <vulkan/vulkan.h>
 
 namespace vk {
 
