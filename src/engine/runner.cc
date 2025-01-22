@@ -6,7 +6,7 @@ namespace engine {
 
 Runner::Runner(const WindowLoader& window_loader, const RendererLoader& renderer_loader)
     : instance_(window_loader.LoadInstance()),
-      window_(window_loader.LoadWindow(1280, 720, "Engine")),
+      window_(window_loader.LoadWindow(1280, 720, "GLFW VK engine")),
       renderer_(renderer_loader.Load(*window_)) {}
 
 void Runner::Run() {
@@ -29,7 +29,7 @@ void Runner::UpdateFps() {
 
   std::ostringstream oss;
   oss.precision(1);
-  oss << " (" << std::fixed << fps << " FPS)";
+  oss << "GLFW VK engine: (" << std::fixed << fps << " FPS)";
 
   window_->SetWindowTitle(oss.str());
 
