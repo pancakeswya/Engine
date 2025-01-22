@@ -274,7 +274,6 @@ DeviceDispatchable<VkFence> Device::CreateFence() const {
   return ExecuteCreate(vkCreateFence, vkDestroyFence, &create_info);
 }
 
-
 DeviceDispatchable<VkDescriptorSetLayout> Device::CreateUniformDescriptorSetLayout() const {
   VkDescriptorSetLayoutBinding layout_binding = {};
   layout_binding.binding = 0;
@@ -473,11 +472,10 @@ void Device::MakeImageView(Image& image, const VkImageAspectFlags aspect_flags) 
 Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) const {
   const PhysicalDevice::SurfaceSupportDetails device_support_details = physical_device_.GetSurfaceSupportDetails(surface);
 
-  VkSurfaceFormatKHR surface_format = ChooseSurfaceFormat(device_support_details.formats);
-  VkPresentModeKHR present_mode = ChoosePresentMode(device_support_details.present_modes);
+  const auto[format, colorSpace] = ChooseSurfaceFormat(device_support_details.formats);
+  const VkPresentModeKHR present_mode = ChoosePresentMode(device_support_details.present_modes);
 
-  VkExtent2D extent = ChooseExtent(size, device_support_details.capabilities);
-  VkFormat format = surface_format.format;
+  const VkExtent2D extent = ChooseExtent(size, device_support_details.capabilities);
 
   uint32_t image_count = device_support_details.capabilities.minImageCount + 1;
   if (device_support_details.capabilities.maxImageCount > 0 && image_count > device_support_details.capabilities.maxImageCount) {
@@ -488,8 +486,8 @@ Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) c
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = surface;
   create_info.minImageCount = image_count;
-  create_info.imageFormat = surface_format.format;
-  create_info.imageColorSpace = surface_format.colorSpace;
+  create_info.imageFormat = format;
+  create_info.imageColorSpace = colorSpace;
   create_info.imageExtent = extent;
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;

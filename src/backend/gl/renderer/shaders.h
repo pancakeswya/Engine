@@ -7,11 +7,11 @@
 namespace gl {
 
 struct Shader {
+  static std::vector<Shader> GetShaders();
+
   std::string_view code;
   int stage;
 };
-
-extern std::vector<Shader> GetShaders();
 
 } // namespace gl
 

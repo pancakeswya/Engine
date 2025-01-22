@@ -4,7 +4,7 @@
 
 namespace gl {
 
-std::vector<Shader> GetShaders() {
+std::vector<Shader> Shader::GetShaders() {
   return {
     {
       R"(@simple.vert@)",

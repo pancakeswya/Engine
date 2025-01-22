@@ -7,15 +7,30 @@
 
 namespace engine {
 
+enum class RendererType {
+  kVk = 0,
+  kGl
+};
+
+enum class WindowType {
+  kGlfw = 0,
+  kSdl
+};
+
 class Runner final : public Window::EventHandler {
 public:
-  Runner(const WindowLoader& window_loader, const RendererLoader& renderer_loader);
+  Runner(RendererType renderer_type, WindowType window_type);
   ~Runner() override = default;
 
   void Run();
 private:
   void OnRenderEvent() override;
   void UpdateFps();
+
+  std::string title_;
+
+  WindowLoader window_loader_;
+  RendererLoader renderer_loader_;
 
   FpsCounter fps_counter_;
   Instance::Handle instance_;

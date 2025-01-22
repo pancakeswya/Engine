@@ -43,7 +43,7 @@ ValueObject ShaderProgramCreate() {
   glActiveTexture(GL_TEXTURE0);
 
   std::vector<ValueObject> shaders;
-  for(const auto [code, stage] : GetShaders()) {
+  for(const auto [code, stage] : Shader::GetShaders()) {
     ValueObject shader(glCreateShader(stage), glDeleteShader);
     CompileShader(code.data(), shader.Value());
     shaders.push_back(std::move(shader));
