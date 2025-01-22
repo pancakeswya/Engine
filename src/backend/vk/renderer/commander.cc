@@ -54,7 +54,7 @@ void Commander::End() const {
 }
 
 BufferCommander::BufferCommander(Buffer& buffer, VkCommandPool cmd_pool, VkQueue graphics_queue)
-  : Commander(buffer.GetParent(), cmd_pool, graphics_queue), buffer_(buffer) {}
+  : Commander(buffer.GetDevice(), cmd_pool, graphics_queue), buffer_(buffer) {}
 
 
 void BufferCommander::CopyBuffer(const Buffer& src) const {
@@ -64,7 +64,7 @@ void BufferCommander::CopyBuffer(const Buffer& src) const {
 }
 
 ImageCommander::ImageCommander(Image& image, VkCommandPool cmd_pool, VkQueue graphics_queue)
-    : Commander(image.GetParent(), cmd_pool, graphics_queue), image_(image) {}
+    : Commander(image.GetDevice(), cmd_pool, graphics_queue), image_(image) {}
 
 void ImageCommander::GenerateMipmaps() const {
   VkImage image = image_.GetHandle();

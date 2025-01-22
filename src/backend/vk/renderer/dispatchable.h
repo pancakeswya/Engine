@@ -57,7 +57,6 @@ public:
   virtual ~Dispatchable() { Destroy(); }
 
   [[nodiscard]] HandleType GetHandle() const noexcept { return handle_; }
-  [[nodiscard]] ParentType GetParent() const noexcept { return parent_; }
   [[nodiscard]] const VkAllocationCallbacks* GetAllocator() const noexcept { return allocator_; }
 protected:
   HandleType handle_;
@@ -137,10 +136,22 @@ private:
 };
 
 template<typename HandleType>
-using InstanceDispatchable = Dispatchable<HandleType, VkInstance>;
+class InstanceDispatchable : public Dispatchable<HandleType, VkInstance> {
+public:
+  using Base = Dispatchable<HandleType, VkInstance>;
+  using Base::Base;
+
+  [[nodiscard]] VkInstance GetInstance() const noexcept { return Base::parent_; }
+};
 
 template<typename HandleType>
-using DeviceDispatchable = Dispatchable<HandleType, VkDevice>;
+class DeviceDispatchable : public Dispatchable<HandleType, VkDevice> {
+public:
+  using Base = Dispatchable<HandleType, VkDevice>;
+  using Base::Base;
+
+  [[nodiscard]] VkDevice GetDevice() const noexcept { return Base::parent_; }
+};
 
 } // namespace vk
 

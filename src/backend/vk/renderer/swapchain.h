@@ -1,45 +1,29 @@
 #ifndef BACKEND_VK_RENDERER_SWAPCHAIN_H_
 #define BACKEND_VK_RENDERER_SWAPCHAIN_H_
 
-#include "backend/vk/renderer/dispatchable.h"
-
 #include <vector>
 
 #include <vulkan/vulkan.h>
 
+#include "backend/vk/renderer/dispatchable.h"
+
 namespace vk {
 
-class Swapchain final : public DeviceDispatchable<VkSwapchainKHR> {
+class Swapchain : public DeviceDispatchable<VkSwapchainKHR> {
 public:
-  static VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats);
-  static VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& available_present_modes);
-  static VkExtent2D ChooseExtent(VkExtent2D extent, const VkSurfaceCapabilitiesKHR& capabilities);
-
-  Swapchain() noexcept;
-  Swapchain(const Swapchain& other) = delete;
-  Swapchain(Swapchain&& other) noexcept;
-  ~Swapchain() override = default;
-
-  Swapchain& operator=(const Swapchain& other) = delete;
-  Swapchain& operator=(Swapchain&& other) noexcept;
+  using DeviceDispatchable::DeviceDispatchable;
 
   [[nodiscard]] std::vector<VkImage> GetImages() const;
   [[nodiscard]] VkExtent2D GetExtent() const noexcept;
   [[nodiscard]] VkFormat GetFormat() const noexcept;
 private:
-  using Base = DeviceDispatchable<VkSwapchainKHR>;
-
-  friend class DeviceDispatchableFactory;
+  friend class Device;
 
   VkExtent2D extent_;
   VkFormat format_;
 
-  VkPhysicalDevice physical_device_;
-
-  Swapchain(DeviceDispatchable<VkSwapchainKHR>&& swapchain,
-            VkPhysicalDevice physical_device,
-            VkExtent2D extent,
-            VkFormat format) noexcept;
+  explicit Swapchain(DeviceDispatchable&& swapchain, const VkExtent2D extent, const VkFormat format) noexcept
+    : DeviceDispatchable(std::move(swapchain)), extent_(extent), format_(format) {}
 };
 
 inline VkExtent2D Swapchain::GetExtent() const noexcept {

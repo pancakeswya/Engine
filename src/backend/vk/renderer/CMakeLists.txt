@@ -24,18 +24,15 @@ add_library(vk_renderer SHARED
         device.cc
         device_selector.h
         device_selector.cc
-        device_dispatchable_factory.cc
-        device_dispatchable_factory.h
         commander.h
         commander.cc
         plugin.cc
         window.h
         renderer.cc
         renderer.h
-        buffer.cc
         buffer.h
-        image.cc
         image.h
+        memory.h
         swapchain.cc
         swapchain.h
         shader.h

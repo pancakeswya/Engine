@@ -22,15 +22,15 @@ public:
     std::vector<const char*> extensions;
   };
 
-  explicit DeviceSelector(const std::vector<VkPhysicalDevice>& devices) noexcept;
+  explicit DeviceSelector(const std::vector<VkPhysicalDevice>& physical_devices) noexcept;
   ~DeviceSelector() = default;
 
-  [[nodiscard]] std::optional<Device> Select(const Requirements& requirements) const;
+  [[nodiscard]] std::optional<Device> Select(const Requirements& requirements, const VkAllocationCallbacks* allocator = nullptr) const;
 private:
-  const std::vector<VkPhysicalDevice>& devices_;
+  const std::vector<VkPhysicalDevice>& physical_devices_;
 };
 
-inline DeviceSelector::DeviceSelector(const std::vector<VkPhysicalDevice>& devices) noexcept : devices_(devices) {}
+inline DeviceSelector::DeviceSelector(const std::vector<VkPhysicalDevice>& physical_devices) noexcept : physical_devices_(physical_devices) {}
 
 } // namespace vk
 

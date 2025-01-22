@@ -1,62 +1,54 @@
 #ifndef BACKEND_VK_RENDERER_IMAGE_H_
 #define BACKEND_VK_RENDERER_IMAGE_H_
 
-#include "backend/vk/renderer/dispatchable.h"
-
 #include <vulkan/vulkan.h>
 
-namespace vk {
+#include "backend/vk/renderer/dispatchable.h"
+#include "backend/vk/renderer/memory.h"
 
+namespace vk {
 class Image : public DeviceDispatchable<VkImage> {
 public:
-  Image() noexcept;
-  Image(const Image& other) = delete;
-  Image(Image&& other) noexcept;
-  ~Image() override = default;
+  using DeviceDispatchable::DeviceDispatchable;
 
-  Image& operator=(const Image& other) = delete;
-  Image& operator=(Image&& other) noexcept;
+  [[nodiscard]] VkImageView GetView() const noexcept {
+    return view_.GetHandle();
+  }
 
-  [[nodiscard]] VkImageView GetView() const noexcept;
-  [[nodiscard]] VkFormat GetFormat() const noexcept;
-  [[nodiscard]] VkExtent2D GetExtent() const noexcept;
-  [[nodiscard]] uint32_t GetMipLevels() const noexcept;
+  [[nodiscard]] const Memory& GetMemory() const noexcept {
+    return memory_;
+  }
+
+  [[nodiscard]] VkFormat GetFormat() const noexcept {
+    return format_;
+  }
+
+  [[nodiscard]] VkExtent2D GetExtent() const noexcept {
+    return extent_;
+  }
+
+  [[nodiscard]] uint32_t GetMipLevels() const noexcept {
+    return mip_levels_;
+  }
 private:
-  using Base = DeviceDispatchable<VkImage>;
+  friend class Device;
 
-  friend class DeviceDispatchableFactory;
-
-  uint32_t mip_levels_;
+  Memory memory_;
+  DeviceDispatchable<VkImageView> view_;
 
   VkExtent2D extent_;
   VkFormat format_;
+  uint32_t mip_levels_;
 
-  DeviceDispatchable<VkImageView> view_;
-  DeviceDispatchable<VkDeviceMemory> memory_;
-
-  Image(DeviceDispatchable<VkImage>&& image,
-        DeviceDispatchable<VkImageView>&& view,
-        DeviceDispatchable<VkDeviceMemory>&& memory,
-        VkExtent2D extent,
-        VkFormat format,
-        uint32_t mip_levels) noexcept;
+  explicit Image(DeviceDispatchable&& image,
+                 const VkExtent2D extent,
+                 const VkFormat format,
+                 const uint32_t mip_levels)
+    : DeviceDispatchable(std::move(image)),
+      extent_(extent),
+      format_(format),
+      mip_levels_(mip_levels) {}
 };
-
-inline VkImageView Image::GetView() const noexcept {
-  return view_.GetHandle();
-}
-
-inline VkFormat Image::GetFormat() const noexcept {
-  return format_;
-}
-
-inline VkExtent2D Image::GetExtent() const noexcept {
-  return extent_;
-}
-
-inline uint32_t Image::GetMipLevels() const noexcept {
-  return mip_levels_;
-}
 
 } // namespace vk
 

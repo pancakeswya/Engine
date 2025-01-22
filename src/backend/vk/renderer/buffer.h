@@ -4,35 +4,29 @@
 #include <vulkan/vulkan.h>
 
 #include "backend/vk/renderer/dispatchable.h"
+#include "backend/vk/renderer/memory.h"
 
 namespace vk {
 
 class Buffer : public DeviceDispatchable<VkBuffer> {
 public:
-  Buffer() noexcept;
-  Buffer(const Buffer& other) = delete;
-  Buffer(Buffer&& other) noexcept;
-  ~Buffer() override = default;
+  using DeviceDispatchable::DeviceDispatchable;
 
-  Buffer& operator=(const Buffer& other) = delete;
-  Buffer& operator=(Buffer&& other) noexcept;
+  [[nodiscard]] const Memory& GetMemory() const noexcept {
+    return memory_;
+  }
 
-  [[nodiscard]] void* Map() const;
-  void Unmap() const noexcept;
-
-  [[nodiscard]] uint32_t Size() const noexcept;
+  [[nodiscard]] uint32_t Size() const noexcept {
+    return size_;
+  }
 private:
-  using Base = DeviceDispatchable<VkBuffer>;
+  friend class Device;
 
-  friend class DeviceDispatchableFactory;
-
-  DeviceDispatchable<VkDeviceMemory> memory_;
-
+  Memory memory_;
   uint32_t size_;
 
-  Buffer(DeviceDispatchable<VkBuffer>&& buffer,
-         DeviceDispatchable<VkDeviceMemory>&& memory,
-         uint32_t size) noexcept;
+  explicit Buffer(DeviceDispatchable&& buffer, const uint32_t size) noexcept
+    : DeviceDispatchable(std::move(buffer)), size_(size) {}
 };
 
 } // namespace vk

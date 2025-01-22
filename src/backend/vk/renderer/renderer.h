@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 
 #ifdef __APPLE__
 #define VK_ENABLE_BETA_EXTENSIONS
@@ -22,7 +23,16 @@
 
 namespace vk {
 
-class DeviceDispatchableFactory;
+struct SwapchainFramebuffer {
+  DeviceDispatchable<VkFramebuffer> framebuffer;
+  DeviceDispatchable<VkImageView> view;
+};
+
+struct SyncObject {
+  DeviceDispatchable<VkSemaphore> image_semaphore;
+  DeviceDispatchable<VkSemaphore> render_semaphore;
+  DeviceDispatchable<VkFence> fence;
+};
 
 class Renderer final : public engine::Renderer {
 public:
@@ -34,8 +44,8 @@ public:
   engine::Model& GetModel() noexcept override;
 private:
   void RecreateSwapchain();
-  void CreateSwapchain(const DeviceDispatchableFactory& dispatchable_factory);
-  void CreateFramebuffers(const DeviceDispatchableFactory& dispatchable_factory);
+  std::pair<Swapchain, Image> CreateSwapchainAndDepthImage() const;
+  std::pair<std::vector<SwapchainFramebuffer>, std::vector<SyncObject>> CreateFramebuffersAndSyncObjects() const;
 
   void UpdateUniforms() const;
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
@@ -57,25 +67,18 @@ private:
 
   Swapchain swapchain_;
   Image depth_image_;
-  std::vector<DeviceDispatchable<VkImageView>> image_views_;
-  std::vector<DeviceDispatchable<VkFramebuffer>> framebuffers_;
-
-  std::vector<DeviceDispatchable<VkSemaphore>> image_semaphores_;
-  std::vector<DeviceDispatchable<VkSemaphore>> render_semaphores_;
-  std::vector<DeviceDispatchable<VkFence>> fences_;
-
   DeviceDispatchable<VkRenderPass> render_pass_;
+  std::vector<SwapchainFramebuffer> swapchain_framebuffers_;
+  std::vector<SyncObject> sync_objects_;
 
   DeviceDispatchable<VkCommandPool> cmd_pool_;
   std::vector<VkCommandBuffer> cmd_buffers_;
 
-  Object object_;
-
   DeviceDispatchable<VkPipelineLayout> pipeline_layout_;
   DeviceDispatchable<VkPipeline> pipeline_;
 
+  Object object_;
   std::vector<Uniforms*> uniforms_buff_;
-
   engine::Model model_;
 };
 
