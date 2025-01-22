@@ -3,9 +3,12 @@
 
 #include <string>
 
+#include <GL/glew.h>
+
 #include "backend/gl/renderer/handle_object.h"
 #include "backend/gl/renderer/object.h"
 #include "backend/gl/renderer/window.h"
+#include "backend/gl/renderer/uniform_updater.h"
 #include "engine/render/model.h"
 #include "engine/render/renderer.h"
 
@@ -22,6 +25,7 @@ public:
 private:
   Window& window_;
   ValueObject program_;
+  UniformUpdater uniform_updater_;
 
   Object object_;
 

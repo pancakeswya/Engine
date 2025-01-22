@@ -26,14 +26,12 @@ Renderer::Renderer(Config config, Window& window)
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config_.app_info, MergeVectors<const char*>(window.GetExtensions(),
-                                                                   config_.instance_extensions)) {
+    instance_(config_.app_info,
+      MergeVectors<const char*>(window.GetExtensions(), config_.instance_extensions)) {
   ObjectLoader::Init();
 
-  window.SetWindowUserPointer(this);
-  window.SetWindowResizedCallback([](void* user_ptr, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-    auto render = static_cast<Renderer*>(user_ptr);
-    render->framebuffer_resized_ = true;
+  window.SetWindowResizedCallback([this]([[maybe_unused]] int width, [[maybe_unused]] int height) {
+    framebuffer_resized_ = true;
   });
 #ifdef DEBUG
   messenger_ = instance_.CreateMessenger();

@@ -8,9 +8,15 @@ Window::Window(const int width, const int height, const std::string& title)
   SDL_GL_SetSwapInterval(1);
 }
 
-void Window::Loop(EventHandler* handler) const noexcept {
-  internal::Window::Loop(handler);
+void Window::Loop() const noexcept {
+  internal::Window::Loop();
   SDL_GL_SwapWindow(window_);
+}
+
+void Window::OnWindowResize([[maybe_unused]]const int window_width, [[maybe_unused]]const int window_height) const {
+  int width, height;
+  SDL_GL_GetDrawableSize(window_, &width, &height);
+  internal::Window::OnWindowResize(width, height);
 }
 
 } // namespace sdl::gl

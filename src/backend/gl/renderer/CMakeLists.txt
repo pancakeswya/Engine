@@ -17,6 +17,8 @@ add_library(gl_renderer SHARED
         renderer.h
         shaders.cc
         shaders.h
+        uniform_updater.cc
+        uniform_updater.h
         window.h
 )
 

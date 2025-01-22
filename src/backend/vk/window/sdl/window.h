@@ -29,6 +29,7 @@ public:
   void WaitUntilResized() const noexcept override;
   [[nodiscard]] std::vector<const char*> GetExtensions() const override;
   [[nodiscard]] const ::vk::SurfaceFactory& GetSurfaceFactory() const noexcept override;
+  void OnWindowResize(int window_width, int window_height) const override;
 private:
   SurfaceFactory surface_factory_;
 };

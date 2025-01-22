@@ -13,7 +13,8 @@ public:
   Window(int width, int height, const std::string& title);
   ~Window() override = default;
 
-  void Loop(EventHandler* handler) const override;
+  void Loop() const override;
+  void SetWindowEventHandler(EventHandler* handler) noexcept override;
 };
 
 } // namespace glfw::gl

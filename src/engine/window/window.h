@@ -16,15 +16,16 @@ public:
     virtual void OnRenderEvent() = 0;
   };
 
-  using ResizeCallback = std::function<void(void*, int, int)>;
+  using ResizeCallback = std::function<void(int, int)>;
 
   virtual ~Window() = default;
 
   [[nodiscard]] virtual bool ShouldClose() const noexcept = 0;
-  virtual void Loop(EventHandler* handler) const = 0;
+  virtual void Loop() const = 0;
 
+  virtual void SetWindowTitle(const std::string& title) = 0;
+  virtual void SetWindowEventHandler(EventHandler* handler) = 0;
   virtual void SetWindowResizedCallback(ResizeCallback resize_callback) = 0;
-  virtual void SetWindowUserPointer(void* user_ptr) = 0;
 
   [[nodiscard]] virtual int GetWidth() const noexcept = 0;
   [[nodiscard]] virtual int GetHeight() const noexcept = 0;

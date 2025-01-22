@@ -16,6 +16,8 @@ add_library(engine STATIC
 
         cast_util.h
         error.h
+        fps_counter.cc
+        fps_counter.h
         dll_loader.h
         runner.cc
         runner.h

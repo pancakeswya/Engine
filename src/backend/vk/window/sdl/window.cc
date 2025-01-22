@@ -33,7 +33,7 @@ std::vector<const char*> Window::GetExtensions() const {
 }
 
 void Window::WaitUntilResized() const noexcept {
-  int width = 0, height = 0;
+  int width, height;
   SDL_Vulkan_GetDrawableSize(window_, &width, &height);
   while (width == 0 || height == 0) {
     SDL_Vulkan_GetDrawableSize(window_, &width, &height);
@@ -41,5 +41,12 @@ void Window::WaitUntilResized() const noexcept {
       ;
   }
 }
+
+void Window::OnWindowResize([[maybe_unused]]const int window_width, [[maybe_unused]]const int window_height) const {
+  int width, height;
+  SDL_Vulkan_GetDrawableSize(window_, &width, &height);
+  internal::Window::OnWindowResize(width, height);
+}
+
 
 } // namespace window::sdl::vk

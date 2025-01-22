@@ -10,11 +10,10 @@ namespace engine {
 class WindowLoader final : DllLoader {
 public:
   explicit WindowLoader(const std::string& path);
+  ~WindowLoader() override = default;
 
   [[nodiscard]] Instance::Handle LoadInstance() const;
   [[nodiscard]] Window::Handle LoadWindow(int width, int height, const std::string& title) const;
-
-  ~WindowLoader() override = default;
 };
 
 } // namespace engine

@@ -38,11 +38,11 @@ ArrayObject LoadDummyTexture()  {
   return TextureCreate(dummy_colors.data(), dummy_width, dummy_height);
 }
 
-std::optional<ArrayObject> LoadTexture(const std::string& path) {
+ArrayObject LoadTexture(const std::string& path) {
   int image_width, image_height, image_channels;
   const std::unique_ptr<stbi_uc, void(*)(void*)> pixels(stbi_load(path.c_str(), &image_width, &image_height, &image_channels, STBI_rgb_alpha), stbi_image_free);
   if (pixels == nullptr) {
-    return std::nullopt;
+    return LoadDummyTexture();
   }
   return TextureCreate(pixels.get(), image_width, image_height);
 }
@@ -52,13 +52,8 @@ std::vector<ArrayObject> LoadTextures(const obj::Data& data) {
   textures.reserve(data.mtl.size());
 
   for(const obj::NewMtl& mtl : data.mtl) {
-    ArrayObject texture;
     const std::string& path = mtl.map_kd;
-    if (std::optional<ArrayObject> opt_texture = LoadTexture(path); !opt_texture.has_value()) {
-      texture = LoadDummyTexture();
-    } else {
-      texture = std::move(opt_texture.value());
-    }
+    ArrayObject texture = LoadTexture(path);
     textures.emplace_back(std::move(texture));
   }
   return textures;
@@ -102,9 +97,6 @@ Object ObjectLoader::Load(const std::string& path) const {
 
   glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
   glUnmapBuffer(GL_ARRAY_BUFFER);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   Object object = {};
 

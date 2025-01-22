@@ -13,21 +13,24 @@ public:
   Window(int width, int height, const std::string& title, SDL_WindowFlags flags);
   ~Window() noexcept override = default;
 
-  void Loop(EventHandler* handler) const override;
+  void Loop() const override;
 
   [[nodiscard]] bool ShouldClose() const noexcept override;
   [[nodiscard]] int GetWidth() const noexcept override;
   [[nodiscard]] int GetHeight() const noexcept override;
 
+  void SetWindowTitle(const std::string &title) override;
+  void SetWindowEventHandler(EventHandler *handler) noexcept override;
   void SetWindowResizedCallback(ResizeCallback resize_callback) noexcept override;
-  void SetWindowUserPointer(void* user_ptr) noexcept override;
 protected:
-  void* user_ptr_;
+  EventHandler* event_handler_;
   ResizeCallback resize_callback_;
 
   mutable bool should_close_;
 
   SDL_Window* window_;
+
+  virtual void OnWindowResize(int window_width, int window_height) const;
 private:
   static SDL_Window* CreateWindow(int width, int height, const std::string& title, int flags);
 
@@ -36,12 +39,16 @@ private:
 
 inline bool Window::ShouldClose() const noexcept { return should_close_; }
 
-inline void Window::SetWindowUserPointer(void* user_ptr) noexcept {
-  user_ptr_ = user_ptr;
+inline void Window::SetWindowTitle(const std::string& title) {
+  SDL_SetWindowTitle(window_, title.c_str());
+}
+
+inline void Window::SetWindowEventHandler(EventHandler* handler) noexcept {
+  event_handler_ = handler;
 }
 
 inline void Window::SetWindowResizedCallback(ResizeCallback resize_callback) noexcept {
-  resize_callback_ = resize_callback;
+  resize_callback_ = std::move(resize_callback);
 }
 
 inline int Window::GetWidth() const noexcept {
@@ -65,17 +72,23 @@ inline SDL_Window* Window::CreateWindow(const int width, const int height, const
 }
 
 inline Window::Window(const int width, const int height, const std::string& title, const SDL_WindowFlags flags)
-  : user_ptr_(), should_close_(false), window_(CreateWindow(width, height, title, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | flags)) {}
+  : event_handler_(nullptr), should_close_(false), window_(CreateWindow(width, height, title, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | flags)) {}
 
-inline void Window::Loop(EventHandler* handler) const {
+inline void Window::Loop() const {
   HandleEvents();
-  handler->OnRenderEvent();
+  if (event_handler_ != nullptr) {
+    event_handler_->OnRenderEvent();
+  }
+}
+
+inline void Window::OnWindowResize(int window_width, int window_height) const {
+  if (resize_callback_ != nullptr) {
+    resize_callback_(window_width, window_height);
+  }
 }
 
 inline void Window::HandleEvents() const noexcept {
   SDL_Event event;
-
-  bool window_resized = false;
   while (SDL_PollEvent(&event)) {
     switch (event.type) {
       case SDL_QUIT:
@@ -85,20 +98,17 @@ inline void Window::HandleEvents() const noexcept {
         if (event.window.windowID != SDL_GetWindowID(window_)) {
           break;
         }
-      switch (event.window.event) {
-        case SDL_WINDOWEVENT_RESIZED:
-        case SDL_WINDOWEVENT_SIZE_CHANGED:
-          window_resized = true;
+        switch (event.window.event) {
+          case SDL_WINDOWEVENT_SIZE_CHANGED:
+            OnWindowResize(event.window.data1, event.window.data2);
+            break;
+          default:
+            break;
+        }
         break;
-        default:
-          break;
-      }
       default:
         break;
     }
-  }
-  if (window_resized) {
-    resize_callback_(user_ptr_, event.window.data1, event.window.data2);
   }
 }
 

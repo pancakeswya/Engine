@@ -1,28 +1,18 @@
 #include "backend/gl/renderer/renderer.h"
 
+#include <GL/glew.h>
+
 #include <vector>
 
-#include <GL/glew.h>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "engine/render/data_util.h"
 #include "backend/gl/renderer/error.h"
-#include "backend/gl/renderer/shaders.h"
 #include "backend/gl/renderer/object_loader.h"
+#include "backend/gl/renderer/shaders.h"
+#include "backend/gl/window/glfw/window.h"
+#include "engine/render/data_util.h"
 
 namespace gl {
 
 namespace {
-
-void InitLoaderOnce() {
-  static bool initialized = false;
-  if (!initialized) {
-    if (glewInit() != GLEW_OK) {
-      throw Error("Failed to gl loader");
-    }
-    initialized = true;
-  }
-}
 
 inline void CompileShader(const char* source, const GLuint shader) {
   glShaderSource(shader, 1, &source, nullptr);
@@ -45,8 +35,9 @@ inline void LinkShaderProgram(const GLuint program) {
 }
 
 ValueObject ShaderProgramCreate() {
-  InitLoaderOnce();
-
+  if (glewInit() != GLEW_OK) {
+    throw Error("Failed to gl loader");
+  }
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_TEXTURE_2D);
   glActiveTexture(GL_TEXTURE0);
@@ -62,6 +53,7 @@ ValueObject ShaderProgramCreate() {
     glAttachShader(program.Value(), shader.Value());
   }
   LinkShaderProgram(program.Value());
+  glUseProgram(program.Value());
 
   return program;
 }
@@ -71,7 +63,12 @@ ValueObject ShaderProgramCreate() {
 Renderer::Renderer(Window& window)
     : window_(window),
       program_(ShaderProgramCreate()),
-      object_() {}
+      uniform_updater_(program_.Value()),
+      object_() {
+  window.SetWindowResizedCallback([](const int width, const int height) {
+    glViewport(0, 0, width, height);
+  });
+}
 
 void Renderer::LoadModel(const std::string& path) {
   object_ = ObjectLoader(program_).Load(path);
@@ -81,18 +78,7 @@ void Renderer::RenderFrame() {
   glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glUseProgram(program_.Value());
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, object_.ebo.Value());
-  glBindBuffer(GL_ARRAY_BUFFER, object_.vbo.Value());
-  const auto& [model, view, proj] = model_.GetUniforms();
-
-  GLint uniform_location = glGetUniformLocation(program_.Value(), "ubo.model");
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(model[0]));
-  uniform_location = glGetUniformLocation(program_.Value(), "ubo.view");
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(view[0]));
-  uniform_location = glGetUniformLocation(program_.Value(), "ubo.proj");
-
-  glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(proj[0]));
+  uniform_updater_.Update(model_.GetUniforms());
 
   size_t prev_offset = 0;
 
@@ -101,6 +87,7 @@ void Renderer::RenderFrame() {
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(offset - prev_offset), GL_UNSIGNED_INT, reinterpret_cast<void*>(prev_offset * sizeof(GLuint)));
     prev_offset = offset;
   }
+  glFinish();
 }
 
 } // namespace gl

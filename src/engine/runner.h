@@ -3,6 +3,7 @@
 
 #include "engine/window/window_loader.h"
 #include "engine/render/renderer_loader.h"
+#include "engine/fps_counter.h"
 
 namespace engine {
 
@@ -14,7 +15,9 @@ public:
   void Run();
 private:
   void OnRenderEvent() override;
+  void UpdateFps();
 
+  FpsCounter fps_counter_;
   Instance::Handle instance_;
   Window::Handle window_;
   Renderer::Handle renderer_;

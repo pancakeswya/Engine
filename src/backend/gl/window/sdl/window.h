@@ -13,7 +13,9 @@ public:
   Window(int width, int height, const std::string& title);
   ~Window() override;
 
-  void Loop(EventHandler* handler) const noexcept override;
+  void Loop() const noexcept override;
+protected:
+  void OnWindowResize(int window_width, int window_height) const override;
 private:
   SDL_GLContext context_;
 };
