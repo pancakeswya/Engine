@@ -65,6 +65,7 @@ Renderer::Renderer(Window& window)
       program_(ShaderProgramCreate()),
       uniform_updater_(program_.Value()),
       object_() {
+  ObjectLoader::Init();
   window.SetWindowResizedCallback([](const int width, const int height) {
     glViewport(0, 0, width, height);
   });

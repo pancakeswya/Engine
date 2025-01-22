@@ -61,9 +61,11 @@ std::vector<ArrayObject> LoadTextures(const obj::Data& data) {
 
 } // namespace
 
-Object ObjectLoader::Load(const std::string& path) const {
+void ObjectLoader::Init() {
   stbi_set_flip_vertically_on_load(true);
+}
 
+Object ObjectLoader::Load(const std::string& path) const {
   obj::Data data = obj::ParseFromFile(path);
 
   ArrayObject ebo(1, glGenBuffers, glDeleteBuffers);

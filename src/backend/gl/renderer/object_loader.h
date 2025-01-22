@@ -10,6 +10,8 @@ namespace gl {
 
 class ObjectLoader {
 public:
+  static void Init();
+
   explicit ObjectLoader(const ValueObject& program);
   ~ObjectLoader() = default;
 
