@@ -5,6 +5,7 @@
 namespace engine {
 
 namespace {
+
 std::vector<std::string> GetRendererNameMapping() {
   return { "vk", "gl" };
 }
@@ -85,6 +86,6 @@ void Runner::UpdateFps() {
   oss << title_ << " (" << std::fixed << fps << " FPS)";
 
   window_->SetWindowTitle(oss.str());
-
 }
+
 } // namespace engine
