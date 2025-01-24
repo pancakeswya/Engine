@@ -20,9 +20,6 @@ struct Config {
   ImageSettings image_settings;
 
   size_t frame_count;
-
-  std::vector<const char*> instance_extensions;
-  std::vector<const char*> device_extensions;
 };
 
 extern Config DefaultConfig();

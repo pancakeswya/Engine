@@ -67,6 +67,4 @@ void SamplerDescriptorSet::Update() const noexcept {
   vkUpdateDescriptorSets(image.GetDevice(), 1, &descriptorWrite, 0, nullptr);
 }
 
-
-
 } // namespace vk

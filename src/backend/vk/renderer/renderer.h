@@ -36,7 +36,7 @@ struct SyncObject {
 
 class Renderer final : public engine::Renderer {
 public:
-  explicit Renderer(Config config, Window& window);
+  explicit Renderer(const Config& config, Window& window);
   ~Renderer() override;
 
   void RenderFrame() override;

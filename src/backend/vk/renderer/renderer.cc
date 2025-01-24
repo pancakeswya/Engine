@@ -12,22 +12,41 @@ namespace vk {
 
 namespace {
 
-template<typename T, typename ...Args>
-std::vector<T> MergeVectors(const Args&... args) {
-  std::vector<T> v1;
-  (v1.insert(v1.end(), args.begin(), args.end()), ...);
-  return v1;
+std::vector<const char*> GetInstanceExtension(const Window& window) {
+  std::vector extensions = {
+#ifdef DEBUG
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
+#ifdef __APPLE__
+    VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+#endif
+  };
+  std::vector<const char*> window_extensions = window.GetExtensions();
+
+  extensions.insert(extensions.end(), window_extensions.begin(), window_extensions.end());
+
+  return extensions;
+}
+
+std::vector<const char*> GetDeviceExtension() {
+  return {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE1_EXTENSION_NAME,
+#ifdef __APPLE__
+    VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+#endif
+  };
 }
 
 } // namespace
 
-Renderer::Renderer(Config config, Window& window)
-  : config_(std::move(config)),
+Renderer::Renderer(const Config& config, Window& window)
+  : config_(config),
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config_.app_info,
-      MergeVectors<const char*>(window.GetExtensions(), config_.instance_extensions)) {
+    instance_(config_.app_info, GetInstanceExtension(window)) {
   ObjectLoader::Init();
 
   window.SetWindowResizedCallback([this]([[maybe_unused]] int width, [[maybe_unused]] int height) {
@@ -39,18 +58,12 @@ Renderer::Renderer(Config config, Window& window)
 
   surface_ = instance_.CreateSurface(window);
 
-  config_.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-  config_.device_extensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
-#ifdef __APPLE__
-  config_.device_extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
-#endif
-
   DeviceSelector::Requirements requirements = {};
   requirements.present = true;
   requirements.graphic = true;
   requirements.anisotropy = true;
   requirements.surface = surface_.GetHandle();
-  requirements.extensions = config_.device_extensions;
+  requirements.extensions = GetDeviceExtension();
 
   const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
 
@@ -68,9 +81,7 @@ Renderer::Renderer(Config config, Window& window)
   cmd_buffers_ = device_.CreateCommandBuffers(cmd_pool_.GetHandle(), config_.frame_count);
 }
 
-Renderer::~Renderer() {
-  vkDeviceWaitIdle(device_.GetHandle());
-}
+Renderer::~Renderer() { vkDeviceWaitIdle(device_.GetHandle()); }
 
 void Renderer::RenderFrame() {
   uint32_t image_idx;

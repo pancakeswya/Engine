@@ -18,17 +18,6 @@ Config DefaultConfig() {
   config.image_settings.vk_format = VK_FORMAT_R8G8B8A8_SRGB;
   config.image_settings.dummy_image_extent = VkExtent2D{16,16};
 
-  config.instance_extensions = {
-#ifdef DEBUG
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#endif
-#ifdef __APPLE__
-    VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
-    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
-#endif
-  };
-  config.device_extensions = {};
-
   config.frame_count = 2;
 
   return config;
