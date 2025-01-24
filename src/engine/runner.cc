@@ -6,16 +6,8 @@ namespace engine {
 
 namespace {
 
-std::vector<std::string> GetRendererNameMapping() {
-  return { "vk", "gl" };
-}
 
-std::vector<std::string> GetWindowNameMapping() {
-  return { "glfw", "sdl" };
-}
-
-std::string GetRendererDllPath(const RendererType renderer_type) {
-  const std::string renderer_name = GetRendererNameMapping()[static_cast<int>(renderer_type)];
+std::string GetRendererDllPath(const RendererType::Name renderer_name) {
   std::stringstream ss;
   ss << "src/backend/"
      << renderer_name
@@ -25,10 +17,7 @@ std::string GetRendererDllPath(const RendererType renderer_type) {
   return ss.str();
 }
 
-std::string GetWindowDllPath(const RendererType renderer_type, const WindowType window_type) {
-  const std::string renderer_name = GetRendererNameMapping()[static_cast<int>(renderer_type)];
-  const std::string window_name = GetWindowNameMapping()[static_cast<int>(window_type)];
-
+std::string GetWindowDllPath(const RendererType::Name renderer_name, const WindowType::Name window_name) {
   std::stringstream ss;
   ss << "src/backend/"
      << renderer_name
@@ -43,10 +32,7 @@ std::string GetWindowDllPath(const RendererType renderer_type, const WindowType 
   return ss.str();
 }
 
-std::string GetTitle(const RendererType renderer_type, WindowType window_type) {
-  const std::string renderer_name = GetRendererNameMapping()[static_cast<int>(renderer_type)];
-  const std::string window_name = GetWindowNameMapping()[static_cast<int>(window_type)];
-
+std::string GetTitle(const RendererType::Name renderer_name, const WindowType::Name window_name) {
   std::stringstream ss;
   ss << window_name << " " << renderer_name << " engine";
 
@@ -55,16 +41,16 @@ std::string GetTitle(const RendererType renderer_type, WindowType window_type) {
 
 } // namespace
 
-Runner::Runner(const RendererType renderer_type, const WindowType window_type)
-    : title_(GetTitle(renderer_type, window_type)),
-      window_loader_(GetWindowDllPath(renderer_type, window_type)),
-      renderer_loader_(GetRendererDllPath(renderer_type)),
+Runner::Runner(const RendererType::Name renderer_name, const WindowType::Name window_name)
+    : title_(GetTitle(renderer_name, window_name)),
+      window_loader_(GetWindowDllPath(renderer_name, window_name)),
+      renderer_loader_(GetRendererDllPath(renderer_name)),
       instance_(window_loader_.LoadInstance()),
       window_(window_loader_.LoadWindow(1280, 720, title_)),
       renderer_(renderer_loader_.Load(*window_)) {}
 
 void Runner::Run() {
-  renderer_->LoadModel("../obj/Madara Uchiha/obj/Madara_Uchiha.obj");
+  renderer_->LoadModel("/Users/pancakeswya/VulkanEngine/obj/tommy/tommy.obj");
   renderer_->GetModel().SetView(window_->GetWidth(), window_->GetHeight());
   window_->SetWindowEventHandler(this);
   while (!window_->ShouldClose()) {

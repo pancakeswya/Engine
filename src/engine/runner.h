@@ -1,25 +1,31 @@
 #ifndef ENGINE_RUNNER_H_
 #define ENGINE_RUNNER_H_
 
+#include <string_view>
+
 #include "engine/window/window_loader.h"
 #include "engine/render/renderer_loader.h"
 #include "engine/fps_counter.h"
 
 namespace engine {
 
-enum class RendererType {
-  kVk = 0,
-  kGl
+struct RendererType {
+  using Name = std::string_view;
+
+  static constexpr Name kVk = "vk";
+  static constexpr Name kGk = "gl";
 };
 
-enum class WindowType {
-  kGlfw = 0,
-  kSdl
+struct WindowType {
+  using Name = std::string_view;
+
+  static constexpr Name kGlfw = "glfw";
+  static constexpr Name kSdl = "sdl";
 };
 
 class Runner final : public Window::EventHandler {
 public:
-  Runner(RendererType renderer_type, WindowType window_type);
+  Runner(RendererType::Name renderer_name, WindowType::Name window_name);
   ~Runner() override = default;
 
   void Run();
