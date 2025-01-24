@@ -269,14 +269,12 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer cmd_buffer, const size_t imag
   VkDeviceSize prev_offset = 0;
   std::array<VkDeviceSize, 1> vertex_offsets = {};
 
+  vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
+  vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.GetHandle(), 0, 1, &object_.uniform_descriptor.sets[curr_frame_].handle, 0, nullptr);
+
   for(const auto[index, offset] : object_.usemtl) {
-    const VkDeviceSize curr_offset = prev_offset * sizeof(Index);
-
-    vkCmdBindVertexBuffers(cmd_buffer, 0, vertex_offsets.size(), &vertices_buffer, vertex_offsets.data());
-    vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, curr_offset, IndexType<Index>::value);
-    vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.GetHandle(), 0, 1, &object_.uniform_descriptor.sets[curr_frame_].handle, 0, nullptr);
+    vkCmdBindIndexBuffer(cmd_buffer, indices_buffer, prev_offset * sizeof(Index), IndexType<Index>::value);
     vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_.GetHandle(), 1, 1, &object_.sampler_descriptor.sets[index].handle, 0, nullptr);
-
     vkCmdDrawIndexed(cmd_buffer, static_cast<uint32_t>(offset - prev_offset), 1, 0, 0, 0);
 
     prev_offset = offset;

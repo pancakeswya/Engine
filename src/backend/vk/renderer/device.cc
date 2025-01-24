@@ -1,5 +1,6 @@
 #include "backend/vk/renderer/device.h"
 
+#include <array>
 #include <algorithm>
 #include <limits>
 #include <set>
@@ -209,7 +210,7 @@ DeviceDispatchable<VkPipeline> Device::CreatePipeline(VkPipelineLayout pipeline_
   color_blending.blendConstants[2] = 0.0f;
   color_blending.blendConstants[3] = 0.0f;
 
-  const std::vector dynamic_states = {
+  constexpr std::array dynamic_states = {
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
   };

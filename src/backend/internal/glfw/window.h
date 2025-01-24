@@ -4,7 +4,6 @@
 #include "engine/window/window.h"
 #include "backend/internal/glfw/error.h"
 
-#include <stdio.h>
 #include <string>
 #include <chrono>
 
