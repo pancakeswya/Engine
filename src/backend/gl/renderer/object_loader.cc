@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <vector>
+#include <memory>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

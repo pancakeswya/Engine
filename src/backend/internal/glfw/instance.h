@@ -20,7 +20,7 @@ inline Instance::Instance() {
   }
 }
 
-inline Instance::~Instance() { glfwTerminate(); }
+inline Instance::~Instance() {  glfwTerminate(); }
 
 
 } // namespace glfw::internal

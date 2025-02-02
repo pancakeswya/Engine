@@ -1,56 +1,17 @@
 #include "engine/runner.h"
 
-#include <sstream>
-
 namespace engine {
 
-namespace {
-
-
-std::string GetRendererDllPath(const RendererType::Name renderer_name) {
-  std::stringstream ss;
-  ss << "src/backend/"
-     << renderer_name
-     << "/renderer/lib"
-     << renderer_name
-     << "_renderer.dylib";
-  return ss.str();
-}
-
-std::string GetWindowDllPath(const RendererType::Name renderer_name, const WindowType::Name window_name) {
-  std::stringstream ss;
-  ss << "src/backend/"
-     << renderer_name
-     << "/window/"
-     << window_name
-     <<"/lib"
-     << window_name
-     << '_'
-     << renderer_name
-     << "_window.dylib";
-
-  return ss.str();
-}
-
-std::string GetTitle(const RendererType::Name renderer_name, const WindowType::Name window_name) {
-  std::stringstream ss;
-  ss << window_name << " " << renderer_name << " engine";
-
-  return ss.str();
-}
-
-} // namespace
-
-Runner::Runner(const RendererType::Name renderer_name, const WindowType::Name window_name)
-    : title_(GetTitle(renderer_name, window_name)),
-      window_loader_(GetWindowDllPath(renderer_name, window_name)),
-      renderer_loader_(GetRendererDllPath(renderer_name)),
+Runner::Runner(const RendererLoader& renderer_loader, const WindowLoader& window_loader, std::string title)
+    : title_(std::move(title)),
+      window_loader_(window_loader),
+      renderer_loader_(renderer_loader),
       instance_(window_loader_.LoadInstance()),
       window_(window_loader_.LoadWindow(1280, 720, title_)),
       renderer_(renderer_loader_.Load(*window_)) {}
 
 void Runner::Run() {
-  renderer_->LoadModel("/Users/pancakeswya/VulkanEngine/obj/tommy/tommy.obj");
+  renderer_->LoadModel("../obj/Madara Uchiha/obj/Madara_Uchiha.obj");
   renderer_->GetModel().SetView(window_->GetWidth(), window_->GetHeight());
   window_->SetWindowEventHandler(this);
   while (!window_->ShouldClose()) {

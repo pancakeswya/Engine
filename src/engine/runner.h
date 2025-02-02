@@ -9,23 +9,9 @@
 
 namespace engine {
 
-struct RendererType {
-  using Name = std::string_view;
-
-  static constexpr Name kVk = "vk";
-  static constexpr Name kGk = "gl";
-};
-
-struct WindowType {
-  using Name = std::string_view;
-
-  static constexpr Name kGlfw = "glfw";
-  static constexpr Name kSdl = "sdl";
-};
-
 class Runner final : public Window::EventHandler {
 public:
-  Runner(RendererType::Name renderer_name, WindowType::Name window_name);
+  Runner(const RendererLoader& renderer_loader, const WindowLoader& window_loader, std::string title);
   ~Runner() override = default;
 
   void Run();
@@ -35,8 +21,8 @@ private:
 
   std::string title_;
 
-  WindowLoader window_loader_;
-  RendererLoader renderer_loader_;
+  const WindowLoader& window_loader_;
+  const RendererLoader& renderer_loader_;
 
   FpsCounter fps_counter_;
   Instance::Handle instance_;

@@ -13,6 +13,6 @@ add_library(sdl_vk_window SHARED
 
 set_property(TARGET sdl_vk_window PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+target_compile_definitions(sdl_vk_window PRIVATE -DENGINE_SHARED -DENGINE_EXPORT)
 target_include_directories(sdl_vk_window PUBLIC ${SDL2_INCLUDE_DIRS})
-
 target_link_libraries(sdl_vk_window PUBLIC Vulkan::Vulkan ${SDL2_LIBRARIES})

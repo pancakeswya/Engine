@@ -5,4 +5,4 @@ add_subdirectory(obj)
 
 add_executable(engine_main main.cc)
 
-target_link_libraries(engine_main engine)
+target_link_libraries(engine_main PUBLIC engine)

@@ -24,6 +24,8 @@ add_library(gl_renderer SHARED
 
 set_property(TARGET gl_renderer PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+
+target_compile_definitions(gl_renderer PRIVATE -DENGINE_SHARED -DENGINE_EXPORT)
 target_link_libraries(gl_renderer PUBLIC
         obj
         OpenGL::GL

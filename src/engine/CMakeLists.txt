@@ -15,7 +15,10 @@ add_library(engine STATIC
         window/plugin.h
 
         cast_util.h
+        config.cc
+        config.h
         error.h
+        plugin_api.h
         fps_counter.cc
         fps_counter.h
         dll_loader.h

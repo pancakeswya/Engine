@@ -42,7 +42,7 @@ add_library(vk_renderer SHARED
 
 set_property(TARGET vk_renderer PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_compile_definitions(vk_renderer PRIVATE -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)
+target_compile_definitions(vk_renderer PRIVATE -DENGINE_SHARED -DENGINE_EXPORT -DGLM_FORCE_RADIANS -DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_link_directories(vk_renderer PUBLIC ${SHADERC_LIBRARY_DIRS})
 target_link_libraries(vk_renderer PUBLIC
         Vulkan::Vulkan

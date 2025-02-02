@@ -8,12 +8,14 @@
 #include "backend/vk/renderer/object_loader.h"
 #include "backend/vk/renderer/shader.h"
 
+#include <thread>
+
 namespace vk {
 
 namespace {
 
 std::vector<const char*> GetInstanceExtension(const Window& window) {
-  std::vector extensions = {
+  std::vector<const char*> extensions = {
 #ifdef DEBUG
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
@@ -46,7 +48,7 @@ Renderer::Renderer(const Config& config, Window& window)
     window_(window),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(config_.app_info, GetInstanceExtension(window)) {
+    instance_(config_.app_info, GetInstanceExtension((window))) {
   ObjectLoader::Init();
 
   window.SetWindowResizedCallback([this]([[maybe_unused]] int width, [[maybe_unused]] int height) {
@@ -87,8 +89,8 @@ void Renderer::RenderFrame() {
   uint32_t image_idx;
 
   VkFence fence = sync_objects_[curr_frame_].fence.GetHandle();
-  VkSemaphore image_semaphore = sync_objects_[curr_frame_].image_semaphore.GetHandle();
-  VkSemaphore render_semaphore = sync_objects_[curr_frame_].render_semaphore.GetHandle();
+  VkSemaphore wait_semaphore = sync_objects_[curr_frame_].image_semaphore.GetHandle();
+  VkSemaphore signal_semaphore = sync_objects_[curr_frame_].render_semaphore.GetHandle();
 
   VkCommandBuffer cmd_buffer = cmd_buffers_[curr_frame_];
   VkSwapchainKHR swapchain = swapchain_.GetHandle();
@@ -96,7 +98,7 @@ void Renderer::RenderFrame() {
   if (const VkResult result = vkWaitForFences(device_.GetHandle(), 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()); result != VK_SUCCESS) {
     throw Error("failed to wait for fences").WithCode(result);
   }
-  if (const VkResult result = vkAcquireNextImageKHR(device_.GetHandle(), swapchain_.GetHandle(), std::numeric_limits<uint64_t>::max(), image_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
+  if (const VkResult result = vkAcquireNextImageKHR(device_.GetHandle(), swapchain_.GetHandle(), std::numeric_limits<uint64_t>::max(), wait_semaphore, VK_NULL_HANDLE, &image_idx); result != VK_SUCCESS) {
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
       RecreateSwapchain();
       return;
@@ -117,12 +119,12 @@ void Renderer::RenderFrame() {
   VkSubmitInfo submit_info = {};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = &image_semaphore;
+  submit_info.pWaitSemaphores = &wait_semaphore;
   submit_info.pWaitDstStageMask = pipeline_stages.data();
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmd_buffer;
   submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &render_semaphore;
+  submit_info.pSignalSemaphores = &signal_semaphore;
 
   if (const VkResult result = vkQueueSubmit(device_.GetGraphicsQueue().handle, 1, &submit_info, fence); result != VK_SUCCESS) {
     throw Error("failed to submit draw command buffer").WithCode(result);
@@ -131,12 +133,12 @@ void Renderer::RenderFrame() {
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &render_semaphore;
+  present_info.pWaitSemaphores = &signal_semaphore;
   present_info.swapchainCount = 1;
   present_info.pSwapchains = &swapchain;
   present_info.pImageIndices = &image_idx;
 
-  if (const VkResult result = vkQueuePresentKHR(device_.GetGraphicsQueue().handle, &present_info);
+  if (const VkResult result = vkQueuePresentKHR(device_.GetPresentQueue().handle, &present_info);
       result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
     framebuffer_resized_ = false;
     RecreateSwapchain();

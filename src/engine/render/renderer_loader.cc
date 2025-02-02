@@ -7,8 +7,8 @@ namespace engine {
 RendererLoader::RendererLoader(const std::string& path) : DllLoader(path) {}
 
 Renderer::Handle RendererLoader::Load(Window& window) const {
-  const auto create_renderer = DllLoader::Load<decltype(&CreateRenderer)>("CreateRenderer");
-  const auto destroy_renderer = DllLoader::Load<decltype(&DestroyRenderer)>("DestroyRenderer");
+  const auto create_renderer = DllLoader::Load<decltype(&PluginCreateRenderer)>("PluginCreateRenderer");
+  const auto destroy_renderer = DllLoader::Load<decltype(&PluginDestroyRenderer)>("PluginDestroyRenderer");
   return {create_renderer(window), destroy_renderer};
 }
 

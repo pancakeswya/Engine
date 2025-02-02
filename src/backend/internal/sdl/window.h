@@ -6,6 +6,9 @@
 
 #include <SDL2/SDL.h>
 
+#include <chrono>
+#include <thread>
+
 namespace sdl::internal {
 
 class Window : public virtual engine::Window {

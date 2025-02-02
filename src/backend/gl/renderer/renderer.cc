@@ -7,8 +7,6 @@
 #include "backend/gl/renderer/error.h"
 #include "backend/gl/renderer/object_loader.h"
 #include "backend/gl/renderer/shaders.h"
-#include "backend/gl/window/glfw/window.h"
-#include "engine/render/data_util.h"
 
 namespace gl {
 

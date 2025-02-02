@@ -1,4 +1,5 @@
 #include "backend/vk/renderer/config.h"
+#include "engine/config.h"
 
 #include <stb_image.h>
 

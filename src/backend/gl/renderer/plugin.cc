@@ -4,10 +4,10 @@
 #include "backend/gl/renderer/renderer.h"
 #include "backend/gl/renderer/window.h"
 
-engine::Renderer* CreateRenderer(engine::Window& window) {
+engine::Renderer* ENGINE_CONV PluginCreateRenderer(engine::Window& window) {
   return new gl::Renderer(NAMED_DYNAMIC_CAST(gl::Window&, window));
 }
 
-void DestroyRenderer(engine::Renderer* renderer) {
+void ENGINE_CONV PluginDestroyRenderer(engine::Renderer* renderer) {
   delete renderer;
 }
