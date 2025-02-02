@@ -6,7 +6,7 @@
 #include <string>
 #include <filesystem>
 
-#ifdef __unix__
+#if defined(unix) || defined(__unix__) || defined(__unix) || defined(__APPLE__)
 #include <dlfcn.h>
 #   ifdef __APPLE__
 #       define DLL_EXT ".dylib"

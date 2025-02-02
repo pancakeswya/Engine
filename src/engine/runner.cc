@@ -1,5 +1,7 @@
 #include "engine/runner.h"
 
+#include <sstream>
+
 namespace engine {
 
 Runner::Runner(const RendererLoader& renderer_loader, const WindowLoader& window_loader, std::string title)
@@ -28,7 +30,7 @@ void Runner::OnRenderEvent() {
 void Runner::UpdateFps() {
   const double fps = fps_counter_.Count();
 
-  std::ostringstream oss;
+  std::stringstream oss;
   oss.precision(1);
   oss << title_ << " (" << std::fixed << fps << " FPS)";
 

@@ -2,19 +2,25 @@
 
 #include <sstream>
 
+#ifdef _WIN32
+#define DL_PREFIX_PATH
+#else
+#define DL_PREFIX_PATH "lib/"
+#endif
+
 namespace engine {
 
 namespace {
 
 std::string GetRendererDllPath(const RendererType::Name renderer_name) {
   std::stringstream ss;
-  ss << "lib" << renderer_name << "_renderer";
+  ss << DL_PREFIX_PATH"lib" << renderer_name << "_renderer";
   return ss.str();
 }
 
 std::string GetWindowDllPath(const RendererType::Name renderer_name, const WindowType::Name window_name) {
   std::stringstream ss;
-  ss << "lib" << window_name << '_' << renderer_name << "_window";
+  ss << DL_PREFIX_PATH"lib" << window_name << '_' << renderer_name << "_window";
   return ss.str();
 }
 

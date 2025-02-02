@@ -5,10 +5,10 @@
 #include <iostream>
 
 int main() {
-  engine::Config config(engine::RendererType::kVk, engine::WindowType::kGlfw);
+  const engine::Config config(engine::RendererType::kVk, engine::WindowType::kSdl);
 
-  engine::WindowLoader window_loader(config.window_plugin_path);
-  engine::RendererLoader renderer_loader(config.renderer_plugin_path);
+  const engine::WindowLoader window_loader(config.window_plugin_path);
+  const engine::RendererLoader renderer_loader(config.renderer_plugin_path);
   try {
     engine::Runner runner(renderer_loader, window_loader, config.title);
     runner.Run();
