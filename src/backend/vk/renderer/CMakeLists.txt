@@ -7,10 +7,8 @@ pkg_check_modules(SHADERC REQUIRED shaderc)
 make_shaders(shader.cc.in shader.cc)
 
 add_library(vk_renderer SHARED
-        config.cc
-        config.h
         error.h
-        dispatchable.h
+        handle.h
         object.cc
         object.h
         object_loader.h

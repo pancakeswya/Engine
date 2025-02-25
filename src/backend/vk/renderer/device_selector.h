@@ -1,10 +1,10 @@
 #ifndef BACKEND_VK_RENDERER_DEVICE_SELECTOR_H_
 #define BACKEND_VK_RENDERER_DEVICE_SELECTOR_H_
 
-#include <vector>
-#include <optional>
-
 #include <vulkan/vulkan.h>
+
+#include <optional>
+#include <vector>
 
 #include "backend/vk/renderer/device.h"
 

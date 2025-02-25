@@ -18,16 +18,16 @@ public:
   explicit PhysicalDevice(VkPhysicalDevice physical_device) noexcept;
   PhysicalDevice() = default;
 
-  [[nodiscard]] VkPhysicalDevice GetHandle() const noexcept;
+  [[nodiscard]] VkPhysicalDevice handle() const noexcept;
 
-  [[nodiscard]] SurfaceSupportDetails GetSurfaceSupportDetails(VkSurfaceKHR surface) const;
-  [[nodiscard]] bool GetFormatFeatureSupported(VkFormat format, VkFormatFeatureFlagBits feature) const;
+  [[nodiscard]] SurfaceSupportDetails surface_support_details(VkSurfaceKHR surface) const;
+  [[nodiscard]] bool format_feature_supported(VkFormat format, VkFormatFeatureFlagBits feature) const;
   [[nodiscard]] int32_t FindMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
   [[nodiscard]] VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkImageTiling tiling, VkFormatFeatureFlags features) const;
-  [[nodiscard]] bool GetExtensionsSupport(const std::vector<const char*>& extensions) const;
-  [[nodiscard]] std::vector<VkQueueFamilyProperties> GetQueueFamilyProperties() const;
-  [[nodiscard]] VkBool32 GetSurfaceSupported(VkSurfaceKHR surface, uint32_t queue_family_idx) const;
-  [[nodiscard]] VkPhysicalDeviceFeatures GetPhysicalDeviceFeatures() const;
+  [[nodiscard]] bool extensions_support(const std::vector<const char*>& extensions) const;
+  [[nodiscard]] std::vector<VkQueueFamilyProperties> queue_family_properties() const;
+  [[nodiscard]] VkBool32 surface_supported(VkSurfaceKHR surface, uint32_t queue_family_idx) const;
+  [[nodiscard]] VkPhysicalDeviceFeatures features() const;
 private:
   VkPhysicalDevice physical_device_;
 };
@@ -35,7 +35,7 @@ private:
 inline PhysicalDevice::PhysicalDevice(VkPhysicalDevice physical_device) noexcept
   : physical_device_(physical_device) {}
 
-inline VkPhysicalDevice PhysicalDevice::GetHandle() const noexcept {
+inline VkPhysicalDevice PhysicalDevice::handle() const noexcept {
   return physical_device_;
 }
 

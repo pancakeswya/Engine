@@ -70,7 +70,14 @@ bool InstanceLayersIsSupported() {
 
 #endif // DEBUG
 
-VkInstance CreateInstance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator) {
+VkInstance CreateInstance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator) {
+  VkApplicationInfo app_info = {};
+  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  app_info.pApplicationName = "VulkanFun";
+  app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+  app_info.pEngineName = "Simple Engine";
+  app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+  app_info.apiVersion = VK_API_VERSION_1_0;
 #ifdef DEBUG
   const std::vector<const char*> layers = Instance::GetLayers();
   if (!InstanceLayersAreSupported(layers)) {
@@ -121,9 +128,9 @@ VkDebugUtilsMessengerCreateInfoEXT Instance::GetMessengerCreateInfo() noexcept {
 
 #define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
-InstanceDispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const {
-  VkInstance instance = GetHandle();
-  const VkAllocationCallbacks* allocator = GetAllocator();
+InstanceHandle<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const {
+  VkInstance instance = this->handle();
+  const VkAllocationCallbacks* allocator = this->allocator();
 
   const auto create_messenger = vkGetInstanceProcAddrByType(instance, vkCreateDebugUtilsMessengerEXT);
   if (create_messenger == nullptr) {
@@ -133,7 +140,7 @@ InstanceDispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const
   if (destroy_messenger == nullptr) {
     throw Error("Couldn't find vkDestroyDebugUtilsMessengerEXT by procc addr");
   }
-  const VkDebugUtilsMessengerCreateInfoEXT messenger_info = Instance::GetMessengerCreateInfo();
+  const VkDebugUtilsMessengerCreateInfoEXT messenger_info = GetMessengerCreateInfo();
 
   VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
   if (const VkResult result = create_messenger(instance, &messenger_info, allocator, &messenger); result != VK_SUCCESS) {
@@ -151,27 +158,27 @@ InstanceDispatchable<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const
 
 #endif
 
-Instance::Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
-  : SelfDispatchable(CreateInstance(app_info, extensions, allocator), vkDestroyInstance, allocator) {}
+Instance::Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
+  : Handle(CreateInstance(extensions, allocator), vkDestroyInstance, allocator) {}
 
 std::vector<VkPhysicalDevice> Instance::EnumeratePhysicalDevices() const {
   uint32_t device_count = 0;
-  if (const VkResult result = vkEnumeratePhysicalDevices(handle_, &device_count, nullptr); result != VK_SUCCESS) {
+  if (const VkResult result = vkEnumeratePhysicalDevices(handle(), &device_count, nullptr); result != VK_SUCCESS) {
     throw Error("failed to get physical devices count").WithCode(result);
   }
   if (device_count == 0) {
     throw Error("failed to find GPUs with Vulkan support");
   }
   std::vector<VkPhysicalDevice> devices(device_count);
-  if (const VkResult result = vkEnumeratePhysicalDevices(handle_, &device_count, devices.data()); result != VK_SUCCESS) {
+  if (const VkResult result = vkEnumeratePhysicalDevices(handle(), &device_count, devices.data()); result != VK_SUCCESS) {
     throw Error("failed to get physical devices").WithCode(result);
   }
   return devices;
 }
 
-InstanceDispatchable<VkSurfaceKHR> Instance::CreateSurface(const Window& window) const {
-  VkInstance instance = GetHandle();
-  const VkAllocationCallbacks* allocator = GetAllocator();
+InstanceHandle<VkSurfaceKHR> Instance::CreateSurface(const Window& window) const {
+  VkInstance instance = this->handle();
+  const VkAllocationCallbacks* allocator = this->allocator();
 
   VkSurfaceKHR surface = window.GetSurfaceFactory().CreateSurface(instance, allocator);
   return {

@@ -4,13 +4,13 @@
 
 namespace vk {
 
-std::vector<VkImage> Swapchain::GetImages() const {
+std::vector<VkImage> Swapchain::images() const {
   uint32_t image_count;
-  if (const VkResult result = vkGetSwapchainImagesKHR(GetDevice(), GetHandle(), &image_count, nullptr); result != VK_SUCCESS) {
+  if (const VkResult result = vkGetSwapchainImagesKHR(creator(), handle(), &image_count, nullptr); result != VK_SUCCESS) {
     throw Error("failed to get swapchain image count").WithCode(result);
   }
   std::vector<VkImage> images(image_count);
-  if (const VkResult result = vkGetSwapchainImagesKHR(GetDevice(), GetHandle(), &image_count, images.data()); result != VK_SUCCESS) {
+  if (const VkResult result = vkGetSwapchainImagesKHR(creator(), handle(), &image_count, images.data()); result != VK_SUCCESS) {
     throw Error("failed to get swapchain images").WithCode(result);
   }
   return images;

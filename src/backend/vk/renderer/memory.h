@@ -3,30 +3,30 @@
 
 #include <vulkan/vulkan.h>
 
-#include "backend/vk/renderer/dispatchable.h"
 #include "backend/vk/renderer/error.h"
+#include "backend/vk/renderer/handle.h"
 
 namespace vk {
 
-class Memory : public DeviceDispatchable<VkDeviceMemory> {
+class Memory final : public DeviceHandle<VkDeviceMemory> {
 public:
-  using DeviceDispatchable::DeviceDispatchable;
+  using DeviceHandle<VkDeviceMemory>::DeviceHandle;
 
   [[nodiscard]] void* Map(const VkDeviceSize size = VK_WHOLE_SIZE) const {
     void* data;
-    if (const VkResult result = vkMapMemory(GetDevice(), GetHandle(), 0, size, 0, &data); result != VK_SUCCESS) {
+    if (const VkResult result = vkMapMemory(creator(), handle(), 0, size, 0, &data); result != VK_SUCCESS) {
       throw Error("failed to map buffer memory").WithCode(result);
     }
     return data;
   }
 
   void Unmap() const noexcept {
-    vkUnmapMemory(GetDevice(), GetHandle());
+    vkUnmapMemory(creator(), handle());
   }
 private:
   friend class Device;
 
-  explicit Memory(DeviceDispatchable&& memory) noexcept : DeviceDispatchable(std::move(memory)) {}
+  explicit Memory(DeviceHandle<VkDeviceMemory>&& memory) noexcept : DeviceHandle<VkDeviceMemory>(std::move(memory)) {}
 };
 
 } // namespace vk

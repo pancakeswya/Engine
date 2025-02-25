@@ -5,11 +5,10 @@
 
 #include <vector>
 
-#include "engine/render/types.h"
-
-#include "backend/vk/renderer/dispatchable.h"
 #include "backend/vk/renderer/buffer.h"
+#include "backend/vk/renderer/handle.h"
 #include "backend/vk/renderer/image.h"
+#include "engine/render/types.h"
 #include "obj/types.h"
 
 namespace vk {
@@ -44,7 +43,7 @@ struct UniformDescriptorSet {
 };
 
 struct SamplerDescriptorSet {
-  DeviceDispatchable<VkSampler> sampler;
+  DeviceHandle<VkSampler> sampler;
   Image image;
   VkDescriptorSet handle;
 
@@ -53,12 +52,12 @@ struct SamplerDescriptorSet {
 
 struct UniformDescriptor {
   std::vector<UniformDescriptorSet> sets;
-  DeviceDispatchable<VkDescriptorSetLayout> layout;
+  DeviceHandle<VkDescriptorSetLayout> layout;
 };
 
 struct SamplerDescriptor {
   std::vector<SamplerDescriptorSet> sets;
-  DeviceDispatchable<VkDescriptorSetLayout> layout;
+  DeviceHandle<VkDescriptorSetLayout> layout;
 };
 
 struct Object {
@@ -70,7 +69,7 @@ struct Object {
   UniformDescriptor uniform_descriptor;
   SamplerDescriptor sampler_descriptor;
 
-  DeviceDispatchable<VkDescriptorPool> descriptor_pool;
+  DeviceHandle<VkDescriptorPool> descriptor_pool;
 };
 
 } // namespace vk

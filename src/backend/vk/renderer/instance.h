@@ -1,28 +1,28 @@
 #ifndef BACKEND_VK_RENDERER_INSTANCE_H_
 #define BACKEND_VK_RENDERER_INSTANCE_H_
 
-#include <vector>
-
 #include <vulkan/vulkan.h>
 
-#include "backend/vk/renderer/dispatchable.h"
+#include <vector>
+
+#include "backend/vk/renderer/handle.h"
 #include "backend/vk/renderer/window.h"
 
 namespace vk {
 
-class Instance final : public SelfDispatchable<VkInstance> {
+class Instance final : public Handle<VkInstance> {
 public:
 #ifdef DEBUG
   static std::vector<const char*> GetLayers();
   static VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept;
 #endif
 
-  explicit Instance(const VkApplicationInfo& app_info, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
+  explicit Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
 
 #ifdef DEBUG
-  [[nodiscard]] InstanceDispatchable<VkDebugUtilsMessengerEXT> CreateMessenger() const;
+  [[nodiscard]] InstanceHandle<VkDebugUtilsMessengerEXT> CreateMessenger() const;
 #endif
-  [[nodiscard]] InstanceDispatchable<VkSurfaceKHR> CreateSurface(const Window& window) const;
+  [[nodiscard]] InstanceHandle<VkSurfaceKHR> CreateSurface(const Window& window) const;
 
   [[nodiscard]] std::vector<VkPhysicalDevice> EnumeratePhysicalDevices() const;
 };

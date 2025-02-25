@@ -3,48 +3,54 @@
 
 #include <vulkan/vulkan.h>
 
-#include "backend/vk/renderer/dispatchable.h"
+#include "backend/vk/renderer/handle.h"
 #include "backend/vk/renderer/memory.h"
 
 namespace vk {
-class Image : public DeviceDispatchable<VkImage> {
-public:
-  using DeviceDispatchable::DeviceDispatchable;
 
-  [[nodiscard]] VkImageView GetView() const noexcept {
-    return view_.GetHandle();
+class Image final : public DeviceHandle<VkImage> {
+public:
+  using DeviceHandle<VkImage>::DeviceHandle;
+
+  [[nodiscard]] VkImageView view() const noexcept {
+    return view_.handle();
   }
 
-  [[nodiscard]] const Memory& GetMemory() const noexcept {
+  [[nodiscard]] const Memory& memory() const noexcept {
     return memory_;
   }
 
-  [[nodiscard]] VkFormat GetFormat() const noexcept {
+  [[nodiscard]] VkFormat format() const noexcept {
     return format_;
   }
 
-  [[nodiscard]] VkExtent2D GetExtent() const noexcept {
+  [[nodiscard]] VkExtent2D extent() const noexcept {
     return extent_;
   }
 
-  [[nodiscard]] uint32_t GetMipLevels() const noexcept {
+  [[nodiscard]] uint32_t mip_levels() const noexcept {
     return mip_levels_;
   }
 private:
   friend class Device;
 
   Memory memory_;
-  DeviceDispatchable<VkImageView> view_;
+  DeviceHandle<VkImageView> view_;
 
   VkExtent2D extent_;
   VkFormat format_;
   uint32_t mip_levels_;
 
-  explicit Image(DeviceDispatchable&& image,
+  explicit Image(
+                 DeviceHandle<VkImage>&& image,
+                 Memory&& memory,
+                 DeviceHandle<VkImageView>&& view,
                  const VkExtent2D extent,
                  const VkFormat format,
                  const uint32_t mip_levels)
-    : DeviceDispatchable(std::move(image)),
+    : DeviceHandle<VkImage>(std::move(image)),
+      memory_(std::move(memory)),
+      view_(std::move(view)),
       extent_(extent),
       format_(format),
       mip_levels_(mip_levels) {}

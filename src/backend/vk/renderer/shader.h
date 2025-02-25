@@ -1,12 +1,12 @@
 #ifndef BACKEND_VK_RENDERER_SHADER_H_
 #define BACKEND_VK_RENDERER_SHADER_H_
 
-#include <vector>
-#include <string_view>
-
 #include <vulkan/vulkan.h>
 
-#include "backend/vk/renderer/dispatchable.h"
+#include <string_view>
+#include <vector>
+
+#include "backend/vk/renderer/handle.h"
 
 namespace vk {
 
@@ -23,7 +23,7 @@ struct ShaderInfo {
 struct Shader {
   static std::vector<ShaderInfo> GetInfos();
 
-  DeviceDispatchable<VkShaderModule> module;
+  DeviceHandle<VkShaderModule> module;
   ShaderDescription description;
 };
 

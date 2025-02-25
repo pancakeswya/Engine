@@ -1,10 +1,9 @@
 #ifndef BACKEND_VK_RENDERER_OBJECT_LOADER_H_
 #define BACKEND_VK_RENDERER_OBJECT_LOADER_H_
 
-#include <vector>
 #include <utility>
+#include <vector>
 
-#include "backend/vk/renderer/config.h"
 #include "backend/vk/renderer/device.h"
 #include "backend/vk/renderer/object.h"
 
@@ -14,7 +13,7 @@ class ObjectLoader {
 public:
   static void Init() noexcept;
 
-  ObjectLoader(const Device& device, ImageSettings image_settings, VkCommandPool cmd_pool) noexcept;
+  ObjectLoader(const Device& device, VkCommandPool cmd_pool) noexcept;
   ~ObjectLoader() = default;
 
   [[nodiscard]] Object Load(const std::string& path, size_t frame_count) const;
@@ -28,7 +27,6 @@ private:
   [[nodiscard]] SamplerDescriptor CreateSamplerDescriptor(VkDescriptorPool descriptor_pool, std::vector<Image>&& images) const;
 
   const Device& device_;
-  ImageSettings image_settings_;
   VkCommandPool cmd_pool_;
 };
 

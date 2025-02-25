@@ -11,32 +11,30 @@
 
 #include <vulkan/vulkan.h>
 
-#include "engine/render/model.h"
-#include "engine/render/renderer.h"
-
-#include "backend/vk/renderer/window.h"
-#include "backend/vk/renderer/config.h"
 #include "backend/vk/renderer/device.h"
 #include "backend/vk/renderer/instance.h"
-#include "backend/vk/renderer/swapchain.h"
 #include "backend/vk/renderer/object.h"
+#include "backend/vk/renderer/swapchain.h"
+#include "backend/vk/renderer/window.h"
+#include "engine/render/model.h"
+#include "engine/render/renderer.h"
 
 namespace vk {
 
 struct SwapchainFramebuffer {
-  DeviceDispatchable<VkFramebuffer> framebuffer;
-  DeviceDispatchable<VkImageView> view;
+  DeviceHandle<VkFramebuffer> framebuffer;
+  DeviceHandle<VkImageView> view;
 };
 
 struct SyncObject {
-  DeviceDispatchable<VkSemaphore> image_semaphore;
-  DeviceDispatchable<VkSemaphore> render_semaphore;
-  DeviceDispatchable<VkFence> fence;
+  DeviceHandle<VkSemaphore> image_semaphore;
+  DeviceHandle<VkSemaphore> render_semaphore;
+  DeviceHandle<VkFence> fence;
 };
 
 class Renderer final : public engine::Renderer {
 public:
-  explicit Renderer(const Config& config, Window& window);
+  explicit Renderer(Window& window, size_t frame_count);
   ~Renderer() override;
 
   void RenderFrame() override;
@@ -50,32 +48,31 @@ private:
   void UpdateUniforms() const;
   void RecordCommandBuffer(VkCommandBuffer cmd_buffer, size_t image_idx);
 
-  Config config_;
-
   Window& window_;
+  size_t frame_count_;
 
   bool framebuffer_resized_;
   mutable size_t curr_frame_;
 
   Instance instance_;
 #ifdef DEBUG
-  InstanceDispatchable<VkDebugUtilsMessengerEXT> messenger_;
+  InstanceHandle<VkDebugUtilsMessengerEXT> messenger_;
 #endif // DEBUG
-  InstanceDispatchable<VkSurfaceKHR> surface_;
+  InstanceHandle<VkSurfaceKHR> surface_;
 
   Device device_;
 
   Swapchain swapchain_;
   Image depth_image_;
-  DeviceDispatchable<VkRenderPass> render_pass_;
+  DeviceHandle<VkRenderPass> render_pass_;
   std::vector<SwapchainFramebuffer> swapchain_framebuffers_;
   std::vector<SyncObject> sync_objects_;
 
-  DeviceDispatchable<VkCommandPool> cmd_pool_;
+  DeviceHandle<VkCommandPool> cmd_pool_;
   std::vector<VkCommandBuffer> cmd_buffers_;
 
-  DeviceDispatchable<VkPipelineLayout> pipeline_layout_;
-  DeviceDispatchable<VkPipeline> pipeline_;
+  DeviceHandle<VkPipelineLayout> pipeline_layout_;
+  DeviceHandle<VkPipeline> pipeline_;
 
   Object object_;
   std::vector<Uniforms*> uniforms_buff_;
