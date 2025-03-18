@@ -21,12 +21,14 @@ public:
 
     std::vector<const char*> extensions;
     std::vector<const char*> layers;
+
+    VkAllocationCallbacks* allocator;
   };
 
   explicit DeviceSelector(const std::vector<VkPhysicalDevice>& physical_devices) noexcept;
   ~DeviceSelector() = default;
 
-  [[nodiscard]] std::optional<Device> Select(const Requirements& requirements, const VkAllocationCallbacks* allocator = nullptr) const;
+  [[nodiscard]] std::optional<Device> Select(const Requirements& requirements) const;
 private:
   const std::vector<VkPhysicalDevice>& physical_devices_;
 };

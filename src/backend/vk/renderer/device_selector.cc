@@ -88,11 +88,11 @@ Handle<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const QueueFamil
 
 } // namespace
 
-std::optional<Device> DeviceSelector::Select(const Requirements& requirements, const VkAllocationCallbacks* allocator) const {
+std::optional<Device> DeviceSelector::Select(const Requirements& requirements) const {
   for(VkPhysicalDevice vk_physical_device : physical_devices_) {
     PhysicalDevice physical_device(vk_physical_device);
     if (auto[suitable, indices] = DeviceIsSuitable(physical_device, requirements); suitable) {
-      Handle<VkDevice> device = CreateDevice(vk_physical_device, indices, requirements.extensions, requirements.layers, allocator);
+      Handle<VkDevice> device = CreateDevice(vk_physical_device, indices, requirements.extensions, requirements.layers, requirements.allocator);
 
       Queue graphics_queue = {};
       vkGetDeviceQueue(device.handle(), indices.graphic, 0, &graphics_queue.handle);
