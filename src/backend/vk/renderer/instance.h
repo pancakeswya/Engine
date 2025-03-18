@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 
 #include <vector>
+#include <optional>
 
 #include "backend/vk/renderer/handle.h"
 #include "backend/vk/renderer/window.h"
@@ -12,19 +13,15 @@ namespace vk {
 
 class Instance final : public Handle<VkInstance> {
 public:
-#ifdef DEBUG
-  static std::vector<const char*> GetLayers();
-  static VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept;
-#endif
-
-  explicit Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator = nullptr);
-
-#ifdef DEBUG
-  [[nodiscard]] InstanceHandle<VkDebugUtilsMessengerEXT> CreateMessenger() const;
-#endif
+  explicit Instance(
+    const std::vector<const char*>& extensions,
+    const std::vector<const char*>& layers,
+    const VkAllocationCallbacks* allocator = nullptr
+  );
   [[nodiscard]] InstanceHandle<VkSurfaceKHR> CreateSurface(const Window& window) const;
+  [[nodiscard]] InstanceHandle<VkDebugUtilsMessengerEXT> CreateMessenger() const;
 
-  [[nodiscard]] std::vector<VkPhysicalDevice> EnumeratePhysicalDevices() const;
+  [[nodiscard]] std::vector<VkPhysicalDevice> EnumerateDevices() const;
 };
 
 } // namespace vk

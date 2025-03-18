@@ -136,7 +136,7 @@ Image ObjectLoader::CreateStagingImage(const std::string& path,
 }
 
 std::vector<Image> ObjectLoader::CreateStagingImages(const obj::Data& data) const {
-  if (!device_.physical_device().format_feature_supported(kVkFormat, VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+  if (!device_.physical_device().CheckFormatFeatureSupported(kVkFormat, VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
     throw Error("image format does not support linear blitting");
   }
   constexpr VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |

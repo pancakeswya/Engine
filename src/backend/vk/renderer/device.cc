@@ -466,16 +466,16 @@ Image Device::CreateImage(const VkImageUsageFlags usage, const VkMemoryPropertyF
 }
 
 Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) const {
-  const PhysicalDevice::SurfaceSupportDetails device_support_details = physical_device_.surface_support_details(surface);
+  const SurfaceSupportDetails surface_support = physical_device_.GetSurfaceSupportDetails(surface);
 
-  const auto[format, colorSpace] = ChooseSurfaceFormat(device_support_details.formats);
-  const VkPresentModeKHR present_mode = ChoosePresentMode(device_support_details.present_modes);
+  const auto[format, colorSpace] = ChooseSurfaceFormat(surface_support.formats);
+  const VkPresentModeKHR present_mode = ChoosePresentMode(surface_support.present_modes);
 
-  const VkExtent2D extent = ChooseExtent(size, device_support_details.capabilities);
+  const VkExtent2D extent = ChooseExtent(size, surface_support.capabilities);
 
-  uint32_t image_count = device_support_details.capabilities.minImageCount + 1;
-  if (device_support_details.capabilities.maxImageCount > 0 && image_count > device_support_details.capabilities.maxImageCount) {
-    image_count = device_support_details.capabilities.maxImageCount;
+  uint32_t image_count = surface_support.capabilities.minImageCount + 1;
+  if (surface_support.capabilities.maxImageCount > 0 && image_count > surface_support.capabilities.maxImageCount) {
+    image_count = surface_support.capabilities.maxImageCount;
   }
 
   VkSwapchainCreateInfoKHR create_info = {};
@@ -498,7 +498,7 @@ Swapchain Device::CreateSwapchain(const VkExtent2D size, VkSurfaceKHR surface) c
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   }
 
-  create_info.preTransform = device_support_details.capabilities.currentTransform;
+  create_info.preTransform = surface_support.capabilities.currentTransform;
   create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   create_info.presentMode = present_mode;
   create_info.clipped = VK_TRUE;

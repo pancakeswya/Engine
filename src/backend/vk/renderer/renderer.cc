@@ -14,7 +14,7 @@ namespace vk {
 
 namespace {
 
-std::vector<const char*> GetInstanceExtension(const Window& window) {
+std::vector<const char*> GetInstanceExtensions(const Window& window) {
   std::vector<const char*> extensions = {
 #ifdef DEBUG
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
@@ -31,6 +31,14 @@ std::vector<const char*> GetInstanceExtension(const Window& window) {
   return extensions;
 }
 
+std::vector<const char*> GetInstanceLayers() {
+  std::vector<const char*> layers;
+#ifdef DEBUG
+  layers.push_back("VK_LAYER_KHRONOS_validation");
+#endif
+  return layers;
+}
+
 std::vector<const char*> GetDeviceExtension() {
   return {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -41,6 +49,10 @@ std::vector<const char*> GetDeviceExtension() {
   };
 }
 
+std::vector<const char*> GetDeviceLayers() {
+  return GetInstanceLayers();
+}
+
 } // namespace
 
 Renderer::Renderer(Window& window, const size_t frame_count)
@@ -48,7 +60,7 @@ Renderer::Renderer(Window& window, const size_t frame_count)
     frame_count_(frame_count),
     framebuffer_resized_(false),
     curr_frame_(0),
-    instance_(GetInstanceExtension(window)) {
+    instance_(GetInstanceExtensions(window), GetInstanceLayers()) {
   ObjectLoader::Init();
 
   window.SetWindowResizedCallback([this]([[maybe_unused]] int width, [[maybe_unused]] int height) {
@@ -66,8 +78,9 @@ Renderer::Renderer(Window& window, const size_t frame_count)
   requirements.anisotropy = true;
   requirements.surface = surface_.handle();
   requirements.extensions = GetDeviceExtension();
+  requirements.layers = GetDeviceLayers();
 
-  const std::vector<VkPhysicalDevice> devices = instance_.EnumeratePhysicalDevices();
+  const std::vector<VkPhysicalDevice> devices = instance_.EnumerateDevices();
 
   std::optional<Device> device = DeviceSelector(devices).Select(requirements);
   if (!device) {

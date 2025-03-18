@@ -20,6 +20,7 @@ public:
     VkSurfaceKHR surface;
 
     std::vector<const char*> extensions;
+    std::vector<const char*> layers;
   };
 
   explicit DeviceSelector(const std::vector<VkPhysicalDevice>& physical_devices) noexcept;

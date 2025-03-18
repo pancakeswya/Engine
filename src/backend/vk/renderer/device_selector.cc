@@ -18,33 +18,33 @@ struct QueueFamilyIndices {
 std::pair<bool, QueueFamilyIndices> DeviceIsSuitable(const PhysicalDevice& physical_device, const DeviceSelector::Requirements& requirements) {
   std::optional<uint32_t> graphic, present;
 
-  std::vector<VkQueueFamilyProperties> queue_family_props = physical_device.queue_family_properties();
+  std::vector<VkQueueFamilyProperties> queue_family_props = physical_device.GetQueueFamilyProperties();
 
   for (size_t i = 0; i < queue_family_props.size(); ++i) {
     if (queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
       graphic = static_cast<uint32_t>(i);
     }
-    if (physical_device.surface_supported(requirements.surface, i)) {
+    if (physical_device.CheckSurfaceSupported(requirements.surface, i)) {
       present = static_cast<uint32_t>(i);
     }
     if ((requirements.graphic && !graphic.has_value()) ||
         (requirements.present && !present.has_value())) {
       continue;
     }
-    const VkPhysicalDeviceFeatures device_features = physical_device.features();
+    const VkPhysicalDeviceFeatures device_features = physical_device.GetFeatures();
     if ((requirements.anisotropy && !device_features.samplerAnisotropy) ||
-        !physical_device.extensions_support(requirements.extensions)) {
+        !physical_device.CheckExtensionsSupport(requirements.extensions)) {
       continue;
     }
-    const PhysicalDevice::SurfaceSupportDetails details = physical_device.surface_support_details(requirements.surface);
-    if (!details.formats.empty() && !details.present_modes.empty()) {
+    const SurfaceSupportDetails support_details = physical_device.GetSurfaceSupportDetails(requirements.surface);
+    if (!support_details.formats.empty() && !support_details.present_modes.empty()) {
       return {true, {graphic.value(), present.value()}};
     }
   }
   return {};
 }
 
-Handle<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator) {
+Handle<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const QueueFamilyIndices& indices, const std::vector<const char*>& extensions, const std::vector<const char*>& layers, const VkAllocationCallbacks* allocator) {
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
   std::set unique_family_ids = {
     indices.graphic,
@@ -59,9 +59,6 @@ Handle<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const QueueFamil
     queue_create_info.pQueuePriorities = &queue_priority;
     queue_create_infos.push_back(queue_create_info);
   }
-#ifdef DEBUG
-  const std::vector<const char*> layers = Instance::GetLayers();
-#endif // DEBUG
   VkPhysicalDeviceFeatures device_features = {};
   device_features.samplerAnisotropy = VK_TRUE;
 
@@ -72,10 +69,10 @@ Handle<VkDevice> CreateDevice(VkPhysicalDevice physical_device, const QueueFamil
   create_info.pEnabledFeatures = &device_features;
   create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   create_info.ppEnabledExtensionNames = extensions.data();
-#ifdef DEBUG
-  create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
-  create_info.ppEnabledLayerNames = layers.data();
-#endif // DEBUG
+  if (!layers.empty()) {
+    create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
+    create_info.ppEnabledLayerNames = layers.data();
+  }
   create_info.enabledLayerCount = 0;
 
   VkDevice logical_device = VK_NULL_HANDLE;
@@ -95,7 +92,7 @@ std::optional<Device> DeviceSelector::Select(const Requirements& requirements, c
   for(VkPhysicalDevice vk_physical_device : physical_devices_) {
     PhysicalDevice physical_device(vk_physical_device);
     if (auto[suitable, indices] = DeviceIsSuitable(physical_device, requirements); suitable) {
-      Handle<VkDevice> device = CreateDevice(vk_physical_device, indices, requirements.extensions, allocator);
+      Handle<VkDevice> device = CreateDevice(vk_physical_device, indices, requirements.extensions, requirements.layers, allocator);
 
       Queue graphics_queue = {};
       vkGetDeviceQueue(device.handle(), indices.graphic, 0, &graphics_queue.handle);

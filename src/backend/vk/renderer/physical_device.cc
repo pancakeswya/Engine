@@ -6,7 +6,7 @@
 
 namespace vk {
 
-PhysicalDevice::SurfaceSupportDetails PhysicalDevice::surface_support_details(VkSurfaceKHR surface) const {
+SurfaceSupportDetails PhysicalDevice::GetSurfaceSupportDetails(VkSurfaceKHR surface) const {
   SurfaceSupportDetails details;
   if (const VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface, &details.capabilities); result != VK_SUCCESS) {
     throw Error("failed to get physical device surface capabilities").WithCode(result);
@@ -36,7 +36,7 @@ PhysicalDevice::SurfaceSupportDetails PhysicalDevice::surface_support_details(Vk
   return details;
 }
 
-bool PhysicalDevice::format_feature_supported(const VkFormat format, const VkFormatFeatureFlagBits feature) const {
+bool PhysicalDevice::CheckFormatFeatureSupported(const VkFormat format, const VkFormatFeatureFlagBits feature) const {
   VkFormatProperties format_properties = {};
   vkGetPhysicalDeviceFormatProperties(physical_device_, format, &format_properties);
   return (format_properties.optimalTilingFeatures & feature) != 0;
@@ -68,7 +68,7 @@ VkFormat PhysicalDevice::FindSupportedFormat(const std::vector<VkFormat>& format
   throw Error("failed to find supported format");
 }
 
-bool PhysicalDevice::extensions_support(const std::vector<const char*>& extensions) const {
+bool PhysicalDevice::CheckExtensionsSupport(const std::vector<const char*>& extensions) const {
   uint32_t extension_count;
   if (const VkResult result = vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &extension_count, nullptr); result != VK_SUCCESS) {
     throw Error("failed to get device extension properties count").WithCode(result);
@@ -86,7 +86,7 @@ bool PhysicalDevice::extensions_support(const std::vector<const char*>& extensio
   return required_extensions.empty();
 }
 
-std::vector<VkQueueFamilyProperties> PhysicalDevice::queue_family_properties() const {
+std::vector<VkQueueFamilyProperties> PhysicalDevice::GetQueueFamilyProperties() const {
   uint32_t families_count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(physical_device_, &families_count, nullptr);
 
@@ -96,7 +96,7 @@ std::vector<VkQueueFamilyProperties> PhysicalDevice::queue_family_properties() c
   return family_properties;
 }
 
-VkBool32 PhysicalDevice::surface_supported(VkSurfaceKHR surface, const uint32_t queue_family_idx) const {
+VkBool32 PhysicalDevice::CheckSurfaceSupported(VkSurfaceKHR surface, const uint32_t queue_family_idx) const {
   VkBool32 present_support = false;
   if (const VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(physical_device_, queue_family_idx, surface, &present_support); result != VK_SUCCESS) {
     throw Error("failed to get physical device surface support").WithCode(result);
@@ -104,7 +104,7 @@ VkBool32 PhysicalDevice::surface_supported(VkSurfaceKHR surface, const uint32_t 
   return present_support;
 }
 
-VkPhysicalDeviceFeatures PhysicalDevice::features() const {
+VkPhysicalDeviceFeatures PhysicalDevice::GetFeatures() const {
   VkPhysicalDeviceFeatures device_features;
   vkGetPhysicalDeviceFeatures(physical_device_, &device_features);
 

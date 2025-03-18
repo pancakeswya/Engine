@@ -1,18 +1,15 @@
 #include "backend/vk/renderer/instance.h"
 
-#include <vector>
-#ifdef DEBUG
+#include <algorithm>
 #include <cstring>
+#include <vector>
 #include <iostream>
-#endif
 
 #include "backend/vk/renderer/error.h"
 
 namespace vk {
 
 namespace {
-
-#ifdef DEBUG
 
 VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback(
   VkDebugUtilsMessageSeverityFlagBitsEXT message_severity[[maybe_unused]],
@@ -46,17 +43,17 @@ bool InstanceLayersAreSupported(const std::vector<const char*>& layers) {
   return true;
 }
 
-bool InstanceLayersIsSupported() {
+bool LayersAreSupported(const std::vector<const char*>& layers) {
   uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
   std::vector<VkLayerProperties> available_layers(layer_count);
   vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
 
-  for (const char* validation_layer : Instance::GetLayers()) {
+  for (const char* layer : layers) {
     bool layer_found = false;
     for (const VkLayerProperties& layer_properties : available_layers) {
-      if (std::strcmp(validation_layer, layer_properties.layerName) == 0) {
+      if (std::strcmp(layer, layer_properties.layerName) == 0) {
         layer_found = true;
         break;
       }
@@ -68,54 +65,7 @@ bool InstanceLayersIsSupported() {
   return true;
 }
 
-#endif // DEBUG
-
-VkInstance CreateInstance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator) {
-  VkApplicationInfo app_info = {};
-  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.pApplicationName = "VulkanFun";
-  app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  app_info.pEngineName = "Simple Engine";
-  app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  app_info.apiVersion = VK_API_VERSION_1_0;
-#ifdef DEBUG
-  const std::vector<const char*> layers = Instance::GetLayers();
-  if (!InstanceLayersAreSupported(layers)) {
-    throw Error("Instance layers are not supported");
-  }
-  const VkDebugUtilsMessengerCreateInfoEXT messenger_info = Instance::GetMessengerCreateInfo();
-#endif  // DEBUG
-  VkInstanceCreateInfo create_info = {};
-  create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  create_info.pApplicationInfo = &app_info;
-  create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-  create_info.ppEnabledExtensionNames = extensions.data();
-#ifdef __APPLE__
-  create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
-#ifdef DEBUG
-  create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
-  create_info.ppEnabledLayerNames = layers.data();
-  create_info.pNext = &messenger_info;
-#endif // DEBUG
-  VkInstance instance = VK_NULL_HANDLE;
-  if (const VkResult result = vkCreateInstance(&create_info, allocator, &instance); result != VK_SUCCESS) {
-    throw Error("failed to create instance").WithCode(result);
-  }
-  return instance;
-}
-
-} // namespace
-
-#ifdef DEBUG
-
-std::vector<const char*> Instance::GetLayers() {
-  return {
-    "VK_LAYER_KHRONOS_validation"
-  };
-}
-
-VkDebugUtilsMessengerCreateInfoEXT Instance::GetMessengerCreateInfo() noexcept {
+VkDebugUtilsMessengerCreateInfoEXT GetMessengerCreateInfo() noexcept {
   VkDebugUtilsMessengerCreateInfoEXT create_info = {};
 
   create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -125,6 +75,41 @@ VkDebugUtilsMessengerCreateInfoEXT Instance::GetMessengerCreateInfo() noexcept {
 
   return create_info;
 }
+
+VkInstance CreateInstance(const std::vector<const char*>& extensions, const std::vector<const char*>& layers, const VkAllocationCallbacks* allocator) {
+  VkApplicationInfo app_info = {};
+  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  app_info.pApplicationName = "VulkanFun";
+  app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+  app_info.pEngineName = "Simple Engine";
+  app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+  app_info.apiVersion = VK_API_VERSION_1_0;
+
+  if (!LayersAreSupported(layers)) {
+    throw Error("Instance layers are not supported");
+  }
+  const VkDebugUtilsMessengerCreateInfoEXT messenger_info = GetMessengerCreateInfo();
+  VkInstanceCreateInfo create_info = {};
+  create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+  create_info.pApplicationInfo = &app_info;
+  create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+  create_info.ppEnabledExtensionNames = extensions.data();
+#ifdef __APPLE__
+  create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+  if (!layers.empty()) {
+    create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
+    create_info.ppEnabledLayerNames = layers.data();
+    create_info.pNext = &messenger_info;
+  }
+  VkInstance instance = VK_NULL_HANDLE;
+  if (const VkResult result = vkCreateInstance(&create_info, allocator, &instance); result != VK_SUCCESS) {
+    throw Error("failed to create instance").WithCode(result);
+  }
+  return instance;
+}
+
+} // namespace
 
 #define vkGetInstanceProcAddrByType(instance, proc) reinterpret_cast<decltype(&(proc))>(vkGetInstanceProcAddr(instance, #proc))
 
@@ -156,12 +141,10 @@ InstanceHandle<VkDebugUtilsMessengerEXT> Instance::CreateMessenger() const {
 
 #undef vkGetInstanceProcAddrByType
 
-#endif
+Instance::Instance(const std::vector<const char*>& extensions, const std::vector<const char*>& layers, const VkAllocationCallbacks* allocator)
+  : Handle(CreateInstance(extensions, layers, allocator), vkDestroyInstance, allocator) {}
 
-Instance::Instance(const std::vector<const char*>& extensions, const VkAllocationCallbacks* allocator)
-  : Handle(CreateInstance(extensions, allocator), vkDestroyInstance, allocator) {}
-
-std::vector<VkPhysicalDevice> Instance::EnumeratePhysicalDevices() const {
+std::vector<VkPhysicalDevice> Instance::EnumerateDevices() const {
   uint32_t device_count = 0;
   if (const VkResult result = vkEnumeratePhysicalDevices(handle(), &device_count, nullptr); result != VK_SUCCESS) {
     throw Error("failed to get physical devices count").WithCode(result);
